@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<Mapper xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Width="64" Height="40">
+  <TypeIndex>3</TypeIndex>
+  <FeetOfWidthIndex>7</FeetOfWidthIndex>
+  <FeetOfHeightIndex>4</FeetOfHeightIndex>
+</Mapper>

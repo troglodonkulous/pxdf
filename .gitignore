@@ -1,0 +1,5 @@
+.DS_Store
+*.pcapng
+*.pcap
+.build/
+DerivedData/
