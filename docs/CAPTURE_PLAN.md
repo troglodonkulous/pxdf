@@ -129,8 +129,9 @@ session's first capture caught nothing for exactly this reason.
 
 ## 4. Test sequence — single controller
 
-Keep the floor exactly as it is: **8 × 5 tiles, 1 controller, 4 ports, each port
-driving 2 adjacent 5-tile rows.** Do not re-patch anything yet.
+Keep the floor exactly as it is: **8 × 5 tiles, 1 controller, 4 connectors, each
+driving 2 rows of 5 panels.** Leave the second controller plugged into Ethernet.
+Do not re-patch anything.
 
 For each test: start capture → do the thing → wait ~3 s → Ctrl+C.
 
@@ -152,17 +153,23 @@ is a beacon or a port payload — which decides the fundamental packet size, and
 therefore the whole sender design. Test 7 settles the pixel mapping. Everything
 else corroborates.
 
-### Also: count the ports 👀
+### Rig as configured ✅
 
-**Before or after the captures, physically look at the controller.** How many
-output connectors does it have, and how many tile chains are plugged in?
+Verified physically, no need to re-check:
 
-This settles a live contradiction: the floor type is named `8x8_8P` (suggesting
-**8 ports**) while a prior session read **4** off a Ledset wiring diagram. The
-manual's "8-channel signal output interface" suggests 4 connectors carrying 8
-channels — but that is inference. Ten seconds with your eyes beats all of it.
+- **1 controller, 4 connectors, all active.** Each runs to **2 rows of 5
+  panels** → 8 logical chains, 8 × 5 = 40 tiles.
+- **A second controller is attached by Ethernet with no panels connected.**
 
-Write down both numbers.
+> **Leave the second controller connected during the captures.** It is presumably
+> already participating in whatever addressing scheme exists, so a normal capture
+> may reveal multi-controller behaviour for free — no re-cabling, no risk. If
+> §6's spare-tile test never happens, this may still be the only multi-controller
+> evidence we get.
+>
+> If you can, also run **one** capture with it **unplugged** (`02-white.png` is
+> enough) and name it `02-white-single-controller.pcapng`. Diffing the two
+> isolates the second controller's contribution exactly.
 
 ---
 

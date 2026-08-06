@@ -23,7 +23,8 @@ protocol, as used by the vendor's `Ledset` / `Player.exe` Windows software.
 | Tile | 500 × 500 mm, 8 × 8 = 64 RGB pixels (SMD5050) | ✅ |
 | Tile driver board | `DJ-XSP-5V`, SIGNAL+/SIGNAL− differential pair (RS-485 family) | ✅ |
 | Controller I/O | Ethernet, 8-ch signal output header, DMX XLR (3-pin), SD slot, IR receiver, Wi-Fi antenna | ✅ |
-| Controller output ports | **8 logical** (likely 4 physical connectors × 2 channels) | 🟡 |
+| Controller physical connectors | **4** | ✅ |
+| Logical channels per controller | **8** (each connector drives 2 chains) | ✅ |
 | Controller signal header | 8-channel | ✅ |
 | Controller work modes | IR (master) / Slave / Sound / DMX / Auto | ✅ |
 | Device type profile | `Floor Mir64` | ✅ |
@@ -31,18 +32,32 @@ protocol, as used by the vendor's `Ledset` / `Player.exe` Windows software.
 
 ### Reference rig (used for all captures to date)
 
-- 8 tiles wide × 5 tiles tall = **40 tiles**, 16 ft × 10 ft.
-- Logical resolution **64 × 40 = 2560 pixels**.
-- 1 controller. Ledset floor type **`8x8_8P`** ✅ — 8 × 8 px tiles, **8 ports**.
-- 🟡 40 tiles ÷ 8 ports = **5 tiles/port** = 320 px/port = **960 bytes/port**.
+Physically verified by the user, 2026-08-05:
 
-> ❓ **Port count is contested.** A prior session read "4 ports" from a
-> screenshot of Ledset's wiring diagram, each wire feeding a 2-column section.
-> But the `_8P` suffix in the floor-type name, read alongside
-> `PORT_COUNT_A_CONTROLLER` and `FloorCountPerPort`, indicates **8**. The
-> manual's "8-channel signal output interface" reconciles these: **4 physical
-> connectors carrying 8 logical channels**. Resolvable by physically counting
-> connectors on the controller.
+- 8 tiles wide × 5 tiles tall = **40 tiles**, 16 ft × 10 ft. ✅
+- Logical resolution **64 × 40 = 2560 pixels**. ✅
+- **1 controller, all 4 connectors active.** Each connector runs to **2 rows of
+  5 panels**. ✅
+- A second controller is attached by Ethernet with **no panels connected**. ✅
+- Ledset floor type **`8x8_8P`** ✅ — 8 × 8 px tiles, **8 channels**.
+
+### Port terminology — settled ✅
+
+The "4 vs 8 ports" contradiction is resolved: **both were right about different
+things.**
+
+| Term | Count | Meaning |
+|---|---|---|
+| Physical connector | **4** | Sockets on the controller's back panel |
+| Logical channel | **8** | Independent daisy chains; 2 per connector |
+
+The `_8P` floor-type suffix counts **logical channels**. The manual's
+"8-channel signal output interface" says the same. A prior session's "4 ports,
+each feeding a 2-column section" was the same fact seen on a differently-oriented
+floor — 2 chains per connector either way.
+
+**Consequence:** one channel = **1 row of 5 tiles** = 320 px = **960 bytes**.
+That is exactly the 966-byte packet's payload size — see §3.2.
 
 ### Target rig
 
@@ -126,11 +141,11 @@ offset  size  field
 **Interpretation A — keepalive beacon** (prior session's conclusion). Constant
 content across scene changes implies it carries no pixel data.
 
-**Interpretation B — one port's complete payload, all white** 🟡 *(now
-favoured)*. If a controller port drives 5 tiles = 320 px, then
-`320 × 3 = 960 bytes` — **exactly** the payload size. Under this reading the
-packet is not a beacon at all; it is a normal per-port frame that happened to be
-all-white.
+**Interpretation B — one channel's complete payload, all white** 🟡 *(now
+favoured)*. Each logical channel drives **1 row of 5 tiles** = 320 px, and
+`320 × 3 = 960 bytes` — **exactly** the payload size, now confirmed against the
+physical rig (§1). Under this reading the packet is not a beacon at all; it is
+an ordinary per-channel frame that happened to be all-white.
 
 Why B is credible despite A's evidence: packets were grouped **by size** during
 analysis, so a single all-white port's packet would appear "identical every
@@ -167,26 +182,27 @@ answer.** This is now a primary goal of capture test 1.
 
 ### Competing hypotheses
 
-| # | Hypothesis | Fits 8 indices? | Notes |
-|---|---|---|---|
-| H1 | `channelIndex` = tile column (8 columns) | yes | What the prior implementation assumed. Coincidentally correct-looking on an 8-wide floor. |
-| H2 | 4 ports × 2 sub-frames each | yes | Prior session's leading theory. |
-| H3 | `channelIndex` is a rolling cell counter, not a port ID | yes | Would imply many more packets per frame than 8. |
-| **H4** | **`channelIndex` = genuine port index 0–7, 2 packets per port** | yes | 🟡 **Now favoured.** Follows from `_8P` = 8 ports and 5 tiles/port. |
+| # | Hypothesis | Status |
+|---|---|---|
+| H1 | `channelIndex` = tile column | ❌ **Dead.** The rig has 8 physical chains; that they numbered 8 like the columns was coincidence. |
+| H2 | 4 ports × 2 sub-frames each | ❌ **Dead.** There are no sub-frames — the 8 "channels" are 8 real, physically distinct daisy chains. |
+| H3 | rolling cell counter, not a port ID | 🟡 Still possible but unlikely, given 8 chains exist and indices run 0–7. |
+| **H4** | **`channelIndex` = logical channel 0–7, one per 5-tile chain** | 🟡 **Strongly favoured.** |
 
-The reference rig's geometry makes H1 and H2 **indistinguishable** — 4 ports × 2
-= 8 = column count. This is why observation alone could not resolve it.
+**H4 in detail.** Each of the 8 logical channels drives one row of 5 tiles =
+320 px = 960 bytes. Two sub-cases remain, distinguished only by §3.2:
 
-**H4 supersedes both** if the floor truly has 8 ports: 40 tiles ÷ 8 = 5
-tiles/port = 320 px = 960 bytes, needing `⌈960 / 507⌉ = 2` packets per port,
-so 8 × 2 = **16 packets/frame**. The prior attempt sent one packet per port →
-169 of 320 px = **53%** of the floor, matching the observed symptom as well as
-the earlier reasoning did.
+- **If the 966-byte packet is a payload (Interpretation B):** one packet per
+  channel, 960-byte payload, **8 packets/frame**. The 512-byte packets are a
+  different mode or geometry.
+- **If it is a beacon (Interpretation A):** `⌈960 / 507⌉ = 2` packets per
+  channel, **16 packets/frame**. The prior attempt sent one → 169 of 320 px =
+  **53%** of the floor, matching its half-dark symptom exactly.
 
-> Note that H2 and H4 predict the **same packet count** (16) by different
-> structures. The count is robust; the *indexing* is not. Only the tile-walk
-> capture or `PixelFloor::FillSendBuf` distinguishes them — and the difference
-> decides whether logical pixel 640 lands in packet 1 or packet 4.
+> ⚠️ Note these predict **different packet counts** (8 vs 16). The "~16 packets"
+> conclusion recorded earlier is therefore *conditional*, not settled. Test 1
+> (all-black capture) decides which, and it must be run before any sender is
+> written.
 
 ### Arithmetic that discriminates
 
@@ -216,8 +232,8 @@ inconsistent with H1.
    directly, tile by tile. *(definitive — separates H2 from H4)*
 4. **Read `PixelFloor::FillSendBuf`** in `screenSend.dll` — the mapping loop is
    in there as code.
-5. **Count the physical output connectors on the controller.** Settles the
-   4-vs-8 port question with no tooling at all.
+5. ~~Count the physical output connectors.~~ ✅ **Done** — 4 connectors, 8
+   chains. See §1.
 
 ---
 
@@ -307,9 +323,11 @@ configuration.
 | Hardware is Linsn or Xixun/Sysolution | ❌ It is **Kingstar LED** OEM (`kingstar-led.com`), per `ReleaseNote.txt`. Search Kingstar KS-series, not Linsn. |
 | Frame header is 6 bytes | ❌ **5 bytes.** The 6th byte is the first data byte. (6 bytes is the *beacon* header.) |
 | Body uses RLE / delta compression | ❌ Fixed 507-byte body proves uncompressed raw RGB. |
-| `channelIndex` = tile column (H1) | 🟡 Very likely wrong — see §4. |
-| Controller has 4 output ports | 🟡 Contested. `_8P` floor type indicates **8**; likely 4 connectors × 2 channels. Prior "4" came from a UI screenshot, not the hardware. |
-| The 966-byte packet is a keepalive beacon | ❓ Contested. Its 960-byte payload is exactly 5 tiles × 64 px × 3 — it may be a normal port payload that happened to be all-white. See §3.2. |
+| `channelIndex` = tile column (H1) | ❌ Dead — the 8 indices are 8 physical chains, not columns. |
+| 4 ports × 2 sub-frames (H2) | ❌ Dead — no sub-frames exist; there are 8 real chains. |
+| "The controller has 4 ports" / "…has 8 ports" | Both partly right: **4 physical connectors, 8 logical channels** (2 chains per connector). ✅ Verified physically. |
+| "A full frame is ~16 packets" | ⚠️ **Conditional, not settled.** 16 only if the 966-byte packet is a beacon; **8** if it is a channel payload. See §3.2 and §4. |
+| The 966-byte packet is a keepalive beacon | ❓ Contested. Its 960-byte payload is exactly one 5-tile chain — it may be an ordinary channel payload that happened to be all-white. See §3.2. |
 | Controller is unreachable / cabling faulty | ❌ Silence is by design; the protocol is broadcast and the controller never replies. |
 | 965-byte single-packet-per-frame framing | ❌ Real framing is many fixed 512-byte packets. |
 
