@@ -1,7 +1,35 @@
-.DS_Store
+# --- Decompiled vendor output -------------------------------------------------
+# Reference material, not a deliverable. Kept on disk but deliberately not
+# committed -- see decompiled/README.md for the reasoning.
+decompiled/**
+!decompiled/README.md
+
+# --- Capture artifacts --------------------------------------------------------
+# Packet captures can be large and are session data, not source.
 *.pcapng
 *.pcap
-.build/
-DerivedData/
+capture/
+ddf-capture/
+
+# --- Generated intermediates --------------------------------------------------
 test-patterns*/tilewalk_frames/
 test-patterns*/sweep_frames/
+
+# --- Swift --------------------------------------------------------------------
+.build/
+DerivedData/
+
+# --- macOS metadata -----------------------------------------------------------
+._*
+.DS_Store
+.Spotlight-V100
+.Trashes
+
+# --- Windows metadata ---------------------------------------------------------
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Tooling ------------------------------------------------------------------
+*.tmp
+*.log
