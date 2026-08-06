@@ -3,3 +3,5 @@
 *.pcap
 .build/
 DerivedData/
+test-patterns*/tilewalk_frames/
+test-patterns*/sweep_frames/

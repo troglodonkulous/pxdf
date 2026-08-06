@@ -37,6 +37,11 @@ mkdir C:\ddf-capture
 cd C:\ddf-capture
 ```
 
+### Bring with you
+
+- The `test-patterns/` folder (PNGs + MP4s + `tilewalk_timing.md`) on the USB stick.
+- Something to note the playback start time on.
+
 ---
 
 ## 1. Grab vendor config files (2 minutes, do this first)
@@ -113,14 +118,14 @@ For each test: start capture → do the thing → wait ~3 s → Ctrl+C.
 
 | # | File | What to display in Ledset | Why |
 |---|---|---|---|
-| 1 | `01-black.pcapng` | Solid **black**, hold 3 s | Baseline. Shows framing with all-zero body; reveals packet count per frame with no content noise. |
-| 2 | `02-white.pcapng` | Solid **white**, hold 3 s | All-max body. Diff against black isolates exactly which bytes are pixel data. |
-| 3 | `03-red.pcapng` | Solid **red**, hold 3 s | Colour order (RGB/GRB/BGR). |
-| 4 | `04-green.pcapng` | Solid **green**, hold 3 s | ″ |
-| 5 | `05-blue.pcapng` | Solid **blue**, hold 3 s | ″ |
-| 6 | `06-halves.pcapng` | **Left half white, right half black**, hold 3 s | Coarse spatial split — first real mapping signal. |
-| 7 | `07-tilewalk.pcapng` | **Single tile lit, walked across the floor** — see §5 | ⭐ **The decisive test.** |
-| 8 | `08-sweep.pcapng` | Slow horizontal sweep, ~10 s | Confirms mapping under motion + reveals frame rate. |
+| 1 | `01-black.pcapng` | `01-black.png`, hold 3 s | Baseline. Shows framing with all-zero body; reveals packet count per frame with no content noise. |
+| 2 | `02-white.pcapng` | `02-white.png`, hold 3 s | All-max body. Diff against black isolates exactly which bytes are pixel data. |
+| 3 | `03-red.pcapng` | `03-red.png`, hold 3 s | Colour order (RGB/GRB/BGR). |
+| 4 | `04-green.pcapng` | `04-green.png`, hold 3 s | ″ |
+| 5 | `05-blue.pcapng` | `05-blue.png`, hold 3 s | ″ |
+| 6 | `06-halves.pcapng` | `06-halves.png`, hold 3 s | Coarse spatial split — first real mapping signal. |
+| 7 | `07-tilewalk.pcapng` | `07-tilewalk.mp4`, full 24 s — see §5 | ⭐ **The decisive test.** |
+| 8 | `08-sweep.pcapng` | `08-sweep.mp4`, full 10 s | Confirms mapping under motion + reveals frame rate. |
 
 ### Test 7 is the one that matters
 
@@ -131,33 +136,54 @@ corroboration; this is proof.
 
 ## 5. How to run the tile-walk (test 7)
 
-The floor is 64 × 40 logical pixels; one tile is 8 × 8 px.
+**The media is already made.** Copy the whole `test-patterns/` folder to the
+Windows machine and load these in Ledset — no authoring needed.
 
-**Preferred method** — make a short video or image sequence, 64 × 40 px, in which
-a single 8×8 white square sits on a black background and jumps to a new tile
-position every ~2 seconds. Play it in Ledset.
+| File | Test |
+|---|---|
+| `01-black.png` … `06-halves.png` | Tests 1–6, all 64 × 40 px |
+| `07-tilewalk.mp4` | Test 7 — 24 s, 10 fps |
+| `08-sweep.mp4` | Test 8 — 10 s |
+| `tilewalk_timing.md` | Which tile is lit at which second |
 
-Suggested tile positions to visit, in this order (col, row), 0-indexed:
+All rendered at the floor's exact logical resolution (64 × 40) so nothing gets
+scaled, and encoded lossless `yuv444p` with nearest-neighbour scaling so tile
+edges stay hard.
+
+`07-tilewalk.mp4` lights **exactly one tile at a time**, holding each for 2 s,
+starting with a 2 s black lead-in:
 
 ```
-(0,0)  (1,0)  (2,0)  (3,0)   ← top row, left to right
-(0,1)  (0,2)  (0,3)  (0,4)   ← left column, top to bottom
-(7,0)  (7,4)                 ← far corners
-(4,2)                        ← centre
+black → (0,0) (1,0) (2,0) (3,0)   top row, left to right
+      → (0,1) (0,2) (0,3) (0,4)   left column, downward
+      → (7,0) (7,4) (0,4)         corners
+      → (4,2)                     centre
 ```
 
-**While it plays, write down** the wall-clock time (or capture-relative seconds)
-at which each position appears. A phone note is fine. Without these timestamps
-the capture is far harder to interpret.
+**The only thing to record:** the wall-clock time playback *starts*. Everything
+else comes from `tilewalk_timing.md`, whose offsets are relative to the video's
+own start. A phone note saying "started 14:32:07" is enough.
 
-**Fallback method** — if authoring a 64×40 video is awkward, any content works
-as long as **only one tile is lit at a time and you record the order**. Even
-manually placing a small white square in an image editor and re-loading it 10
-times is fine, just slower.
+> If Ledset loops the video, that is fine — better, even. A second pass
+> confirms the mapping repeats identically rather than drifting.
+
+**If Ledset refuses the MP4:** its bundled K-Lite codec pack should handle H.264,
+but if not, the PNGs still work — load `07-tilewalk.mp4`'s frames as stills, or
+just tell me and I will re-render to another format (image sequence, AVI, GIF).
+The vendor content on the USB stick is mostly `.avi`, so that is the safest
+fallback.
 
 **What this yields:** for each tile position, exactly which packet
 (`channelIndex`) and which byte offset within its 507-byte body changed. That is
 the mapping table, read directly off the wire — no inference.
+
+### Regenerating for a different floor layout
+
+```bash
+python3 tools/make_test_patterns.py --cols 14 --rows 10 --out test-patterns-14x10
+```
+
+The tool derives everything from tile count; `--hold` and `--fps` are adjustable.
 
 ---
 
