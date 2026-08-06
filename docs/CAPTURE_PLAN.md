@@ -1,12 +1,34 @@
-# Capture Session Plan
+# Capture & Verification Session Plan
 
 Everything to do at the Windows machine + floor, in one trip. Read this through
 once before starting.
 
-**Goal:** produce packet captures that settle the channel→physical mapping
-question (`docs/PROTOCOL.md` §4), plus grab the vendor's own config files.
+> **This plan changed substantially on 2026-08-05.** The wire protocol has been
+> read directly out of the vendor's code (`docs/DECOMP_FINDINGS.md`). The session
+> is no longer about *discovering* the mapping — that is settled. It is about
+> **verifying it against real hardware** and answering the three things code
+> cannot tell us.
 
-**Estimated time:** 45–90 minutes.
+**Estimated time:** 60–90 minutes.
+
+---
+
+## What we now know, and what we don't
+
+Settled from code, no longer worth testing:
+
+- 16 packets per frame on this rig — 8 ports × 2 packets, **512 and 458 bytes**.
+- Header: `FF | controller | 01 | port | packetIndex(|0x80 on last)`.
+- Body is **BGR**. Tiles are column-major; within a tile, plain row-major.
+- ~10 fps, no inter-packet delay, no beacon.
+
+The three open questions this session must answer:
+
+| # | Question | How |
+|---|---|---|
+| **Q1** | **Physical orientation.** Which physical tile is logical `(0,0)`? Is the floor rotated or mirrored relative to what Ledset renders? Code cannot know — it depends on cabling. | Part B, tile walk |
+| **Q2** | **Is the end-of-frame flag required?** Does the controller latch on `0x80`, or update continuously? | Part B, §7 |
+| **Q3** | **What emits the 966-byte packet?** Provably not this software. | Part A, passive observation |
 
 ---
 
@@ -18,284 +40,325 @@ question (`docs/PROTOCOL.md` §4), plus grab the vendor's own config files.
 > These outputs are RS-485-style differential drivers. Hot-swapping data lines
 > can damage the driver ICs on both the controller and the tile boards.
 
-### Prerequisites on the Windows machine
+**No re-cabling is needed for this plan.** Leave the rig exactly as it is.
 
-Wireshark should already be installed from the prior session (v4.6.7 + Npcap
-1.88). Verify:
+### Prerequisites
+
+Wireshark from the prior session (v4.6.7 + Npcap 1.88):
 
 ```powershell
 Test-Path "C:\Program Files\Wireshark\dumpcap.exe"
 ```
 
-If `False`, install Wireshark (which bundles Npcap; Npcap's installer requires
-interactive click-through — there is no silent flag on the free version).
+If `False`, install Wireshark (bundles Npcap; Npcap's installer needs
+interactive click-through — no silent flag on the free version).
+
+The test sender is at `ddf\tools\Send-FloorTest.ps1`. Confirm it runs:
+
+```powershell
+cd $HOME\OneDrive\Documents\ddf
+.\tools\Send-FloorTest.ps1 -Pattern white -DryRun
+```
+
+Expect 16 packets, alternating 512 / 458, last one `byte4 = 0x81`. If PowerShell
+refuses to run the script:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\Send-FloorTest.ps1 -Pattern white -DryRun
+```
 
 ### Working folder
 
 ```powershell
-mkdir C:\ddf-capture
-cd C:\ddf-capture
+mkdir C:\ddf-capture; cd C:\ddf-capture
 ```
-
-### Bring with you
-
-- The `test-patterns/` folder (PNGs + MP4s + `tilewalk_timing.md`) on the USB stick.
-- Something to note the playback start time on.
 
 ---
 
 ## 1. Grab vendor config files (2 minutes, do this first)
 
 ```powershell
-# The live Ledset config — tells us which mapper XML is actually in use
 Get-ChildItem -Path C:\Users -Recurse -Filter "Configure.ini" -ErrorAction SilentlyContinue |
   Where-Object { Test-Path (Join-Path $_.DirectoryName "LedSet.exe") } |
   ForEach-Object { "=== $($_.FullName) ==="; Get-Content $_.FullName } |
   Tee-Object -FilePath C:\ddf-capture\configure-ini-dump.txt
 
-# Any mapper XML anywhere on the box
 Get-ChildItem -Path C:\Users -Recurse -Include *.xml -ErrorAction SilentlyContinue |
   Where-Object { Select-String -Path $_.FullName -Pattern "<Mapper" -Quiet -ErrorAction SilentlyContinue } |
   ForEach-Object { "=== $($_.FullName) ==="; Get-Content $_.FullName } |
   Tee-Object -FilePath C:\ddf-capture\mapper-xml-dump.txt
 ```
 
-Copy both `.txt` files to the USB stick.
-
-> We already have one `Test 3.xml` (64×40, the 8×5 rig). If the Windows box has
-> a different or newer one, that matters — grab it regardless.
+We already have `Test 3.xml` (64×40, `TypeIndex 3` = `8x8_8P`). Grab any others
+regardless — a different `TypeIndex` would change the port count.
 
 ---
 
-## 1a. Which machine captures?
-
-**Capture on the Windows machine.** Ledset runs there, and the traffic we need
-is Ledset's own output.
-
-The Mac cannot capture it by simply joining the network. Broadcast traffic does
-reach every host on the segment, so in principle a Mac on the same switch would
-see it — but that requires a switch (not a direct cable), adds a second variable
-to every failed capture, and gains nothing, since the Windows box already has
-Wireshark installed from the prior session.
-
-Capture where the sender is. Analyse anywhere.
-
-> The Mac's static IP (`10.200.50.78 / 255.0.0.0`) is for **phase 2**, when the
-> Mac becomes the sender. It plays no part in the capture session. Note that
-> `10.200.50.78` is the address the Windows box uses — do not have both machines
-> on that address simultaneously.
-
-## 2. Identify the capture interface
+## 2. Capture interface
 
 ```powershell
 & "C:\Program Files\Wireshark\dumpcap.exe" -D
-```
-
-Prints a numbered list. Find the **wired Ethernet** adapter — the one configured
-`10.200.50.78 / 255.0.0.0`. Cross-check with:
-
-```powershell
 Get-NetIPAddress -AddressFamily IPv4 | Select-Object InterfaceAlias, IPAddress, PrefixLength
 ```
 
-Note the **number** from `-D`. Everything below uses `-i N`; substitute it.
+Find the **wired Ethernet** adapter on `10.200.50.78 / 255.0.0.0`. Note its
+number; everything below uses `-i N`.
 
 ---
 
 ## 3. Capture command
 
-For every run below, the pattern is:
-
 ```powershell
 & "C:\Program Files\Wireshark\dumpcap.exe" -i N -f "udp port 60001" -w C:\ddf-capture\NAME.pcapng
 ```
 
-- `-f "udp port 60001"` is a **capture filter** — discards everything else at
-  the kernel, so files stay small and contain only floor traffic.
-- Press **Ctrl+C** to stop.
-- If a run produces a 0-byte file, the interface number is wrong. Go back to §2.
+**Procedure — learned the hard way:** start `dumpcap` → *then* do the floor
+action → let it run ~3 s → *then* Ctrl+C. Never use a timer and hope the action
+lands in the window.
 
-**Critical procedure — learned the hard way in the prior session:**
+### ⚠️ The analysis mistake that must not be repeated
 
-1. Start `dumpcap`.
-2. **Then** perform the floor action.
-3. Let it run a few seconds.
-4. **Then** Ctrl+C.
+**Do not group, filter, or summarise packets by length.** Doing exactly that is
+what produced two wrong conclusions in earlier sessions:
 
-Do not use a timer and hope the action lands inside the window. The prior
-session's first capture caught nothing for exactly this reason.
+- it hid the 458-byte packets, making a 16-packet frame look like 8;
+- it made header byte 4 look like a constant `0x00`, when it is the packet index;
+- it made the 966-byte packet look byte-identical every time.
+
+A frame is **512, 458, 512, 458, …** — mixed sizes by design. Analyse by
+`(byte1, byte3, byte4)`, never by length.
 
 ---
 
-## 4. Test sequence — single controller
+## Part A — Capture Ledset (25 min)
 
-Keep the floor exactly as it is: **8 × 5 tiles, 1 controller, 4 connectors, each
-driving 2 rows of 5 panels.** Leave the second controller plugged into Ethernet.
-Do not re-patch anything.
+Verifies our reading of the vendor's output. Leave the rig and the second
+controller exactly as they are.
 
-For each test: start capture → do the thing → wait ~3 s → Ctrl+C.
+For each: start capture → display the pattern → hold ~3 s → Ctrl+C.
 
-| # | File | What to display in Ledset | Why |
+| # | File | Display in Ledset | Verifies |
 |---|---|---|---|
-| 1 | `01-black.pcapng` | `01-black.png`, hold 3 s | ⭐ **Settles the beacon question.** If 966-byte packets stay all-`0xFF` on a black floor they are beacons; if they go all-`0x00` they are port payloads, and the real packet size is 960 not 507. Also gives the clean packet-count-per-frame baseline. |
-| 2 | `02-white.pcapng` | `02-white.png`, hold 3 s | All-max body. Diff against black isolates exactly which bytes are pixel data. |
-| 3 | `03-red.pcapng` | `03-red.png`, hold 3 s | Colour order (RGB/GRB/BGR). |
-| 4 | `04-green.pcapng` | `04-green.png`, hold 3 s | ″ |
-| 5 | `05-blue.pcapng` | `05-blue.png`, hold 3 s | ″ |
-| 6 | `06-halves.pcapng` | `06-halves.png`, hold 3 s | Coarse spatial split — first real mapping signal. |
-| 7 | `07-tilewalk.pcapng` | `07-tilewalk.mp4`, full 24 s — see §5 | ⭐ **The decisive test.** |
-| 8 | `08-sweep.pcapng` | `08-sweep.mp4`, full 10 s | Confirms mapping under motion + reveals frame rate. |
+| 1 | `01-black.pcapng` | `01-black.png` | Baseline. Body should be all-`0x00`. **Also: does any 966-byte packet appear, and from which source MAC?** (Q3) |
+| 2 | `02-white.pcapng` | `02-white.png` | All-`0xFF` body. Diff vs black isolates pixel bytes. |
+| 3 | `03-red.pcapng` | `03-red.png` | ⭐ **Colour order.** Prediction: the *third* byte of each triple is `0xFF` (BGR). If it is the first, the finding is wrong. |
+| 4 | `06-halves.pcapng` | `06-halves.png` | Coarse spatial check. |
+| 5 | `07-tilewalk.pcapng` | `07-tilewalk.avi`, full 24 s | ⭐ Ground truth for Q1 — see §5. |
 
-### Tests 1 and 7 are the ones that matter
+Tests 3 and 5 are the ones that matter. If time is short, do those.
 
-If time is short, do **1** and **7**. Test 1 settles whether the 966-byte packet
-is a beacon or a port payload — which decides the fundamental packet size, and
-therefore the whole sender design. Test 7 settles the pixel mapping. Everything
-else corroborates.
+### Predicted frame shape — check this first
 
-### Rig as configured ✅
+Open `01-black.pcapng` and confirm, for one frame:
 
-Verified physically, no need to re-check:
+```
+16 packets. byte0 always 0xFF. byte1 always 0x00 (one controller).
+byte2 always 0x01. byte3 cycles 0..7, two packets each.
+byte4 alternates 0x00 (len 512) / 0x01 (len 458).
+The very last packet of the frame has byte4 = 0x81.
+```
 
-- **1 controller, 4 connectors, all active.** Each runs to **2 rows of 5
-  panels** → 8 logical chains, 8 × 5 = 40 tiles.
-- **A second controller is attached by Ethernet with no panels connected.**
+**If that matches, the specification is confirmed on the wire** and Part B can
+proceed with confidence. If it does not, stop and record exactly how it differs —
+that is the most important result of the session.
 
-> **Leave the second controller connected during the captures.** It is presumably
-> already participating in whatever addressing scheme exists, so a normal capture
-> may reveal multi-controller behaviour for free — no re-cabling, no risk. If
-> §6's spare-tile test never happens, this may still be the only multi-controller
-> evidence we get.
->
-> If you can, also run **one** capture with it **unplugged** (`02-white.png` is
-> enough) and name it `02-white-single-controller.pcapng`. Diffing the two
-> isolates the second controller's contribution exactly.
+### The 966-byte packet (Q3)
+
+If it appears, note its **source MAC and IP**. `screenSend.dll` cannot emit a
+datagram over 512 bytes, and it is the only networking code in the install — so
+if this packet is present, something other than Ledset is producing it. Source
+MAC identifies whether it is the PC, a controller, or a third device.
+
+If it never appears, that is equally informative: record its absence.
 
 ---
 
-## 5. How to run the tile-walk (test 7)
+## Part B — Send our own frames (30 min) ⭐
 
-**The media is already made.** Copy the whole `test-patterns/` folder to the
-Windows machine and load these in Ledset — no authoring needed.
+**This is the highest-value part of the session.** It tests the actual
+deliverable, not the vendor's software.
 
-| File | Test |
+> **Stop Ledset playback first.** Two senders broadcasting at once will produce
+> nonsense on the floor. Ledset must be closed or stopped, not merely minimised.
+
+Bind explicitly to the wired NIC — the box may have more than one:
+
+```powershell
+cd $HOME\OneDrive\Documents\ddf
+.\tools\Send-FloorTest.ps1 -ListInterfaces
+```
+
+Then add `-LocalIP 10.200.50.78` to every command below.
+
+### 6. Does our sender work at all?
+
+```powershell
+.\tools\Send-FloorTest.ps1 -Pattern white -Duration 5 -LocalIP 10.200.50.78
+.\tools\Send-FloorTest.ps1 -Pattern black -Duration 5 -LocalIP 10.200.50.78
+```
+
+**If the floor goes white then black, the entire decompiled specification is
+confirmed end-to-end** — mapping, header, framing, colour, pacing. That single
+result is the goal of the whole project.
+
+If nothing lights: check `-LocalIP`, confirm Ledset is really stopped, and
+capture our own output (§3) to compare byte-for-byte against `02-white.pcapng`.
+
+### 7. ⭐ Q2 — Is the end-of-frame flag required?
+
+Run these **in order, without power-cycling between them**:
+
+```powershell
+# a. baseline: with the flag, should alternate white/black every 2 s
+.\tools\Send-FloorTest.ps1 -Pattern blink -Duration 10 -Hold 2 -LocalIP 10.200.50.78
+
+# b. put the floor in a known black state, flag present
+.\tools\Send-FloorTest.ps1 -Pattern black -Duration 3 -LocalIP 10.200.50.78
+
+# c. THE TEST: solid white, flag suppressed
+.\tools\Send-FloorTest.ps1 -Pattern white -NoEof -Duration 10 -LocalIP 10.200.50.78
+```
+
+| Observation at step c | Conclusion |
 |---|---|
-| `01-black.png` … `06-halves.png` | Tests 1–6, all 64 × 40 px |
-| `07-tilewalk.avi` | Test 7 — 24 s, 10 fps |
-| `07-tilewalk.gif` | Same, fallback if the AVI is rejected |
-| `08-sweep.avi` | Test 8 — 10 s |
-| `tilewalk_timing.md` | Which tile is lit at which second |
+| Floor turns **white** | Flag is **not** required — controller updates continuously. Sender may omit it. |
+| Floor **stays black** | Flag **is** required — it latches the frame. Sender must set it, exactly once per controller per frame. |
+| Floor flickers or partially lights | Something subtler; record precisely what, and capture it. |
 
-All rendered at the floor's exact logical resolution (64 × 40) so nothing gets
-scaled, as **uncompressed RGB in an AVI container**. Uncompressed matters: the
-tile-walk depends on exactly one 8×8 tile being lit with hard edges, and any
-lossy compression or chroma subsampling bleeds light into neighbouring tiles.
-AVI because the vendor's own content library is almost entirely `.avi`, so it
-is what Ledset's bundled K-Lite codec pack is most certain to handle.
+Step b matters: without it, a floor "staying white" at step c could just be the
+last latched frame from step a. Starting from black makes the result unambiguous.
 
-> Earlier lossless-H.264 versions of these files were **rejected by QuickTime**
-> (they land in `High 4:4:4 Predictive` profile, which most consumer decoders
-> refuse). Ledset would likely have refused them too. If you have an old
-> `.mp4` copy of these patterns, discard it.
+Then confirm the reverse:
 
-`07-tilewalk.avi` lights **exactly one tile at a time**, holding each for 2 s,
-starting with a 2 s black lead-in:
-
-```
-black → (0,0) (1,0) (2,0) (3,0)   top row, left to right
-      → (0,1) (0,2) (0,3) (0,4)   left column, downward
-      → (7,0) (7,4) (0,4)         corners
-      → (4,2)                     centre
+```powershell
+.\tools\Send-FloorTest.ps1 -Pattern blink -NoEof -Duration 10 -Hold 2 -LocalIP 10.200.50.78
 ```
 
-**The only thing to record:** the wall-clock time playback *starts*. Everything
-else comes from `tilewalk_timing.md`, whose offsets are relative to the video's
-own start. A phone note saying "started 14:32:07" is enough.
+Blinking without the flag would be conclusive proof it is optional.
 
-> If Ledset loops the video, that is fine — better, even. A second pass
-> confirms the mapping repeats identically rather than drifting.
+### 8. ⭐ Q1 — Physical orientation
 
-**If Ledset refuses the AVI:** try `07-tilewalk.gif` (palette-based, so still
-lossless for these two-colour frames, and playable almost anywhere). Failing
-that, the test degrades gracefully to manual operation — load `01-black.png`,
-then a series of single-tile stills, noting the order. Slower but equally valid.
+The mapping from logical pixel to wire is settled. What is **not** settled is
+where logical `(0,0)` physically sits, and whether the floor is rotated or
+mirrored. Only the floor can say.
 
-**What this yields:** for each tile position, exactly which packet
-(`channelIndex`) and which byte offset within its 507-byte body changed. That is
-the mapping table, read directly off the wire — no inference.
-
-### Regenerating for a different floor layout
-
-```bash
-python3 tools/make_test_patterns.py --cols 14 --rows 10 --out test-patterns-14x10
+```powershell
+# light exactly one tile — logical top-left
+.\tools\Send-FloorTest.ps1 -Pattern tile -TileCol 0 -TileRow 0 -Duration 8 -LocalIP 10.200.50.78
 ```
 
-The tool derives everything from tile count; `--hold` and `--fps` are adjustable.
+**Note which physical tile lights.** Then:
+
+```powershell
+.\tools\Send-FloorTest.ps1 -Pattern tile -TileCol 1 -TileRow 0 -Duration 8 -LocalIP 10.200.50.78
+.\tools\Send-FloorTest.ps1 -Pattern tile -TileCol 0 -TileRow 1 -Duration 8 -LocalIP 10.200.50.78
+.\tools\Send-FloorTest.ps1 -Pattern tile -TileCol 7 -TileRow 4 -Duration 8 -LocalIP 10.200.50.78
+```
+
+Four observations fully determine the transform: origin corner, whether
+`TileCol` runs along the floor's long or short axis, and handedness. Sketch the
+floor and mark which physical tile lit for each — a phone photo per step is
+ideal.
+
+Then the automated walk, to confirm all 40 and catch any per-chain oddity:
+
+```powershell
+.\tools\Send-FloorTest.ps1 -Pattern tilewalk -Hold 2 -LocalIP 10.200.50.78
+```
+
+It prints `tile (col=N, row=M)` as it goes. **Film the floor** — the video plus
+the console log gives the complete tile map in one pass.
+
+### 9. Within-tile pixel order
+
+```powershell
+.\tools\Send-FloorTest.ps1 -Pattern pixel -PixelX 0 -PixelY 0 -Duration 8 -LocalIP 10.200.50.78
+.\tools\Send-FloorTest.ps1 -Pattern pixel -PixelX 7 -PixelY 0 -Duration 8 -LocalIP 10.200.50.78
+.\tools\Send-FloorTest.ps1 -Pattern pixel -PixelX 0 -PixelY 7 -Duration 8 -LocalIP 10.200.50.78
+```
+
+Code says the within-tile scan table is the identity for 8×8 floors — no
+serpentine. These three confirm it on real LEDs. If pixel `(7,0)` lights at the
+wrong end of a row, the tile wiring is serpentine in hardware and the sender
+needs a per-tile correction the vendor software does not apply.
+
+### 10. Colour order on real LEDs
+
+```powershell
+.\tools\Send-FloorTest.ps1 -Pattern red   -Duration 4 -LocalIP 10.200.50.78
+.\tools\Send-FloorTest.ps1 -Pattern green -Duration 4 -LocalIP 10.200.50.78
+.\tools\Send-FloorTest.ps1 -Pattern blue  -Duration 4 -LocalIP 10.200.50.78
+```
+
+Each should show its named colour. If red and blue are swapped, the controller
+is configured for RGB rather than BGR — re-run with `-ColorOrder RGB` and record
+which is correct. (The 2013 release notes mention a controller-side colour-order
+setting, so either is possible.)
+
+### 11. Frame rate headroom (optional, 2 min)
+
+```powershell
+.\tools\Send-FloorTest.ps1 -Pattern blink -Fps 30 -Hold 0.1 -Duration 10 -LocalIP 10.200.50.78
+```
+
+The vendor's 10 fps is a bare `Sleep(100)` with no configuration path — likely a
+software choice, not a hardware limit. If 30 fps is smooth, the show has far more
+headroom than the vendor tool suggests. Worth knowing; not blocking.
 
 ---
 
-## 6. Two-controller test (optional, only if you have spare tiles)
+## 12. Capture our own sender (5 min, do this regardless)
 
-> ⚠️ Power down before re-cabling. See §0.
+```powershell
+# terminal 1
+& "C:\Program Files\Wireshark\dumpcap.exe" -i N -f "udp port 60001" -w C:\ddf-capture\20-ours-white.pcapng
+# terminal 2
+.\tools\Send-FloorTest.ps1 -Pattern white -Duration 5 -LocalIP 10.200.50.78
+```
 
-**Do not** simply move cables from controller 1's ports 3/4 to controller 2.
-That changes controller count *and* floor partition simultaneously, and Ledset
-would still be sending a one-controller pattern — the capture would be
-uninterpretable.
-
-**Instead**, keep the 8×5 floor intact on controller 1 and add controller 2
-driving **extra** tiles (2–4 spare tiles on its port 1 is enough).
-
-Setup:
-
-1. Power everything down.
-2. Cable the spare tiles to controller 2, port 1.
-3. Power up. On **controller 1**: `Device Order` = `01`, `Work Mode` = `IR`/Master.
-   On **controller 2**: `Device Order` = `02`, `Work Mode` = `Slave`.
-4. In Ledset's Mapper, update the layout to include the extra tiles.
-
-Then capture:
-
-| # | File | Display | Why |
-|---|---|---|---|
-| 9 | `09-two-white.pcapng` | Solid white, 3 s | Diff vs `02-white` reveals what a second device adds. |
-| 10 | `10-two-tilewalk.pcapng` | Light a tile on **controller 1**, then one on **controller 2** | Isolates the device-addressing field. |
-
-**What we're looking for:** does `channelIndex` extend past 7 (8–15)? Or does
-byte 4 — currently always `0x00`, purpose unknown — become `0x01` for the second
-controller? Those are the two candidates.
-
-If you don't have spare tiles: **skip this entirely.** Single-controller v1 is
-genuinely useful, and improvising here risks a confusing capture.
+Diffing `20-ours-white.pcapng` against `02-white.pcapng` byte-for-byte is the
+cleanest possible proof of equivalence, and it is worth having even if the floor
+behaved perfectly — it will be the reference when the macOS sender is written.
 
 ---
 
-## 7. Wrap-up checklist
+## 13. Wrap-up checklist
 
-Copy to the USB stick:
+Copy into the shared `ddf` folder (no USB stick needed):
 
-- [ ] `configure-ini-dump.txt`
-- [ ] `mapper-xml-dump.txt`
-- [ ] All `*.pcapng` files
-- [ ] Your tile-walk timing notes (typed up or photographed)
-- [ ] Anything from `docs/WINDOWS_BRIEF.md` (decompilation output)
-
-**Sanity check before leaving:** confirm the `.pcapng` files are non-zero and
-plausibly sized (a few hundred KB to a few MB each). A 0-byte or 24-byte file
-means nothing was captured — likely the wrong interface number.
+- [ ] `configure-ini-dump.txt`, `mapper-xml-dump.txt`
+- [ ] All `*.pcapng`
+- [ ] **Orientation notes / photos from §8** — the single most valuable artifact
+- [ ] Answers to Q1, Q2, Q3 written down, even if partial
+- [ ] Note of anything that contradicted `DECOMP_FINDINGS.md`
 
 ```powershell
 Get-ChildItem C:\ddf-capture\*.pcapng | Select-Object Name, Length
 ```
 
+0-byte or 24-byte files mean nothing was captured — wrong interface number.
+
 ---
 
-## 8. If something goes wrong
+## 14. If something goes wrong
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `.pcapng` is 0/24 bytes | Wrong interface number | Re-run §2, use the wired adapter on `10.200.50.x` |
-| `dumpcap` won't start | Npcap not installed or no admin | Run PowerShell as Administrator |
-| Capture has traffic but no port 60001 | Ledset wasn't actually sending | Confirm Ledset is *playing*, not just open |
-| Floor doesn't light at all | Controller in wrong work mode | Check controller menu; needs the mode Ledset drives |
-| Traffic from two sources | Another app also broadcasting | Note it — captures can only be told apart by packet shape, not IP |
+| `.pcapng` is 0/24 bytes | Wrong interface number | Re-run §2 |
+| `dumpcap` won't start | Npcap missing / no admin | Run PowerShell as Administrator |
+| Script won't run | Execution policy | `powershell -ExecutionPolicy Bypass -File ...` |
+| Our sender lights nothing | Wrong NIC | Set `-LocalIP`; verify with §12 that packets are on the wire |
+| Our sender lights nothing, packets confirmed on wire | Ledset still sending, or controller in wrong work mode | Close Ledset fully; check controller menu |
+| Floor lights but garbled | Orientation or colour order | That is §8 / §10 — record it, it is data not failure |
+| Traffic from two sources | Ledset still running | Close it; captures can only be told apart by packet shape |
+
+---
+
+## Deferred: two-controller test
+
+Not needed this session. The second controller has no panels, so it cannot show
+anything visually. Multi-controller addressing is already known from code —
+controller index is header **byte 1**, and controller `c` owns tile columns
+`8c..8c+7`. When spare tiles are available, `-Cols 12` (forcing a second
+controller) plus a tile walk across the boundary would confirm it. Low priority:
+the target rig's 14 columns will exercise it naturally.
