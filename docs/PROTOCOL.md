@@ -23,18 +23,41 @@ protocol, as used by the vendor's `Ledset` / `Player.exe` Windows software.
 | Tile | 500 × 500 mm, 8 × 8 = 64 RGB pixels (SMD5050) | ✅ |
 | Tile driver board | `DJ-XSP-5V`, SIGNAL+/SIGNAL− differential pair (RS-485 family) | ✅ |
 | Controller I/O | Ethernet, 8-ch signal output header, DMX XLR (3-pin), SD slot, IR receiver, Wi-Fi antenna | ✅ |
-| Controller physical output ports | **4** (each feeding a multi-tile daisy chain) | ✅ |
+| Controller physical connectors | **4** | ✅ |
+| Logical channels per controller | **8** (each connector drives 2 chains) | ✅ |
+| Controller signal header | 8-channel | ✅ |
 | Controller work modes | IR (master) / Slave / Sound / DMX / Auto | ✅ |
 | Device type profile | `Floor Mir64` | ✅ |
 | Multi-controller | `Device Order` 01/02/03…, first = Master, rest = Slave | ✅ |
 
 ### Reference rig (used for all captures to date)
 
-- 8 tiles wide × 5 tiles tall = **40 tiles**, 16 ft × 10 ft.
-- Logical resolution **64 × 40 = 2560 pixels**.
-- 1 controller, 4 ports. **Each port drives 2 adjacent 5-tile rows** (10 tiles,
-  640 px per port).
-- Ledset floor type: `8x8_8P`.
+Physically verified by the user, 2026-08-05:
+
+- 8 tiles wide × 5 tiles tall = **40 tiles**, 16 ft × 10 ft. ✅
+- Logical resolution **64 × 40 = 2560 pixels**. ✅
+- **1 controller, all 4 connectors active.** Each connector runs to **2 rows of
+  5 panels**. ✅
+- A second controller is attached by Ethernet with **no panels connected**. ✅
+- Ledset floor type **`8x8_8P`** ✅ — 8 × 8 px tiles, **8 channels**.
+
+### Port terminology — settled ✅
+
+The "4 vs 8 ports" contradiction is resolved: **both were right about different
+things.**
+
+| Term | Count | Meaning |
+|---|---|---|
+| Physical connector | **4** | Sockets on the controller's back panel |
+| Logical channel | **8** | Independent daisy chains; 2 per connector |
+
+The `_8P` floor-type suffix counts **logical channels**. The manual's
+"8-channel signal output interface" says the same. A prior session's "4 ports,
+each feeding a 2-column section" was the same fact seen on a differently-oriented
+floor — 2 chains per connector either way.
+
+**Consequence:** one channel = **1 row of 5 tiles** = 320 px = **960 bytes**.
+That is exactly the 966-byte packet's payload size — see §3.2.
 
 ### Target rig
 
@@ -102,21 +125,40 @@ offset  size  field
 The 2013 release notes mention a per-controller "RGB colour order" setting,
 so this is likely configurable in hardware and must be verified empirically.
 
-### 3.2 Beacon / keepalive packet — 966 bytes ✅
+### 3.2 The 966-byte packet — ❓ **contested: beacon, or a full port payload?**
 
 ```
 offset  size  field
 ------  ----  -----------------------------------------------
-0       6     FF 00 01 00 00 4B    fixed header
-6       960   0xFF repeated        constant payload
+0       6     FF 00 01 00 00 4B    header (as observed)
+6       960   0xFF repeated        payload
 ```
 
-- Byte-for-byte identical every time, **including across scene changes** —
-  therefore carries no pixel content. ✅
+- Observed byte-for-byte identical every time, **including across scene
+  changes**. ✅
 - Emitted in very rapid bursts (~100 µs spacing observed). ✅
-- ❓ Exact required rate unknown. A prior implementation guessed 10 ms and the
-  floor did not obviously care.
-- ❓ Whether it is required at all is unproven.
+
+**Interpretation A — keepalive beacon** (prior session's conclusion). Constant
+content across scene changes implies it carries no pixel data.
+
+**Interpretation B — one channel's complete payload, all white** 🟡 *(now
+favoured)*. Each logical channel drives **1 row of 5 tiles** = 320 px, and
+`320 × 3 = 960 bytes` — **exactly** the payload size, now confirmed against the
+physical rig (§1). Under this reading the packet is not a beacon at all; it is
+an ordinary per-channel frame that happened to be all-white.
+
+Why B is credible despite A's evidence: packets were grouped **by size** during
+analysis, so a single all-white port's packet would appear "identical every
+time" while other 966-byte packets carrying real content varied. That is
+sampling bias, not proof of constancy.
+
+⚠️ **Consequence if B holds:** implementing a beacon emitter is wasted work, and
+worse, the real per-port packet size may be **960 bytes, not 507**. The 512-byte
+packets would then be a *different* mode or geometry, not the primary path.
+
+**How to settle it:** in a capture of `01-black.png` (all-black floor), a beacon
+would still be all-`0xFF`; a port payload would be all-`0x00`. **One test, one
+answer.** This is now a primary goal of capture test 1.
 
 > ⚠️ Note the ambiguity: the beacon's 6-byte header ends in `0x4B`, whereas the
 > frame packet's header is 5 bytes and byte 5 is `0x00`. A prior session
@@ -140,14 +182,27 @@ offset  size  field
 
 ### Competing hypotheses
 
-| # | Hypothesis | Fits 8 indices? | Notes |
-|---|---|---|---|
-| H1 | `channelIndex` = tile column (8 columns) | yes | What the prior implementation assumed. Coincidentally correct-looking on an 8-wide floor. |
-| H2 | 4 ports × 2 sub-frames each | yes | Prior session's leading theory. |
-| H3 | `channelIndex` is a rolling cell counter, not a port ID | yes | Would imply many more packets per frame than 8. |
+| # | Hypothesis | Status |
+|---|---|---|
+| H1 | `channelIndex` = tile column | ❌ **Dead.** The rig has 8 physical chains; that they numbered 8 like the columns was coincidence. |
+| H2 | 4 ports × 2 sub-frames each | ❌ **Dead.** There are no sub-frames — the 8 "channels" are 8 real, physically distinct daisy chains. |
+| H3 | rolling cell counter, not a port ID | 🟡 Still possible but unlikely, given 8 chains exist and indices run 0–7. |
+| **H4** | **`channelIndex` = logical channel 0–7, one per 5-tile chain** | 🟡 **Strongly favoured.** |
 
-The reference rig's geometry makes H1 and H2 **indistinguishable** — 4 ports × 2
-= 8 = column count. This is why observation alone could not resolve it.
+**H4 in detail.** Each of the 8 logical channels drives one row of 5 tiles =
+320 px = 960 bytes. Two sub-cases remain, distinguished only by §3.2:
+
+- **If the 966-byte packet is a payload (Interpretation B):** one packet per
+  channel, 960-byte payload, **8 packets/frame**. The 512-byte packets are a
+  different mode or geometry.
+- **If it is a beacon (Interpretation A):** `⌈960 / 507⌉ = 2` packets per
+  channel, **16 packets/frame**. The prior attempt sent one → 169 of 320 px =
+  **53%** of the floor, matching its half-dark symptom exactly.
+
+> ⚠️ Note these predict **different packet counts** (8 vs 16). The "~16 packets"
+> conclusion recorded earlier is therefore *conditional*, not settled. Test 1
+> (all-black capture) decides which, and it must be run before any sender is
+> written.
 
 ### Arithmetic that discriminates
 
@@ -166,12 +221,19 @@ inconsistent with H1.
 
 ### How to settle it
 
-1. **Count packets between frame boundaries** in a capture of real Ledset
-   output. If ~16 (not 8), H1 is dead. *(cheap, decisive)*
-2. **Walk a single lit tile across the floor**, capturing at each position, and
+1. **Capture an all-black floor.** If the 966-byte packet is still all-`0xFF`,
+   it is a beacon (Interpretation A). If it becomes all-`0x00`, it is a port
+   payload (Interpretation B), and the real per-port packet is 960 bytes rather
+   than 507. *(one test, decisive, and it reshapes everything downstream)*
+2. **Count packets between frame boundaries.** If ~16 (not 8), H1 is dead.
+   *(cheap)*
+3. **Walk a single lit tile across the floor**, capturing at each position, and
    note which packet index + body offset changes. This yields the mapping
-   directly, tile by tile. *(definitive)*
-3. **Decompile `screenSend.dll`** — the mapping loop is in there as code.
+   directly, tile by tile. *(definitive — separates H2 from H4)*
+4. **Read `PixelFloor::FillSendBuf`** in `screenSend.dll` — the mapping loop is
+   in there as code.
+5. ~~Count the physical output connectors.~~ ✅ **Done** — 4 connectors, 8
+   chains. See §1.
 
 ---
 
@@ -183,7 +245,7 @@ Install at `Dance Floor/Release/`:
 |---|---|---|
 | `LedSet.exe` | .NET 4.0, WPF | Mapper UI. Namespace `LedSet.Mapper`, `MapperFile`/`PortCount`/`FloorCountPerPort`, XML-serialised. |
 | `Player.exe` | native (PDB path `D:\P20119\LedSet\LedSet\bin\Release\Player.pdb`) | Playback window `LedSet-PlayDlg`. |
-| `screenSend.dll` | **mixed-mode C++/CLI** | **The transmit path.** Exports `ScreenSendInit`, `CaptureInit`, `GetBitmap`, `SendScreen`, `SreenSendRelease` *(sic)*. Internals include class `PixelFloor`, `sendto`, `inet_addr`, `pSocketDevice`, `portDataSize`, `PORT_COUNT_A_CONTROLLER`. 32-bit (`IMAGE_FILE_MACHINE_I386`). |
+| `screenSend.dll` | **mixed-mode C++/CLI**, 32-bit | **The transmit path.** See symbol table below. |
 | `VideoGrabber.dll` | native | Screen/video capture. |
 | `EffectThumbnail.dll` | native | Thumbnails. |
 | `IniFileLib.dll` | .NET | Config I/O. |
@@ -194,6 +256,44 @@ those pixels. It has no content pipeline of its own. A bespoke sender that
 generates pixels directly avoids an entire class of failure (window occlusion,
 DPI scaling, `ScaleFactorX=0.6`, codec dependencies such as the bundled K-Lite
 pack) rather than having to fix them.
+
+### `screenSend.dll` symbols ✅
+
+Recovered by string/metadata analysis (not yet decompiled).
+
+```
+Exports:  ScreenSendInit  CaptureInit  GetBitmap  SendScreen  SreenSendRelease (sic)
+
+PixelFloor::FillSendBuf      ⭐ the pixel → packet mapping function
+InitFloor, SendData          anonymous-namespace statics
+floorsOfColumn, floorsOfRow  likely ScreenSendInit parameters (tile grid dims)
+portDataSize                 bytes per port      ⭐
+controllerDataSize           bytes per controller
+controllerCount              multi-controller support
+PORT_COUNT_A_CONTROLLER      ports per controller ⭐
+lastControlPortCount         partial last controller?
+pSendPack, pSendDat, sendDatBuf, pFloor    send buffers
+UdpSocket::init_socket_client / ::send / m_Port
+"255.255.255.255"            broadcast address, hardcoded literal ✅
+sendto, inet_addr, ioctlsocket, closesocket
+```
+
+`PixelFloor::FillSendBuf` is the single most valuable target in the project — it
+is the mapping, as code.
+
+### `LedSet.exe` floor-type enum ✅
+
+```
+FloorTypeSet:  Pixel6x6_4   Pixel8x8_4   Pixel6x6_8   Pixel8x8_8
+UI labels:     "6x6_8P"     "8x8_4P"     "8x8_8P"
+Also:          PortCount  FloorCountPerPort  CalcFloorsOfColumn  CalcFloorsOfRow
+```
+
+Naming decodes as `<tile pixel dims>_<port count>P`. So `8x8_8P` (our
+`TypeIndex 3`) = 8 × 8 px tiles, **8 ports** — the basis for hypothesis H4.
+The existence of both `_4` and `_8` variants means **port count is a genuine
+per-floor-type variable**, not a fixed constant. Any sender must treat it as
+configuration.
 
 ### Mapper file format ✅
 
@@ -223,7 +323,11 @@ pack) rather than having to fix them.
 | Hardware is Linsn or Xixun/Sysolution | ❌ It is **Kingstar LED** OEM (`kingstar-led.com`), per `ReleaseNote.txt`. Search Kingstar KS-series, not Linsn. |
 | Frame header is 6 bytes | ❌ **5 bytes.** The 6th byte is the first data byte. (6 bytes is the *beacon* header.) |
 | Body uses RLE / delta compression | ❌ Fixed 507-byte body proves uncompressed raw RGB. |
-| `channelIndex` = tile column (H1) | 🟡 Very likely wrong — see §4. |
+| `channelIndex` = tile column (H1) | ❌ Dead — the 8 indices are 8 physical chains, not columns. |
+| 4 ports × 2 sub-frames (H2) | ❌ Dead — no sub-frames exist; there are 8 real chains. |
+| "The controller has 4 ports" / "…has 8 ports" | Both partly right: **4 physical connectors, 8 logical channels** (2 chains per connector). ✅ Verified physically. |
+| "A full frame is ~16 packets" | ⚠️ **Conditional, not settled.** 16 only if the 966-byte packet is a beacon; **8** if it is a channel payload. See §3.2 and §4. |
+| The 966-byte packet is a keepalive beacon | ❓ Contested. Its 960-byte payload is exactly one 5-tile chain — it may be an ordinary channel payload that happened to be all-white. See §3.2. |
 | Controller is unreachable / cabling faulty | ❌ Silence is by design; the protocol is broadcast and the controller never replies. |
 | 965-byte single-packet-per-frame framing | ❌ Real framing is many fixed 512-byte packets. |
 

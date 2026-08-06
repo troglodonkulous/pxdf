@@ -129,14 +129,15 @@ session's first capture caught nothing for exactly this reason.
 
 ## 4. Test sequence — single controller
 
-Keep the floor exactly as it is: **8 × 5 tiles, 1 controller, 4 ports, each port
-driving 2 adjacent 5-tile rows.** Do not re-patch anything yet.
+Keep the floor exactly as it is: **8 × 5 tiles, 1 controller, 4 connectors, each
+driving 2 rows of 5 panels.** Leave the second controller plugged into Ethernet.
+Do not re-patch anything.
 
 For each test: start capture → do the thing → wait ~3 s → Ctrl+C.
 
 | # | File | What to display in Ledset | Why |
 |---|---|---|---|
-| 1 | `01-black.pcapng` | `01-black.png`, hold 3 s | Baseline. Shows framing with all-zero body; reveals packet count per frame with no content noise. |
+| 1 | `01-black.pcapng` | `01-black.png`, hold 3 s | ⭐ **Settles the beacon question.** If 966-byte packets stay all-`0xFF` on a black floor they are beacons; if they go all-`0x00` they are port payloads, and the real packet size is 960 not 507. Also gives the clean packet-count-per-frame baseline. |
 | 2 | `02-white.pcapng` | `02-white.png`, hold 3 s | All-max body. Diff against black isolates exactly which bytes are pixel data. |
 | 3 | `03-red.pcapng` | `03-red.png`, hold 3 s | Colour order (RGB/GRB/BGR). |
 | 4 | `04-green.pcapng` | `04-green.png`, hold 3 s | ″ |
@@ -145,10 +146,30 @@ For each test: start capture → do the thing → wait ~3 s → Ctrl+C.
 | 7 | `07-tilewalk.pcapng` | `07-tilewalk.mp4`, full 24 s — see §5 | ⭐ **The decisive test.** |
 | 8 | `08-sweep.pcapng` | `08-sweep.mp4`, full 10 s | Confirms mapping under motion + reveals frame rate. |
 
-### Test 7 is the one that matters
+### Tests 1 and 7 are the ones that matter
 
-If you only have time for one test, do **7**. Everything else is
-corroboration; this is proof.
+If time is short, do **1** and **7**. Test 1 settles whether the 966-byte packet
+is a beacon or a port payload — which decides the fundamental packet size, and
+therefore the whole sender design. Test 7 settles the pixel mapping. Everything
+else corroborates.
+
+### Rig as configured ✅
+
+Verified physically, no need to re-check:
+
+- **1 controller, 4 connectors, all active.** Each runs to **2 rows of 5
+  panels** → 8 logical chains, 8 × 5 = 40 tiles.
+- **A second controller is attached by Ethernet with no panels connected.**
+
+> **Leave the second controller connected during the captures.** It is presumably
+> already participating in whatever addressing scheme exists, so a normal capture
+> may reveal multi-controller behaviour for free — no re-cabling, no risk. If
+> §6's spare-tile test never happens, this may still be the only multi-controller
+> evidence we get.
+>
+> If you can, also run **one** capture with it **unplugged** (`02-white.png` is
+> enough) and name it `02-white-single-controller.pcapng`. Diffing the two
+> isolates the second controller's contribution exactly.
 
 ---
 
