@@ -67,6 +67,24 @@ Copy both `.txt` files to the USB stick.
 
 ---
 
+## 1a. Which machine captures?
+
+**Capture on the Windows machine.** Ledset runs there, and the traffic we need
+is Ledset's own output.
+
+The Mac cannot capture it by simply joining the network. Broadcast traffic does
+reach every host on the segment, so in principle a Mac on the same switch would
+see it — but that requires a switch (not a direct cable), adds a second variable
+to every failed capture, and gains nothing, since the Windows box already has
+Wireshark installed from the prior session.
+
+Capture where the sender is. Analyse anywhere.
+
+> The Mac's static IP (`10.200.50.78 / 255.0.0.0`) is for **phase 2**, when the
+> Mac becomes the sender. It plays no part in the capture session. Note that
+> `10.200.50.78` is the address the Windows box uses — do not have both machines
+> on that address simultaneously.
+
 ## 2. Identify the capture interface
 
 ```powershell
@@ -142,15 +160,24 @@ Windows machine and load these in Ledset — no authoring needed.
 | File | Test |
 |---|---|
 | `01-black.png` … `06-halves.png` | Tests 1–6, all 64 × 40 px |
-| `07-tilewalk.mp4` | Test 7 — 24 s, 10 fps |
-| `08-sweep.mp4` | Test 8 — 10 s |
+| `07-tilewalk.avi` | Test 7 — 24 s, 10 fps |
+| `07-tilewalk.gif` | Same, fallback if the AVI is rejected |
+| `08-sweep.avi` | Test 8 — 10 s |
 | `tilewalk_timing.md` | Which tile is lit at which second |
 
 All rendered at the floor's exact logical resolution (64 × 40) so nothing gets
-scaled, and encoded lossless `yuv444p` with nearest-neighbour scaling so tile
-edges stay hard.
+scaled, as **uncompressed RGB in an AVI container**. Uncompressed matters: the
+tile-walk depends on exactly one 8×8 tile being lit with hard edges, and any
+lossy compression or chroma subsampling bleeds light into neighbouring tiles.
+AVI because the vendor's own content library is almost entirely `.avi`, so it
+is what Ledset's bundled K-Lite codec pack is most certain to handle.
 
-`07-tilewalk.mp4` lights **exactly one tile at a time**, holding each for 2 s,
+> Earlier lossless-H.264 versions of these files were **rejected by QuickTime**
+> (they land in `High 4:4:4 Predictive` profile, which most consumer decoders
+> refuse). Ledset would likely have refused them too. If you have an old
+> `.mp4` copy of these patterns, discard it.
+
+`07-tilewalk.avi` lights **exactly one tile at a time**, holding each for 2 s,
 starting with a 2 s black lead-in:
 
 ```
@@ -167,11 +194,10 @@ own start. A phone note saying "started 14:32:07" is enough.
 > If Ledset loops the video, that is fine — better, even. A second pass
 > confirms the mapping repeats identically rather than drifting.
 
-**If Ledset refuses the MP4:** its bundled K-Lite codec pack should handle H.264,
-but if not, the PNGs still work — load `07-tilewalk.mp4`'s frames as stills, or
-just tell me and I will re-render to another format (image sequence, AVI, GIF).
-The vendor content on the USB stick is mostly `.avi`, so that is the safest
-fallback.
+**If Ledset refuses the AVI:** try `07-tilewalk.gif` (palette-based, so still
+lossless for these two-colour frames, and playable almost anywhere). Failing
+that, the test degrades gracefully to manual operation — load `01-black.png`,
+then a series of single-tile stills, noting the order. Slower but equally valid.
 
 **What this yields:** for each tile position, exactly which packet
 (`channelIndex`) and which byte offset within its 507-byte body changed. That is

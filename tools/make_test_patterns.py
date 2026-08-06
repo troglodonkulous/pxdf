@@ -19,6 +19,18 @@ from PIL import Image, ImageDraw
 
 TILE_PX = 8  # pixels per tile side, fixed by the hardware
 
+# Uncompressed RGB in an AVI container. Deliberately not H.264: lossless x264
+# lands in "High 4:4:4 Predictive" profile, which QuickTime's decoder and most
+# consumer players reject outright. Uncompressed costs nothing at 64x40 (a few
+# MB) and the vendor's own content library is almost entirely .avi, so this is
+# the format its bundled codec pack is most certain to handle.
+#
+# Why lossless at all: the tile-walk test depends on exactly one 8x8 tile being
+# lit with hard edges. Any chroma subsampling or lossy compression bleeds light
+# into neighbouring tiles and makes the capture ambiguous.
+ENCODE_ARGS = ["-c:v", "rawvideo", "-pix_fmt", "bgr24"]
+VIDEO_EXT = "avi"
+
 
 def tile_walk_positions(cols, rows):
     """Tile coordinates to visit, in order.
@@ -103,16 +115,25 @@ def build_tile_walk(outdir, cols, rows, hold_s, fps):
 
     (outdir / "tilewalk_timing.md").write_text("\n".join(sheet) + "\n")
 
-    mp4 = outdir / "07-tilewalk.mp4"
+    # GIF fallback: palette-based, so still lossless for these two-colour
+    # frames, and playable essentially everywhere if the AVI is rejected.
+    gif_frames = sorted(frames.glob("*.png"))
+    first = Image.open(gif_frames[0])
+    first.save(
+        outdir / "07-tilewalk.gif",
+        save_all=True,
+        append_images=[Image.open(f) for f in gif_frames[1:]],
+        duration=int(1000 / fps),
+        loop=0,
+    )
+
+    mp4 = outdir / f"07-tilewalk.{VIDEO_EXT}"
     subprocess.run(
         [
             "ffmpeg", "-y", "-loglevel", "error",
             "-framerate", str(fps),
             "-i", str(frames / "%05d.png"),
-            # Nearest-neighbour scaling and no chroma subsampling: the encoder
-            # must not soften the single lit tile's hard edges.
-            "-vf", "scale=flags=neighbor",
-            "-c:v", "libx264", "-pix_fmt", "yuv444p", "-crf", "0",
+            *ENCODE_ARGS,
             str(mp4),
         ],
         check=True,
@@ -137,7 +158,7 @@ def build_sweep(outdir, cols, rows, fps, seconds):
         )
         img.save(frames / f"{i:05d}.png")
 
-    mp4 = outdir / "08-sweep.mp4"
+    mp4 = outdir / f"08-sweep.{VIDEO_EXT}"
     subprocess.run(
         [
             "ffmpeg", "-y", "-loglevel", "error",

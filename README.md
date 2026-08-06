@@ -24,7 +24,7 @@ plus arbitrary smaller layouts.
 | [`docs/PROTOCOL.md`](docs/PROTOCOL.md) | Wire protocol spec. Every claim marked confirmed / likely / open / refuted. |
 | [`docs/CAPTURE_PLAN.md`](docs/CAPTURE_PLAN.md) | Step-by-step packet-capture session at the floor. |
 | [`docs/WINDOWS_BRIEF.md`](docs/WINDOWS_BRIEF.md) | Decompilation task, to hand to Claude Code on the Windows machine. |
-| `test-patterns/` | Ready-to-play capture media, pre-rendered at 64 × 40. |
+| `test-patterns/` | Ready-to-play capture media (uncompressed AVI + PNG), pre-rendered at 64 × 40. |
 | `tools/make_test_patterns.py` | Regenerates that media for any tile layout. |
 
 ```bash
