@@ -1,0 +1,28 @@
+# --- Decompiled vendor output -------------------------------------------------
+# Reference material, not a deliverable. Kept on disk (and synced via OneDrive)
+# but deliberately not committed -- see decompiled/README.md for the reasoning.
+decompiled/**
+!decompiled/README.md
+
+# --- Capture artifacts --------------------------------------------------------
+# Packet captures can be large and are session data, not source.
+*.pcapng
+*.pcap
+capture/
+ddf-capture/
+
+# --- macOS metadata -----------------------------------------------------------
+# AppleDouble resource forks created when the share is written from macOS.
+._*
+.DS_Store
+.Spotlight-V100
+.Trashes
+
+# --- Windows metadata ---------------------------------------------------------
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Tooling ------------------------------------------------------------------
+*.tmp
+*.log
