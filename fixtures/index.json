@@ -1,0 +1,71 @@
+{
+  "schema": "ddf-mapper-fixture/1",
+  "fixtures": [
+    {
+      "name": "8x8_8P_8x5",
+      "why": "the 2026-08-06 capture rig \u2014 one controller, exactly full",
+      "golden": true,
+      "frameSha256": "54a110f85c0372ec01dcf8d5dcb27dc3d71d9ed1bb755b705da877adcd66d8aa"
+    },
+    {
+      "name": "8x8_4P_10x5",
+      "why": "the current rig \u2014 three controllers, partial last controller",
+      "golden": true,
+      "frameSha256": "10cfd968b0b3436c6b50717f4c6cf69459b545b5c665c5d8003b268a561f8057"
+    },
+    {
+      "name": "8x8_4P_10x5_rotate180",
+      "why": "the current rig with the controllers moved to the opposite end",
+      "golden": true,
+      "frameSha256": "bd33c4997ba36576fe485adffc521a48c492fe307bb0a3781857b3e10bd7db0c"
+    },
+    {
+      "name": "8x8_8P_32x11",
+      "why": "the maximum 8P floor \u2014 4 controllers, packetsPerPort = 5",
+      "golden": true,
+      "frameSha256": "88a1ab1d2b95d8c11810b3db4b93670a27957d52a6494cfb8d0875d380306483"
+    },
+    {
+      "name": "8x8_4P_1x1",
+      "why": "the minimum floor \u2014 one port, one packet, which is also the last",
+      "golden": true,
+      "frameSha256": "a0b7dd4ed2ed0de74fc8ef680f67f3b71ab9311b9992980fb167106eeacf28b1"
+    },
+    {
+      "name": "8x8_8P_8x2",
+      "why": "port payload under 507 bytes",
+      "golden": false,
+      "frameSha256": "7675e05aa5416fcff2898ec99c0040415ca5be1b37d1b6c13f3b327fda514711"
+    },
+    {
+      "name": "8x8_8P_9x5",
+      "why": "partial last controller on an 8P floor",
+      "golden": false,
+      "frameSha256": "b0b261168f3e548b8c6a31ff0234a44b8439ca852d19f2af3ecf1b6f19c505c7"
+    },
+    {
+      "name": "8x8_4P_4x5",
+      "why": "one controller, exactly full, 4P",
+      "golden": false,
+      "frameSha256": "fb8974716ca19f861bf0f0d352abb4d60477facfec6852701352771839451eae"
+    },
+    {
+      "name": "8x8_4P_32x22",
+      "why": "the maximum 4P floor \u2014 8 controllers",
+      "golden": false,
+      "frameSha256": "54016f6dcdcd9a1e0a242d27953dcec75340fd0621de9730d7abb409aa56e120"
+    },
+    {
+      "name": "8x8_4P_10x5_reverseColumnsPerController",
+      "why": "per-controller column reverse, on the partial-controller rig",
+      "golden": false,
+      "frameSha256": "bc7504fcf8c320014a7cc700a093858208487f656c6df2c932ef99d01a764270"
+    },
+    {
+      "name": "6x6_4P_7x3",
+      "why": "6x6 transpose scan \u2014 carried as data, no hardware, unverified",
+      "golden": false,
+      "frameSha256": "9bbbcd81f93703e1e8e24db6d79a464ec49cb01852e1333e1b25d1de91b4b07b"
+    }
+  ]
+}

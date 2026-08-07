@@ -1,0 +1,149 @@
+{
+  "schema": "ddf-mapper-fixture/1",
+  "name": "8x8_8P_8x5",
+  "why": "the 2026-08-06 capture rig \u2014 one controller, exactly full",
+  "config": {
+    "floorType": "8x8_8P",
+    "typeIndex": 3,
+    "tileCols": 8,
+    "tileRows": 5
+  },
+  "derived": {
+    "widthPx": 64,
+    "heightPx": 40,
+    "pixelCount": 2560,
+    "portsPerController": 8,
+    "portDataSize": 960,
+    "packetsPerPort": 2,
+    "controllerCount": 1,
+    "lastControllerPortCount": 8,
+    "packetsPerFrame": 16,
+    "bytesPerFrame": 7760,
+    "widthMm": 4000.0,
+    "heightMm": 2500.0
+  },
+  "orientation": {
+    "rotate180": false,
+    "mirrorX": false,
+    "reverseColumnsPerController": false
+  },
+  "pattern": "gradient24",
+  "colorOrder": "BGR",
+  "hardwareVerified": true,
+  "packets": [
+    [
+      0,
+      0,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      2,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      2,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      3,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      3,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      4,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      4,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      5,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      5,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      6,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      6,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      7,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      7,
+      1,
+      129,
+      458
+    ]
+  ],
+  "payloadSha256": "9d5e3a86e869da2d5de7075ff90f963fc37d654c6ba7a547df53d86e79e7d687",
+  "frameSha256": "54a110f85c0372ec01dcf8d5dcb27dc3d71d9ed1bb755b705da877adcd66d8aa"
+}

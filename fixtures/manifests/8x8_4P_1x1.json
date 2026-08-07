@@ -1,0 +1,44 @@
+{
+  "schema": "ddf-mapper-fixture/1",
+  "name": "8x8_4P_1x1",
+  "why": "the minimum floor \u2014 one port, one packet, which is also the last",
+  "config": {
+    "floorType": "8x8_4P",
+    "typeIndex": 2,
+    "tileCols": 1,
+    "tileRows": 1
+  },
+  "derived": {
+    "widthPx": 8,
+    "heightPx": 8,
+    "pixelCount": 64,
+    "portsPerController": 4,
+    "portDataSize": 192,
+    "packetsPerPort": 1,
+    "controllerCount": 1,
+    "lastControllerPortCount": 1,
+    "packetsPerFrame": 1,
+    "bytesPerFrame": 197,
+    "widthMm": 500.0,
+    "heightMm": 500.0
+  },
+  "orientation": {
+    "rotate180": false,
+    "mirrorX": false,
+    "reverseColumnsPerController": false
+  },
+  "pattern": "gradient24",
+  "colorOrder": "BGR",
+  "hardwareVerified": false,
+  "packets": [
+    [
+      0,
+      0,
+      0,
+      128,
+      197
+    ]
+  ],
+  "payloadSha256": "fd4ae1dad9c20883c68074767ef9d7399686885844f05ff6b6d4e1fc149dad7a",
+  "frameSha256": "a0b7dd4ed2ed0de74fc8ef680f67f3b71ab9311b9992980fb167106eeacf28b1"
+}

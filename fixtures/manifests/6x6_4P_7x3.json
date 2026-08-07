@@ -1,0 +1,86 @@
+{
+  "schema": "ddf-mapper-fixture/1",
+  "name": "6x6_4P_7x3",
+  "why": "6x6 transpose scan \u2014 carried as data, no hardware, unverified",
+  "config": {
+    "floorType": "6x6_4P",
+    "typeIndex": 0,
+    "tileCols": 7,
+    "tileRows": 3
+  },
+  "derived": {
+    "widthPx": 42,
+    "heightPx": 18,
+    "pixelCount": 756,
+    "portsPerController": 4,
+    "portDataSize": 324,
+    "packetsPerPort": 1,
+    "controllerCount": 2,
+    "lastControllerPortCount": 3,
+    "packetsPerFrame": 7,
+    "bytesPerFrame": 2303,
+    "widthMm": 3500.0,
+    "heightMm": 1500.0
+  },
+  "orientation": {
+    "rotate180": false,
+    "mirrorX": false,
+    "reverseColumnsPerController": false
+  },
+  "pattern": "gradient24",
+  "colorOrder": "BGR",
+  "hardwareVerified": false,
+  "packets": [
+    [
+      0,
+      0,
+      0,
+      0,
+      329
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      329
+    ],
+    [
+      0,
+      2,
+      0,
+      0,
+      329
+    ],
+    [
+      0,
+      3,
+      0,
+      128,
+      329
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      329
+    ],
+    [
+      1,
+      1,
+      0,
+      0,
+      329
+    ],
+    [
+      1,
+      2,
+      0,
+      128,
+      329
+    ]
+  ],
+  "payloadSha256": "ceac62a6478e855773d1c8a11a30bbee5098762076a3796f26b523b0acfb70c4",
+  "frameSha256": "9bbbcd81f93703e1e8e24db6d79a464ec49cb01852e1333e1b25d1de91b4b07b"
+}

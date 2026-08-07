@@ -1,0 +1,93 @@
+{
+  "schema": "ddf-mapper-fixture/1",
+  "name": "8x8_8P_8x2",
+  "why": "port payload under 507 bytes",
+  "config": {
+    "floorType": "8x8_8P",
+    "typeIndex": 3,
+    "tileCols": 8,
+    "tileRows": 2
+  },
+  "derived": {
+    "widthPx": 64,
+    "heightPx": 16,
+    "pixelCount": 1024,
+    "portsPerController": 8,
+    "portDataSize": 384,
+    "packetsPerPort": 1,
+    "controllerCount": 1,
+    "lastControllerPortCount": 8,
+    "packetsPerFrame": 8,
+    "bytesPerFrame": 3112,
+    "widthMm": 4000.0,
+    "heightMm": 1000.0
+  },
+  "orientation": {
+    "rotate180": false,
+    "mirrorX": false,
+    "reverseColumnsPerController": false
+  },
+  "pattern": "gradient24",
+  "colorOrder": "BGR",
+  "hardwareVerified": true,
+  "packets": [
+    [
+      0,
+      0,
+      0,
+      0,
+      389
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      389
+    ],
+    [
+      0,
+      2,
+      0,
+      0,
+      389
+    ],
+    [
+      0,
+      3,
+      0,
+      0,
+      389
+    ],
+    [
+      0,
+      4,
+      0,
+      0,
+      389
+    ],
+    [
+      0,
+      5,
+      0,
+      0,
+      389
+    ],
+    [
+      0,
+      6,
+      0,
+      0,
+      389
+    ],
+    [
+      0,
+      7,
+      0,
+      128,
+      389
+    ]
+  ],
+  "payloadSha256": "afa3875e107c057e8f9208d9cbc14043291165e0a098885ec6c0c7163923032c",
+  "frameSha256": "7675e05aa5416fcff2898ec99c0040415ca5be1b37d1b6c13f3b327fda514711"
+}
