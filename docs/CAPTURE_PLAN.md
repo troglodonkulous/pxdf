@@ -69,8 +69,11 @@ powershell -ExecutionPolicy Bypass -File .\tools\Send-FloorTest.ps1 -Pattern whi
 
 ### Working folder
 
+Lives inside the repo (gitignored — session data, not source):
+
 ```powershell
-mkdir C:\ddf-capture; cd C:\ddf-capture
+cd $HOME\OneDrive\Documents\ddf
+mkdir ddf-capture -ErrorAction SilentlyContinue; cd ddf-capture
 ```
 
 ---
@@ -81,12 +84,12 @@ mkdir C:\ddf-capture; cd C:\ddf-capture
 Get-ChildItem -Path C:\Users -Recurse -Filter "Configure.ini" -ErrorAction SilentlyContinue |
   Where-Object { Test-Path (Join-Path $_.DirectoryName "LedSet.exe") } |
   ForEach-Object { "=== $($_.FullName) ==="; Get-Content $_.FullName } |
-  Tee-Object -FilePath C:\ddf-capture\configure-ini-dump.txt
+  Tee-Object -FilePath .\configure-ini-dump.txt
 
 Get-ChildItem -Path C:\Users -Recurse -Include *.xml -ErrorAction SilentlyContinue |
   Where-Object { Select-String -Path $_.FullName -Pattern "<Mapper" -Quiet -ErrorAction SilentlyContinue } |
   ForEach-Object { "=== $($_.FullName) ==="; Get-Content $_.FullName } |
-  Tee-Object -FilePath C:\ddf-capture\mapper-xml-dump.txt
+  Tee-Object -FilePath .\mapper-xml-dump.txt
 ```
 
 We already have `Test 3.xml` (64×40, `TypeIndex 3` = `8x8_8P`). Grab any others
@@ -109,7 +112,7 @@ number; everything below uses `-i N`.
 ## 3. Capture command
 
 ```powershell
-& "C:\Program Files\Wireshark\dumpcap.exe" -i N -f "udp port 60001" -w C:\ddf-capture\NAME.pcapng
+& "C:\Program Files\Wireshark\dumpcap.exe" -i N -f "udp port 60001" -w .\NAME.pcapng
 ```
 
 **Procedure — learned the hard way:** start `dumpcap` → *then* do the floor
@@ -137,15 +140,42 @@ controller exactly as they are.
 
 For each: start capture → display the pattern → hold ~3 s → Ctrl+C.
 
+> **Ledset only lists video files.** Its media scanner accepts exactly
+> `.MP4 .AVI .FLV .MOV .WMV .MPG` and has no image code path at all, so `.png`,
+> `.bmp` and `.gif` never appear in the list however you point it. Every pattern
+> below is therefore an **uncompressed 24-bit AVI**. See
+> `test-patterns/README.md` for the full reasoning and how to regenerate them.
+
 | # | File | Display in Ledset | Verifies |
 |---|---|---|---|
-| 1 | `01-black.pcapng` | `01-black.png` | Baseline. Body should be all-`0x00`. **Also: does any 966-byte packet appear, and from which source MAC?** (Q3) |
-| 2 | `02-white.pcapng` | `02-white.png` | All-`0xFF` body. Diff vs black isolates pixel bytes. |
-| 3 | `03-red.pcapng` | `03-red.png` | ⭐ **Colour order.** Prediction: the *third* byte of each triple is `0xFF` (BGR). If it is the first, the finding is wrong. |
-| 4 | `06-halves.pcapng` | `06-halves.png` | Coarse spatial check. |
+| 1 | `01-black.pcapng` | `01-black.avi` (6 s) | Baseline. Body should be all-`0x00`. **Also: does any 966-byte packet appear, and from which source MAC?** (Q3) |
+| 2 | `02-white.pcapng` | `02-white.avi` (6 s) | All-`0xFF` body. Diff vs black isolates pixel bytes. |
+| 3 | `03-red.pcapng` | `03-red.avi` (6 s) | ⭐ **Colour order.** Prediction: the *third* byte of each triple is `0xFF` (BGR). If it is the first, the finding is wrong. |
+| 4 | `06-halves.pcapng` | `06-halves.avi` (6 s) | Coarse spatial check. Left half white, right half black. |
 | 5 | `07-tilewalk.pcapng` | `07-tilewalk.avi`, full 24 s | ⭐ Ground truth for Q1 — see §5. |
 
 Tests 3 and 5 are the ones that matter. If time is short, do those.
+
+`04-green.avi`, `05-blue.avi` and `08-sweep.avi` are also in the folder. They are
+not required for Part A; `08-sweep.avi` (a one-pixel white column stepping
+`x = 0..63`, then a one-pixel white row stepping `y = 0..39`, one frame each at
+10 fps) is a useful extra if you want Ledset's own view of scan order to compare
+against §9.
+
+### If a pattern does not appear in Ledset's list
+
+Check it without launching Ledset — this runs the same two gates Ledset applies
+(extension filter, then a real `VideoGrabber.dll` decode):
+
+```powershell
+cd $HOME\OneDrive\Documents\ddf
+.\tools\Test-LedsetCanLoad.ps1
+```
+
+Every `.avi` should report `WorksInLedset = True`. If a file is listed in Ledset
+but shows "Thumbnail Lost" or plays nothing, it is a codec problem, not a
+mapping problem — press **Refresh** in Ledset first (that deletes and rebuilds
+the `thn` thumbnail cache; Ledset only builds thumbnails when `thn` is absent).
 
 ### Predicted frame shape — check this first
 
@@ -311,7 +341,7 @@ headroom than the vendor tool suggests. Worth knowing; not blocking.
 
 ```powershell
 # terminal 1
-& "C:\Program Files\Wireshark\dumpcap.exe" -i N -f "udp port 60001" -w C:\ddf-capture\20-ours-white.pcapng
+& "C:\Program Files\Wireshark\dumpcap.exe" -i N -f "udp port 60001" -w $HOME\OneDrive\Documents\ddf\ddf-capture\20-ours-white.pcapng
 # terminal 2
 .\tools\Send-FloorTest.ps1 -Pattern white -Duration 5 -LocalIP 10.200.50.78
 ```
@@ -324,7 +354,8 @@ behaved perfectly — it will be the reference when the macOS sender is written.
 
 ## 13. Wrap-up checklist
 
-Copy into the shared `ddf` folder (no USB stick needed):
+Already in the shared `ddf` folder if you followed §0 (no USB stick or copy step
+needed) — just confirm everything below is present:
 
 - [ ] `configure-ini-dump.txt`, `mapper-xml-dump.txt`
 - [ ] All `*.pcapng`
@@ -333,7 +364,7 @@ Copy into the shared `ddf` folder (no USB stick needed):
 - [ ] Note of anything that contradicted `DECOMP_FINDINGS.md`
 
 ```powershell
-Get-ChildItem C:\ddf-capture\*.pcapng | Select-Object Name, Length
+Get-ChildItem $HOME\OneDrive\Documents\ddf\ddf-capture\*.pcapng | Select-Object Name, Length
 ```
 
 0-byte or 24-byte files mean nothing was captured — wrong interface number.
