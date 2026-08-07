@@ -1,0 +1,78 @@
+param([int]$SettleMs = 120, [int]$OkMs = 300, [int]$CapMs = 200, [string]$OutDir)
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+Add-Type -AssemblyName System.Drawing
+Add-Type -MemberDefinition @'
+[DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+'@ -Name U2 -Namespace W2
+[void][W2.U2]::SetProcessDPIAware()
+
+$AE = [System.Windows.Automation.AutomationElement]
+$TS = [System.Windows.Automation.TreeScope]
+$walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
+$win = $null
+$c = $walker.GetFirstChild($AE::RootElement)
+while ($c -ne $null) { if ($c.Current.Name -like "*Mapper*") { $win = $c; break }; $c = $walker.GetNextSibling($c) }
+$hwnd = [IntPtr]$win.Current.NativeWindowHandle
+[void][W2.U2]::SetForegroundWindow($hwnd)
+if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
+
+# cache element handles once - big speedup vs re-finding every cycle
+$cache = @{}
+foreach ($aid in @('cbo_Type','cbo_FeetOfWidth','cbo_FeetOfHeight','btn_OK')) {
+  $cond = New-Object System.Windows.Automation.PropertyCondition($AE::AutomationIdProperty, $aid)
+  $cache[$aid] = $win.FindFirst($TS::Descendants, $cond)
+}
+$liCond = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)
+$txCond = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
+
+function PickIdx($aid,$idx){ $its=$cache[$aid].FindAll($TS::Descendants,$liCond); $its[$idx].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select() }
+function PickName($aid,$n){
+  $its=$cache[$aid].FindAll($TS::Descendants,$liCond)
+  foreach($i in $its){ if($i.Current.Name -eq $n){ $i.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); return $true } }
+  return $false
+}
+function Sel($aid){ $s=$cache[$aid].GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection(); if($s.Count){$s[0].Current.Name}else{'<none>'} }
+
+$typeNames = @('6x6_4P','6x6_8P','8x8_4P','8x8_8P')
+$configs = @(
+  @(3,'8','6'), @(3,'12','8'), @(3,'16','12'), @(3,'24','10'),
+  @(2,'16','10'), @(0,'12','8'), @(1,'20','10'), @(3,'32','16')
+)
+$bmp = New-Object System.Drawing.Bitmap(1920,1080)
+$g   = [System.Drawing.Graphics]::FromImage($bmp)
+$sz  = New-Object System.Drawing.Size(1920,1080)
+
+$swAll = [Diagnostics.Stopwatch]::StartNew()
+foreach ($cfg in $configs) {
+  $sw = [Diagnostics.Stopwatch]::StartNew()
+  $ti=$cfg[0]; $wf=$cfg[1]; $hf=$cfg[2]
+  try {
+    PickIdx 'cbo_Type' $ti
+    Start-Sleep -Milliseconds $SettleMs
+    $okW = PickName 'cbo_FeetOfWidth' $wf
+    $okH = PickName 'cbo_FeetOfHeight' $hf
+    Start-Sleep -Milliseconds $SettleMs
+    $cache['btn_OK'].GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Start-Sleep -Milliseconds $OkMs
+
+    $all = $win.FindAll($TS::Descendants,$txCond)
+    $nc=0; foreach($t in $all){ if($t.Current.Name -like 'Controller *' -and $t.Current.ClassName -eq 'Text'){$nc++} }
+
+    Start-Sleep -Milliseconds $CapMs
+    $g.CopyFromScreen(0,0,0,0,$sz)
+    $f = Join-Path $OutDir ("cfg_{0}_{1}x{2}.png" -f $typeNames[$ti],$wf,$hf)
+    $bmp.Save($f,[System.Drawing.Imaging.ImageFormat]::Png)
+    $sw.Stop()
+    Write-Output ("{0,-8} W={1,-3} H={2,-3} -> wOK={3} hOK={4} actualW={5} actualH={6} CTRL={7}  {8:N2}s" -f `
+      $typeNames[$ti],$wf,$hf,$okW,$okH,(Sel 'cbo_FeetOfWidth'),(Sel 'cbo_FeetOfHeight'),$nc,$sw.Elapsed.TotalSeconds)
+  } catch {
+    $sw.Stop()
+    Write-Output ("{0,-8} W={1,-3} H={2,-3} -> FAILED: {3}  {4:N2}s" -f $typeNames[$ti],$wf,$hf,$_.Exception.Message,$sw.Elapsed.TotalSeconds)
+  }
+}
+$swAll.Stop()
+$g.Dispose(); $bmp.Dispose()
+Write-Output ("TOTAL {0:N2}s for {1} configs => {2:N2}s/config" -f $swAll.Elapsed.TotalSeconds,$configs.Count,($swAll.Elapsed.TotalSeconds/$configs.Count))
