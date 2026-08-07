@@ -145,10 +145,110 @@ nothing in the UI to say why. The patterns were regenerated as uncompressed
 `test-patterns/README.md` both document the constraint. All captures above used
 the `.avi` files.
 
-## Still open
+---
 
-**Q1 (physical orientation)** cannot be answered from capture data — it depends
-on cabling and requires the floor observations from §8. The wire side is
-recorded in `07-tilewalk.pcapng`, which pairs with `tilewalk_timing.md`
-(2 s black lead-in, then 11 tile positions at 2 s each) to map logical position
-to physical tile once the video of the walk is reviewed.
+# Part B — floor observations
+
+Run from the Mac side of the session, watching the physical floor rather than
+the wire. These close the questions capture data cannot reach.
+
+## Q1 — physical orientation ✅ **CLOSED**
+
+Four single-tile observations per `CAPTURE_PLAN.md` §8, recorded against a
+hand sketch of the floor:
+
+| Sent | Physical tile that lit |
+|---|---|
+| `-TileCol 0 -TileRow 0` | bottom-right corner, at the cable end |
+| `-TileCol 1 -TileRow 0` | one tile **left** of `(0,0)`, along the long axis |
+| `-TileCol 0 -TileRow 1` | one tile **up** from `(0,0)`, along the short axis |
+| `-TileCol 7 -TileRow 4` | top-left corner — diagonally opposite, as predicted |
+
+**Result: logical `(0,0)` is the bottom-right tile. Logical +X runs
+right-to-left; logical +Y runs bottom-to-top.** Both axes are inverted and
+neither is transposed, so the transform is a **pure 180° rotation** — no mirror,
+no swap of axes.
+
+For the sender:
+
+```
+x_wire = (tileCols * 8 - 1) - x_logical
+y_wire = (tileRows * 8 - 1) - y_logical
+```
+
+Apply at the framebuffer read step, **before** packing. Do not reorder packets to
+achieve it — `packetIndex` and `bodyOffset` are defined in port-payload space and
+must stay untouched.
+
+`TileCol` running along the long axis is forced by the protocol, not discovered:
+`port = tileCol % PORT_COUNT`, and this rig is 8 chains of 5 tiles, so the 8 port
+columns can only lie along the 8-tile axis. The genuinely open part was the
+origin corner and handedness, which the corner check settles. Physical connectors
+1–4 also run right-to-left across the floor.
+
+> On the 14 × 10 target rig this becomes two controllers: columns 0–7 on
+> controller 0, columns 8–13 on controller 1. Which physical end is column 0 is a
+> **cabling decision at load-in**, so the 180° result here is specific to this
+> rig's cabling, not a property of the hardware. Keep it a parameter.
+
+## Q2 — is the end-of-frame flag required? ✅ **CLOSED — it is required**
+
+`CAPTURE_PLAN.md` §7 run in order: blink baseline (worked), black to establish a
+known state (worked), then `-Pattern white -NoEof`.
+
+**The floor did not turn white.** It stayed dark except for 3–5 sporadic partial
+flickers per 10 s run, each under a second, at irregular intervals. Every flicker
+showed the same three features:
+
+1. Illumination began at the **far end of each chain** — the end opposite the
+   controller cabling, i.e. the tail of each port's payload.
+2. **Dead, unlit pixels** appeared in the white region near its boundary with the
+   unlit region.
+3. **5–10 pixels at that boundary showed colour** — in a frame whose every source
+   pixel is `FFFFFF`.
+
+Point 3 is the diagnostic. Coloured pixels cannot arise from an all-white source
+unless a **BGR triple was split mid-write** — one or two of its three bytes
+updated to `0xFF`, the third still `0x00`. That is tearing at *byte* granularity,
+not packet granularity (which would leave a 169-pixel gap) and not pixel
+granularity (which would leave one dark LED).
+
+**Interpretation:** with no `0x80` the controller never latches, so it never
+displays a completed frame. The flickers are its self-refresh firing sporadically
+and blitting whatever is currently in its receive buffer — a partially filled
+one — straight to the LEDs. The fraction of the floor lit at each flicker was
+different every time and varied across the whole range, consistent with an
+asynchronous refresh cursor with no lock against the incoming writes.
+
+The confirming run, `-Pattern blink -NoEof`, behaved identically — no clean
+alternation, same sporadic partial flickers. **Conclusive: bit 7 of byte 4 is the
+frame latch.** The sender must set it exactly once per controller per frame.
+
+> Corollary for the macOS sender: because the controller double-buffers on the
+> latch, no pacing tricks or inter-packet delays are needed to avoid tearing.
+> Set the flag and the controller handles it.
+
+## Q4 — within-tile scan order ✅ **CLOSED — identity confirmed**
+
+`-Pattern pixel -PixelX 0 -PixelY 0` lit the corner tile's bottom-**right**
+pixel; `-PixelX 7 -PixelY 0` lit its bottom-**left**. Full tile width apart, same
+row, opposite ends — exactly what the identity scan table predicts once the 180°
+rotation from Q1 is applied. **No serpentine, no per-tile correction needed.**
+Both landed on the bottom row, which is also what the rotation predicts for
+logical `y = 0`.
+
+`-PixelX 0 -PixelY 7` was not run. Predicted result: **top-right pixel** of the
+same tile. Worth one command at the next floor session to close the second axis,
+but the tile-level corner check already rules out a panel mounted rotated in its
+frame.
+
+## Colour order on hardware ✅
+
+`-Pattern red` rendered red on the LEDs, matching the BGR wire finding from the
+capture side. No `-ColorOrder RGB` correction needed anywhere in the pipeline.
+
+## What remains
+
+Nothing blocking. `07-tilewalk.pcapng` pairs with `tilewalk_timing.md` (2 s black
+lead-in, then 11 tile positions at 2 s each) if a full 40-tile map is ever wanted,
+but the four corner observations above already determine the transform completely.

@@ -224,13 +224,34 @@ a port's second packet begins 41 pixels into its third tile. A packet body is no
 a standalone 169-pixel run — it is only meaningful with its port and packet
 index.
 
-### 4.4 What code cannot answer ❓
+### 4.4 Physical orientation — ✅ **RESOLVED at the floor**
 
 The above is the **logical** mapping — pixel to wire, exactly as the vendor
-sends it. It does **not** say which physical tile is logical `(0,0)`, nor whether
-the floor is rotated or mirrored relative to what Ledset renders. That depends on
-how the chains are physically cabled and can only be settled at the floor.
-`docs/CAPTURE_PLAN.md` §8 does exactly that.
+sends it. It does not by itself say which physical tile is logical `(0,0)`. That
+depends on how the chains are cabled, and was settled by observation
+(`docs/CAPTURE_RESULTS.md`, Part B / Q1).
+
+**On the reference rig, logical `(0,0)` is the bottom-right tile at the cable
+end. Logical +X runs right-to-left, +Y bottom-to-top — a pure 180° rotation, no
+mirror and no transpose.**
+
+```
+x_wire = (C * 8 - 1) - x_logical
+y_wire = (R * 8 - 1) - y_logical
+```
+
+Apply this at the framebuffer read step, **before** packing. Never reorder
+packets to achieve it: `packetIndex` and `bodyOffset` are defined in port-payload
+space and must stay untouched.
+
+> ⚠️ **This is a property of one rig's cabling, not of the hardware.** A floor
+> re-cabled at load-in can land in any of the four rotations. The sender must
+> keep orientation a **runtime parameter**; 180° is the correct *default* for the
+> reference rig only. On multi-controller layouts the same caution applies to
+> which physical end is tile column 0.
+
+Note `tileCol` is forced onto the port axis by `port = tileCol % PORT_COUNT` —
+that part was never free. Only the origin corner and handedness were open.
 
 ### 4.5 Hypotheses, closed
 
@@ -323,16 +344,34 @@ generates pixels directly avoids all of it.
 
 ---
 
-## 8. Remaining open questions ❓
+## 8. Question log — resolved 2026-08-06 at the floor
 
-| # | Question | How it gets answered |
+All blocking questions are closed. Evidence: `docs/CAPTURE_RESULTS.md`.
+
+| # | Question | Answer |
 |---|---|---|
-| Q1 | Which physical tile is logical `(0,0)`? Rotation / mirroring? | `CAPTURE_PLAN.md` §8 — tile walk |
-| Q2 | Is the end-of-frame flag required to latch a frame? | `CAPTURE_PLAN.md` §7 |
-| Q3 | What emits the 966-byte packet? | Source MAC in any capture |
-| Q4 | Is the per-tile scan really non-serpentine on real LEDs? | `CAPTURE_PLAN.md` §9 |
-| Q5 | Does the controller accept faster than 10 fps? | `CAPTURE_PLAN.md` §11 |
-| Q6 | Brightness / gamma — is there any control? | Nothing in the send path touches pixel values; likely controller-side or absent |
+| Q1 | Which physical tile is logical `(0,0)`? Rotation / mirroring? | ✅ Bottom-right at the cable end. **180° rotation**, no mirror, no transpose — see §4.4. Rig-specific; keep it a parameter. |
+| Q2 | Is the end-of-frame flag required to latch a frame? | ✅ **Required.** Without it the floor never latches; it shows only sporadic partial flickers with byte-level tearing. Set `0x80` once per controller per frame. |
+| Q3 | What emits the 966-byte packet? | ✅ **Nothing in this system.** Absent across 7,725 captured packets covering all five patterns; only 512 and 458 appeared. Ignore it. |
+| Q4 | Is the per-tile scan really non-serpentine on real LEDs? | ✅ **Identity confirmed.** `PixelX 0→7` moved a full tile width along one row. (`PixelY 7` not yet run; tile-level corner check already excludes a rotated panel.) |
+| Q5 | Does the controller accept faster than 10 fps? | ❓ Not tested. Vendor measured at ~9.35 fps actual; our sender held a clean 10.0. Non-blocking. |
+| Q6 | Brightness / gamma — is there any control? | ❓ Nothing in the send path touches pixel values; controller-side or absent. Non-blocking. |
+
+Colour order was additionally confirmed on real LEDs — `-Pattern red` renders
+red, matching the BGR wire finding. No `-ColorOrder RGB` correction is needed.
+
+### Vendor playback defects — requirements for the replacement
+
+Not protocol facts, but observed on the wire and visible on the floor. Both are
+bugs in Ledset's *player*, and the replacement must not reproduce them:
+
+- **Blank frames at every loop boundary.** Ledset emits two all-black frames
+  (~210 ms) while a clip restarts. This is the floor-goes-black-between-loops
+  defect, and it is sender-side — nothing in the protocol requires it.
+  **Loops must be gapless.**
+- **Torn frames.** `SendData` has no locking, so the send thread reads the
+  capture buffer while the decoder is still writing it. 1 of 45 observed frames
+  was torn. **The sender must double-buffer.**
 
 ---
 
