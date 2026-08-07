@@ -12,10 +12,10 @@ byte-for-byte identical to the vendor's.
 ## Captures taken
 
 Originally captured to `C:\ddf-capture\` per the plan as written, then moved
-into the repo at `ddf-capture\` (still gitignored — session data, not source).
+into the repo at `captures/` (tracked — shared across development machines).
 `CAPTURE_PLAN.md` §0 now points there directly for future sessions.
 
-All in `ddf-capture\` (gitignored, session data — see note below). Interface 8
+All in `captures/`. Interface 8
 (`Ethernet`, `10.200.50.78`), filter `udp port 60001`.
 
 | File | Packets | Frames | Source pattern |

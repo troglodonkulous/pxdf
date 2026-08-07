@@ -60,7 +60,8 @@ sender-side bugs rather than protocol limits:
 | `tools/Test-LedsetCanLoad.ps1` | Checks a pattern against Ledset's own two load gates without launching it. |
 | `tools/make_test_patterns.py` | Generates test media for any tile layout (macOS/Python). |
 | `test-patterns/` | Pre-rendered media at 64 × 40. **AVI only for Ledset** — it has no image code path. |
-| `decompiled/` | Vendor decompiler output. **Gitignored** — reference only, never a source for our code. |
+| `decompiled/` | Vendor decompiler output. Reference only — never a source for our code. |
+| `captures/` | Packet captures from hardware sessions. Tracked for cross-machine development. |
 
 Superseded, kept for provenance: `docs/CAPTURE_PLAN.md` (the session it planned
 is done — see `CAPTURE_RESULTS.md`), `docs/WINDOWS_BRIEF.md`,
@@ -93,11 +94,15 @@ running.
 ## Reference material
 
 `reference/` holds vendor artifacts (mapper XML, configs, release notes).
-`decompiled/` holds decompiler output — on disk, gitignored.
+`decompiled/` holds decompiler output — tracked so both machines share the same
+evidence, still reference only.
+`captures/` holds session `.pcapng` files and related dumps from hardware
+verification.
 
 ## Legal posture
 
 Interoperability reverse engineering of hardware the company owns. Vendor
 binaries are read for protocol facts only; implementation is written from the
-written spec in `docs/PROTOCOL.md`, **never** from decompiler output. That is
-why `decompiled/` is gitignored: it is evidence, not a source tree.
+written spec in `docs/PROTOCOL.md`, **never** from decompiler output.
+`decompiled/` is evidence, not a source tree — describe behaviour in the written
+spec instead of pasting from it.

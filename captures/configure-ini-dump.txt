@@ -1,0 +1,16 @@
+﻿=== C:\Users\USER\OneDrive\Documents\Dance Floor\IPADE安装\Release\Release\Configure.ini ===
+[APP]
+ProgramPath=C:\Users\123\Desktop\?????
+ProgramTab=0
+ScaleFactorX=1
+ScaleFactorY=1
+IsPreview=True
+MapperPath=
+=== C:\Users\USER\OneDrive\Documents\Dance Floor\Release\Configure.ini ===
+[APP]
+ProgramPath=C:\Users\USER\OneDrive\Documents\Dance Floor\IPAD????2\1?1??
+ProgramTab=0
+ScaleFactorX=0.6
+ScaleFactorY=0.6
+IsPreview=False
+MapperPath=C:\Users\USER\OneDrive\Documents\Test 3.xml

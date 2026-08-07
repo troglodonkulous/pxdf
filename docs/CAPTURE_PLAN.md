@@ -69,11 +69,11 @@ powershell -ExecutionPolicy Bypass -File .\tools\Send-FloorTest.ps1 -Pattern whi
 
 ### Working folder
 
-Lives inside the repo (gitignored — session data, not source):
+Lives inside the repo at `captures/` (tracked so both machines share the files):
 
 ```powershell
 cd $HOME\OneDrive\Documents\ddf
-mkdir ddf-capture -ErrorAction SilentlyContinue; cd ddf-capture
+mkdir captures -ErrorAction SilentlyContinue; cd captures
 ```
 
 ---
@@ -341,7 +341,7 @@ headroom than the vendor tool suggests. Worth knowing; not blocking.
 
 ```powershell
 # terminal 1
-& "C:\Program Files\Wireshark\dumpcap.exe" -i N -f "udp port 60001" -w $HOME\OneDrive\Documents\ddf\ddf-capture\20-ours-white.pcapng
+& "C:\Program Files\Wireshark\dumpcap.exe" -i N -f "udp port 60001" -w $HOME\OneDrive\Documents\ddf\captures\20-ours-white.pcapng
 # terminal 2
 .\tools\Send-FloorTest.ps1 -Pattern white -Duration 5 -LocalIP 10.200.50.78
 ```
@@ -364,7 +364,7 @@ needed) — just confirm everything below is present:
 - [ ] Note of anything that contradicted `DECOMP_FINDINGS.md`
 
 ```powershell
-Get-ChildItem $HOME\OneDrive\Documents\ddf\ddf-capture\*.pcapng | Select-Object Name, Length
+Get-ChildItem $HOME\OneDrive\Documents\ddf\captures\*.pcapng | Select-Object Name, Length
 ```
 
 0-byte or 24-byte files mean nothing was captured — wrong interface number.
