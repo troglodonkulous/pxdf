@@ -1,4 +1,4 @@
-param([int]$SettleMs = 120, [int]$OkMs = 300, [int]$CapMs = 200, [string]$OutDir)
+param([int]$SettleMs = 120, [int]$OkMs = 300, [int]$CapMs = 200, [string]$OutDir, [switch]$Full)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
@@ -34,13 +34,45 @@ function PickName($aid,$n){
   foreach($i in $its){ if($i.Current.Name -eq $n){ $i.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); return $true } }
   return $false
 }
+function Names($aid){
+  $its=$cache[$aid].FindAll($TS::Descendants,$liCond)
+  $out=@(); foreach($i in $its){ $out += $i.Current.Name }
+  return $out
+}
 function Sel($aid){ $s=$cache[$aid].GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection(); if($s.Count){$s[0].Current.Name}else{'<none>'} }
 
 $typeNames = @('6x6_4P','6x6_8P','8x8_4P','8x8_8P')
-$configs = @(
-  @(3,'8','6'), @(3,'12','8'), @(3,'16','12'), @(3,'24','10'),
-  @(2,'16','10'), @(0,'12','8'), @(1,'20','10'), @(3,'32','16')
-)
+
+# Default: the eight-config sample, one per interesting shape. -Full sweeps
+# every width the app offers, per floor type, which is the ~100-config archive
+# a future diagram generator would be graded against.
+#
+# The width and height lists are read off the live combos rather than typed in
+# here: each floor type repopulates them with its own legal envelope, and a
+# hard-coded list would silently drift from the app. The Width dropdown
+# virtualises (10 of 32 items render at a time) but UIA reaches all of them --
+# the printed item count per type is how you check that stayed true.
+if ($Full) {
+  $configs = @()
+  foreach ($ti in 0..3) {
+    PickIdx 'cbo_Type' $ti
+    Start-Sleep -Milliseconds ($SettleMs * 3)
+    $widths  = @(Names 'cbo_FeetOfWidth')
+    $heights = @(Names 'cbo_FeetOfHeight')
+    Write-Output ("{0,-8} widths={1} heights={2}" -f $typeNames[$ti], $widths.Count, $heights.Count)
+    # One mid height per type: row count provably affects neither the edge
+    # segment count nor the controller count (handoff 1 S2.3), so sweeping
+    # heights would buy a four-fold repeat of the same picture.
+    $h = $heights[[int]($heights.Count / 2)]
+    foreach ($w in $widths) { $configs += ,@($ti, $w, $h) }
+  }
+  Write-Output ("-Full: {0} configs" -f $configs.Count)
+} else {
+  $configs = @(
+    @(3,'8','6'), @(3,'12','8'), @(3,'16','12'), @(3,'24','10'),
+    @(2,'16','10'), @(0,'12','8'), @(1,'20','10'), @(3,'32','16')
+  )
+}
 $bmp = New-Object System.Drawing.Bitmap(1920,1080)
 $g   = [System.Drawing.Graphics]::FromImage($bmp)
 $sz  = New-Object System.Drawing.Size(1920,1080)
