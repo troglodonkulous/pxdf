@@ -87,7 +87,7 @@ Two standing constraints, unchanged:
 | | |
 |---|---|
 | Media | `test-patterns\09-gradient24-8x8_4P-10x5.avi` — copied in, 583,126 bytes |
-| Ledset media folder | `Configure.ini` `ProgramPath` = `C:\Users\USER\dev\ddf\test-patterns` (read live; the dump in `captures/configure-ini-dump.txt` is stale) |
+| Ledset media folder | `Configure.ini` `ProgramPath` = `C:\Users\USER\dev\ddf\test-patterns` **at the time of staging. It did not stay that way** — see the note below. |
 | Mapper XML target | `Configure.ini` `MapperPath` = `C:\Users\USER\dev\Dance Floor\Lplayer\ledset-test.xml` |
 | Floor NIC | Ethernet, `10.200.50.78`, 1 Gbps, up — **dumpcap interface 8** |
 | `dumpcap` | `C:\Program Files\Wireshark\dumpcap.exe` |
@@ -105,6 +105,17 @@ copy goes missing, copy it back.
 **Ledset will not show the clip until its thumbnail cache is rebuilt** — press
 Refresh on the Player page after launch. That is the only staging step that
 needs the app open, which is why it is here and not above.
+
+**`ProgramPath` will not still be `test-patterns` next session.** Read live
+after the gate-2 captures it was `C:\Users\USER\dev\Dance Floor\IPAD????2\16?9`,
+the vendor's own media folder. The operator changed it deliberately, after the
+captures were taken, while exploring the stock media — nothing drifted on its
+own and nothing about the captures is affected. But it is persisted
+(`LedMapper_Closing` and `LedPalyer_Closing` both call `config.Save()`,
+`LedSet.decompiled.cs:1186` and `:2770`), so the change outlives the session
+that made it. **Read the live file at the start of every session** rather than
+trusting this table or `captures/configure-ini-dump.txt`, and re-stage the clip
+if it points somewhere else. `MapperPath` was unaffected.
 
 ---
 
@@ -263,37 +274,62 @@ Ledset's.
 
 ---
 
-## 6. The `cbo_Type` read defect, and why the geometry is confirmed anyway
+## 6. The `cbo_Type` read defect — found, diagnosed live, and fixed
 
-`verify-xml-control-path.ps1`'s `ComboText` helper collects the `Name` of every
-descendant `Text` element of `cbo_Type` and joins them; against the live app it
-collected nothing and returned `""`. The comparison at the end of the script is
-a four-way `-and`, so `matchesExpected` is now permanently `False` no matter
-what loaded. **This is a reporting bug, not a control-path failure**, and it was
-diagnosed rather than re-run — re-running costs another Ledset relaunch.
+`verify-xml-control-path.ps1`'s old `ComboText` helper collected the `Name` of
+every descendant `Text` element of `cbo_Type` and joined them; against the live
+app it collected nothing and returned `""`, so the four-way `-and` comparison
+could never pass. **Root cause, found by exhaustive live enumeration** (every
+`AutomationElement.*Property` on the selected item, `LegacyIAccessiblePattern`
+absent from this UIA assembly, `ItemContainerPattern` returning only the
+already-selected container): **a closed `cbo_Type` has zero `Text`
+descendants.** The item's `DisplayName` TextBlock does not exist until the
+popup has opened at least once — `06-halves`-style tile-uniform evidence, but
+for UI Automation instead of packets.
 
-The geometry is confirmed by three independent readings that do not involve
-that combo:
+**Fixed 2026-08-08**, and re-verified live against the same candidate used
+above: `cbo_Type.ExpandCollapsePattern.Expand()` realizes all four items'
+`Text` children (`6x6_4P` / `6x6_8P` / `8x8_4P` / `8x8_8P`, in `ItemsSource`
+order), and — confirmed by comparing the selected item's `RuntimeId` before and
+after — **`Expand()`/`Collapse()` changes only `ExpandCollapseState`, never the
+selection**, and the realized containers stay realized after `Collapse()`. The
+new `TypeComboText` matches the pre-expand selected item's `RuntimeId` against
+the post-expand `ListItem`s and reads that one item's text, so it is still a
+pure read in effect — nothing is clicked, nothing chosen — even though the
+dropdown now opens and closes once. Re-run: `typeText='8x8_4P'`,
+`MATCH: True`, everything else unchanged from the first run.
 
-1. `controllerCount = 3`, read from the drawn Mapper page, and operator-
-   confirmed on screen.
-2. `width = 20ft`, `height = 10ft`, read via `SelectionPattern`. Among the four
-   floor types those two numbers plus 3 controllers admit only `8x8_4P`:
-   10 tile columns at 4 ports per controller is `ceil(10/4) = 3`, where `8x8_8P`
-   would draw 2 and the `6x6` types do not produce a 10×5 tile grid at
-   20×10 ft at all.
-3. **The capture itself, which is the strongest of the three.** A wrong floor
-   type yields a different packet plan entirely — different packet count,
-   different lengths, different byte 4 sequence. 68 of 72 frames matched the
-   `8x8_4P` 10×5 plan byte for byte. Nothing else in the legal envelope does
-   that.
+**The width/height reasoning in the original diagnosis was wrong and is struck
+here rather than silently fixed**, because the error is worth keeping visible.
+`width`/`height` come from `cbo_FeetOfWidth`/`cbo_FeetOfHeight`, and per
+`mapper/floors.py`'s own comment, Ledset's feet are `(index + 1) * 2` — a bug
+that assumes every tile is 2 ft regardless of the floor type's real pitch. That
+makes `width`/`height` a readout of `tile_cols`/`tile_rows` **alone**, with zero
+dependence on `tile_px`, so a `6x6_4P` floor at the same 10×5 tile grid would
+have produced the exact same `width=20ft height=10ft controllers=3` reading.
+Those three numbers therefore could not have distinguished `6x6_4P` from
+`8x8_4P` — only `cbo_Type`'s own text (or the physical tile pitch, unobservable
+from the UI at all) can. The geometry was still correctly `8x8_4P`, confirmed
+independently by the packet capture below, but the three-number argument that
+was standing in for `cbo_Type` never actually closed that gap.
 
-So the read side of decision 5's control path *is* verified live: Ledset picked
-up a mapper XML written by `python -m mapper xml` and loaded exactly the
-geometry it described. `docs/ORACLE_HARNESS.md` §2's "read side unverified
-live" is closed. Fixing `ComboText` is worth doing before the gate-4 session,
-since that session leans on this script harder, and it needs a live Ledset to
-debug against.
+The geometry is now confirmed by two independent readings:
+
+1. `typeText='8x8_4P'`, `controllerCount = 3`, both read directly and matching
+   what was written, and operator-confirmed on screen.
+2. **The capture, which is stronger than any UI readback.** A wrong floor type
+   yields a different packet plan entirely — different packet count, different
+   lengths, different byte 4 sequence. 68 of 72 frames matched the `8x8_4P`
+   10×5 plan byte for byte. Nothing else in the legal envelope does that, and
+   this one is immune to the width/height blind spot above since it never goes
+   through the feet dropdowns at all.
+
+So the read side of decision 5's control path *is* verified live, cleanly now:
+Ledset picked up a mapper XML written by `python -m mapper xml` and reported
+back the exact geometry it described, `typeText` included. `docs/ORACLE_HARNESS.md`
+§2's "read side unverified live" is closed, and the earlier caveat about the
+script's own verdict line no longer applies — `MATCH: True` can be trusted
+going forward.
 
 ---
 

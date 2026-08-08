@@ -107,12 +107,21 @@ and three drawn controllers**, which is the geometry that XML describes. The
 68 of 72 frames, which confirms the same thing from the wire rather than from
 the UI. Decision 5's control path therefore works end to end, write and read.
 
-One caveat, and it is a defect in the script rather than the path: the script
-printed `MATCH: False`, because its `ComboText 'cbo_Type'` read returned the
-empty string and the final comparison is a four-way `-and`. The three numeric
-reads were all correct. See `docs/PRE-PROBE.md` §6 for the diagnosis and for
-why the geometry is confirmed independently of that combo. **Fix `ComboText`
-before the gate-4 session**, which leans on this script harder.
+The first run of the session printed `MATCH: False` despite the geometry being
+correct: `cbo_Type`'s old `ComboText` read returned the empty string (a closed
+combo has zero `Text` descendants until its popup has opened once — see
+`docs/PRE-PROBE.md` §6), so the four-way `-and` comparison could never pass.
+**Diagnosed and fixed the same session.** The new `TypeComboText` briefly
+expands the dropdown to realize the item text, matches the pre-expand selected
+item's `RuntimeId` to pick the right one, and collapses it again;
+`ExpandCollapsePattern.Expand()`/`Collapse()` were confirmed live to change
+`ExpandCollapseState` only, never the selection. Re-run against the same
+candidate: `typeText='8x8_4P'`, `MATCH: True`. `docs/PRE-PROBE.md` §6 also
+corrects a wrong piece of the original diagnosis — Ledset's `width`/`height`
+feet readback is `(tile_cols|tile_rows) * 2` regardless of floor type (a vendor
+bug, see `mapper/floors.py`'s `TILE_PITCH_MM` comment), so those two numbers
+alone could never have distinguished `6x6_4P` from `8x8_4P` the way that
+diagnosis first claimed.
 
 The original design note follows, unchanged, because it is still the
 description of what the script does. `verify-xml-control-path.ps1`

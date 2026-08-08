@@ -2,10 +2,13 @@
 Live verification of the XML control path (HANDOFF decision 5): write a
 Ledset-loadable mapper XML to the file Ledset already reads its geometry
 from -- Configure.ini's `MapperPath` -- close and relaunch Ledset, and
-confirm the Mapper page reports back the geometry we wrote. No UI
-Automation clicks anywhere in this script: every AutomationElement call
-below is a read (SelectionPattern.Current.GetSelection(), Text element
-.Current.Name). There is no Select() and no Invoke() in this file.
+confirm the Mapper page reports back the geometry we wrote. No selection
+changes anywhere in this script: every AutomationElement call below is a
+read, or `cbo_Type`'s `ExpandCollapsePattern.Expand()`/`Collapse()` (see
+`TypeComboText` below), which opens and closes the dropdown but does not
+change `SelectedIndex` and fires no `SelectionChanged` -- verified live
+2026-08-08 (RuntimeId of the selected item identical before and after).
+There is no Select() and no Invoke() in this file.
 
 Never touches the Player page: relaunching Ledset always opens on the
 Mapper page (`App.ShowAppWin()` in the decompiled source), and this script
@@ -115,15 +118,6 @@ try {
             if ($e -eq $null) { throw "element $aid not found" }
             return $e
         }
-        # read the visible text of a closed combo (the ContentPresenter TextBlock) -- READ ONLY
-        function ComboText($aid) {
-            $el = ByAid $aid
-            $cond = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
-            $ts = $el.FindAll($TS::Descendants, $cond)
-            $out = @()
-            foreach ($t in $ts) { if ($t.Current.Name) { $out += $t.Current.Name } }
-            return ($out -join '/')
-        }
         # SelectionPattern read -- READ ONLY, no Select()
         function CurSel($aid) {
             $el = ByAid $aid
@@ -137,7 +131,41 @@ try {
         # entries (Handoff 1 S2.3) -- only the rendered combo TEXT distinguishes,
         # because cbo_Type.DisplayMemberPath = "DisplayName" (LedSet.decompiled.cs:1217,
         # FloorTypeSet(FloorType) ctor around line 2241 sets DisplayName = "8x8_4P" etc).
-        $typeText = ComboText 'cbo_Type'
+        #
+        # A closed cbo_Type has ZERO Text descendants -- confirmed live 2026-08-08 by
+        # exhaustive enumeration (every AutomationElement.*Property on the selected
+        # item, LegacyIAccessible unavailable in this UIA assembly, ItemContainerPattern
+        # only ever returns the one already-selected container). The item's DisplayName
+        # TextBlock is not realized until the popup opens at least once. Expanding it
+        # does not change the selection -- Expand()/Collapse() touch
+        # ExpandCollapseState only, confirmed by RuntimeId identical before and after --
+        # and once realized the item containers stay realized after Collapse(), so this
+        # reads the same as before: no click, no keystroke, nothing chosen.
+        function TypeComboText($aid) {
+            $el = ByAid $aid
+            $sp = $el.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern)
+            $selected = $sp.Current.GetSelection()[0]
+            $selectedId = $selected.GetRuntimeId() -join ','
+
+            $ecp = $el.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+            $ecp.Expand()
+            try {
+                $liCond = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)
+                $items = $el.FindAll($TS::Descendants, $liCond)
+                $txCond = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
+                foreach ($it in $items) {
+                    if (($it.GetRuntimeId() -join ',') -eq $selectedId) {
+                        $t = $it.FindFirst($TS::Descendants, $txCond)
+                        if ($t -ne $null) { return $t.Current.Name }
+                    }
+                }
+                return ""
+            }
+            finally {
+                $ecp.Collapse()
+            }
+        }
+        $typeText = TypeComboText 'cbo_Type'
         $widthSel = CurSel 'cbo_FeetOfWidth'
         $heightSel = CurSel 'cbo_FeetOfHeight'
 
