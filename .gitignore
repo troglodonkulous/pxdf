@@ -29,3 +29,6 @@ $RECYCLE.BIN/
 # --- Tooling ------------------------------------------------------------------
 *.tmp
 *.log
+
+# Generated oracle harness output
+tools/oracle/out/
