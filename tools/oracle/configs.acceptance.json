@@ -1,6 +1,6 @@
 {
-  "_comment": "The list for the attended Player-page session (`--live`), once gate 2 clears. Not runnable yet -- every entry needs a capture that does not exist. Geometry, pattern and orientation are fixed; exact hold time and AVI file are pair C's run-sheet to finalise. See docs/ORACLE_HARNESS.md 'Blocked on the attended session' for the ordered list this JSON encodes.",
-  "_max_tolerated_derivation": "No capture exists at this geometry, so max_tolerated cannot be measured yet and is DERIVED: media/09-gradient24-8x8_4P-10x5.avi is 60 frames at 10 fps = a 6.0 s loop; Ledset sends at ~9.2 fps (mapper/tests/test_oracle_capture.py, median 109 ms between frame starts, consistent across all five Ledset captures), so an 8 s capture window holds ~74 frames and can span at most 2 loop boundaries. Blank frames per boundary: 2 documented, 2-3 measured, budget 3. Torn frames: at most 2 in any measured capture, budget 3 for the longer window. 2*3 + 3 = 9. RE-MEASURE against the real capture as soon as one exists, and re-derive this if the window or the clip length changes -- a budget carried over from a different capture is exactly the unbounded tolerance this field was added to remove.",
+  "_comment": "The list for the attended Player-page session (`--live`). Gate 2 was run 2026-08-08: rows 1 and 2 are captured and both PASS; row 3 still needs the controllers physically moved (decision 20) and is captured in the gate-4 hardware session. See docs/ORACLE_HARNESS.md 'Blocked on the attended session' for the ordered list this JSON encodes.",
+  "_max_tolerated_derivation": "MEASURED 2026-08-08 against the two real captures at this exact geometry and window, replacing the derivation that preceded them. Observed, identically in both: one loop boundary of 3 consecutive blank frames, plus 1 torn frame = 4 tolerated, out of 72 complete frames (gradient24) and 74 (white). The budget must cover the worst case the window admits, not the case observed: media/09-gradient24-8x8_4P-10x5.avi is a 6.0 s loop and the window is 8 s, so it can straddle 2 boundaries even though both captures caught 1. Blank frames per boundary: 3, measured twice here and 2/3/3 across the five 2026-08-06 captures -- budget 3 per boundary, so 2*3 = 6. Torn frames: 1 here in each of 72 and 74 frames, and at most 2 in any of the five older (44-50 frame) captures -- budget 2, the measured ceiling across all seven real captures. 6 + 2 = 8, against 4 observed. This tightens the previous DERIVED 9, which had assumed 3 torn frames on arithmetic rather than the 2 that has ever been seen. Re-derive if the window length or the clip length changes -- a budget carried over from a different capture is exactly the unbounded tolerance this field was added to remove.",
   "configs": [
     {
       "name": "acceptance-gradient24-identity",
@@ -9,9 +9,9 @@
       "rows": 5,
       "pattern": "gradient24",
       "orientation": "identity",
-      "capture": null,
-      "max_tolerated": 9,
-      "notes": "TOP PRIORITY (per critic finding on the mapper). Every current capture is tile-uniform, so nothing today constrains intra-tile pixel order or port assignment -- a wrong scan table or a swapped port passes every existing capture. gradient24 is per-pixel-unique and this is the first oracle at 3 controllers with a partial last one. It is also the ONLY capture that can see a fault between two tile columns that carry identical content in every existing capture (docs/ORACLE_HARNESS.md S8, fault F2). Media: tools/oracle/media/09-gradient24-8x8_4P-10x5.avi (generated, verified to load and decode via Ledset's own VideoGrabber.dll -- see docs/ORACLE_HARNESS.md). max_tolerated derived above."
+      "capture": "captures/oracle/acceptance-gradient24-identity.pcapng",
+      "max_tolerated": 8,
+      "notes": "CAPTURED 2026-08-08, attended, gate 2. PASS: 72 complete frames, 68 matched exactly, 4 tolerated (3 loop-boundary blanks from frame 32, 1 torn frame at 55), 0 unexplained, worst recurrence 1/72 = 1% at ctrl0/port0/pkt0. One trailing partial group of 13 packets at the window edge. This is the project's first multi-controller oracle and the first capture whose content is per-pixel-unique, so it is the first evidence of any kind that tile_col -> (controller, port) is correct above one controller's worth of columns, that mapper/floors.py::_identity_scan is the real intra-tile order rather than a decompilation guess, and -- because 68 frames of almost entirely intermediate pixel values matched byte-for-byte -- that Ledset applies no brightness or gamma transform on the video->wire path (docs/PROTOCOL.md Q6). Media: tools/oracle/media/09-gradient24-8x8_4P-10x5.avi. Measured max_tolerated: see _max_tolerated_derivation above."
     },
     {
       "name": "acceptance-white-identity",
@@ -20,9 +20,9 @@
       "rows": 5,
       "pattern": "white",
       "orientation": "identity",
-      "capture": null,
-      "max_tolerated": 9,
-      "notes": "Coarse multi-controller sanity check, cheap to run right after the gradient24 capture at the same geometry. Cannot detect a port swap at all (solid colour); it is here for packet count, headers and controller placement only. max_tolerated derived above."
+      "capture": "captures/oracle/acceptance-white-identity.pcapng",
+      "max_tolerated": 8,
+      "notes": "CAPTURED 2026-08-08, attended, gate 2, immediately after the gradient24 row at the same geometry. PASS: 74 complete frames, 70 matched exactly, 4 tolerated (3 loop-boundary blanks from frame 16, 1 torn frame at 33), 0 unexplained, worst recurrence 1/74 = 1%. Coarse sanity check only: it confirms packet count, headers and controller placement, and cannot detect a port swap at all because solid colour carries no positional information -- the gradient24 row is what does that. Its value here is that it agrees with the gradient24 row on the vendor-defect rate at this geometry, which is what makes max_tolerated a measurement of two captures rather than one. Measured max_tolerated: see _max_tolerated_derivation above."
     },
     {
       "name": "acceptance-gradient24-rotate180",
@@ -32,8 +32,8 @@
       "pattern": "gradient24",
       "orientation": "rotate180",
       "capture": null,
-      "max_tolerated": 9,
-      "notes": "Decision 20, arrangement #2 -- same floor, controllers moved to the opposite end. Wire-level bytes will match the identity-orientation capture exactly (orientation is a framebuffer-read-side transform in mapper/orientation.py, never a packet reorder) -- this row exists to confirm the *physical* corner checks, not to add a second wire-level oracle. Run in the same attended session as arrangement #1 per decision 20. max_tolerated derived above."
+      "max_tolerated": 8,
+      "notes": "Decision 20, arrangement #2 -- same floor, controllers moved to the opposite end. Wire-level bytes will match the identity-orientation capture exactly (orientation is a framebuffer-read-side transform in mapper/orientation.py, never a packet reorder) -- this row exists to confirm the *physical* corner checks, not to add a second wire-level oracle. Run in the same attended session as arrangement #1 per decision 20 -- NOT done in the 2026-08-08 gate-2 session, which deliberately scoped out the physical move; it belongs to the gate-4 hardware session. max_tolerated measured above, same geometry, window and clip as the two captured rows."
     }
   ]
 }

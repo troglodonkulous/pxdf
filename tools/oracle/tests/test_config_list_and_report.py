@@ -26,10 +26,25 @@ class ConfigListLoading(unittest.TestCase):
         self.assertGreaterEqual(len(configs), 5)
         self.assertTrue(any(c.capture is None for c in configs), "expect the acceptance-gap row")
 
-    def test_acceptance_list_loads_and_every_capture_is_null(self):
+    def test_acceptance_list_never_claims_a_capture_that_does_not_exist(self):
+        """The real invariant, which outlived the gate-2 session.
+
+        Until 2026-08-08 this asserted every acceptance capture was `null`,
+        which was true only because no attended session had run yet -- the
+        assertion encoded a schedule, not a property. Gate 2 filled two of the
+        three rows in, and the thing actually worth defending is what the old
+        message already said: a row must not name a file that is not there.
+        """
         configs = load(ACCEPTANCE)
         self.assertGreaterEqual(len(configs), 1)
-        self.assertTrue(all(c.capture is None for c in configs), "acceptance list must not claim a capture that doesn't exist")
+        for oc in configs:
+            if oc.capture is None:
+                continue
+            with self.subTest(config=oc.name):
+                self.assertTrue(
+                    (ROOT / oc.capture).exists(),
+                    f"{oc.name} claims {oc.capture}, which is not on disk",
+                )
 
     def test_unknown_field_is_rejected(self):
         import tempfile
@@ -91,12 +106,19 @@ class ReportRendering(unittest.TestCase):
         self.assertIn("3/3", table, "02-white's tolerated count must print against its budget")
 
     def test_every_config_with_a_capture_has_a_measured_tolerance_budget_note(self):
-        """`max_tolerated` is a measurement, so the config must say what was measured."""
-        for oc in load(DRYRUN):
-            if oc.capture is None:
-                continue
-            with self.subTest(config=oc.name):
-                self.assertIn("Measured", oc.notes, "max_tolerated must be justified in notes")
+        """`max_tolerated` is a measurement, so the config must say what was measured.
+
+        Both lists, not just the dry-run one: the acceptance rows carried a
+        *derived* budget until a capture existed at that geometry, and the
+        whole point of re-measuring it after gate 2 is that the derivation
+        stops being the justification.
+        """
+        for path in (DRYRUN, ACCEPTANCE):
+            for oc in load(path):
+                if oc.capture is None:
+                    continue
+                with self.subTest(list=path.name, config=oc.name):
+                    self.assertIn("Measured", oc.notes, "max_tolerated must be justified in notes")
 
 
 if __name__ == "__main__":
