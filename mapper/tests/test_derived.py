@@ -102,6 +102,21 @@ class Envelope(unittest.TestCase):
         )
 
     def test_scan_tables(self):
+        """Drift detection only — this is **not** evidence the tables are right.
+
+        The 8x8 assertion below compares the scan table against the constant
+        the code was written to emit, so it can only tell you the table changed,
+        never that it was correct to begin with. No capture constrains it
+        either: every spatial capture we hold is tile-uniform, so permuting
+        this table leaves `test_oracle_capture` bit-identical to the control
+        (measured for row-reverse, column-reverse and serpentine). The table's
+        only real support is `InitFloor` in the decompiled source plus a
+        two-pixel floor observation. See `mapper/floors.py::_identity_scan`.
+
+        Kept because drift detection is still worth having — it is the only
+        thing that would flag an accidental edit — but do not read a green run
+        here as confirmation.
+        """
         self.assertEqual(FLOOR_TYPES["8x8_8P"].scan_table, tuple(range(64)))
         six = FLOOR_TYPES["6x6_4P"]
         self.assertEqual(six.scan_table[1], 6)

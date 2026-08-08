@@ -31,6 +31,29 @@ CAPTURES = Path(__file__).resolve().parents[2] / "captures"
 #: The rig those captures were taken on.
 RIG = FloorConfig.of("8x8_8P", 8, 5)
 
+#: Rows 1–8 of `test-patterns/tilewalk_timing.md`, in playback order. This is
+#: the only sequence in the repo that resolves individual tiles, so it is the
+#: only thing that can kill a permutation of the tile grid.
+#:
+#: **The capture is truncated.** `07-tilewalk.pcapng` holds 238 complete frames
+#: over a 25.9 s span and stops ~0.65 s into position 8, so rows 9–11 of the
+#: timing sheet — `(7,0)`, `(7,4)` and `(4,2)` — were never captured. Those are
+#: exactly the positions that would pin tile columns 7 and 4 individually.
+#: Columns 4–7 are therefore constrained only as a *set*, by `06-halves`.
+#: See `docs/CAPTURE_RESULTS.md` for the full statement of what is left open.
+EXPECTED_WALK = ((0, 0), (1, 0), (2, 0), (3, 0), (0, 1), (0, 2), (0, 3), (0, 4))
+
+#: Frames one walk position may occupy.
+#:
+#: The video holds each position for 2.0 s and Ledset's player runs at ~9.2 fps
+#: (median 109 ms between frame starts, consistent across all five Ledset
+#: captures), so a full position is 18.4 frames; the capture in fact shows 18
+#: or 19. The ±3 band absorbs the frame that straddles a position boundary plus
+#: a ~10 % frame-rate excursion, and stays far tighter than the failures it has
+#: to catch: a mapping that splits one position into two runs yields ≤ 10
+#: frames per run, and one that merges two adjacent positions yields ≥ 36.
+FRAMES_PER_POSITION = range(16, 22)
+
 
 def load(name: str) -> list[list[bytes]]:
     """Complete frames from a capture, as lists of raw datagrams."""
@@ -143,14 +166,33 @@ class ImageIn(unittest.TestCase):
                     self.assertEqual(pixel(img, x, y), expected, f"at ({x}, {y})")
 
     def test_tilewalk_decodes_to_exactly_one_lit_tile(self):
-        """Proves the tile layout and the per-tile scan, not just the packet shape.
+        """The one capture that resolves individual tiles rather than a set.
 
-        Every non-black frame in the walk must decode to a single fully lit tile
-        aligned to the tile grid. A wrong column-major order, a serpentine scan
-        or a transposed tile all break this; none of them break a white frame.
+        `07-tilewalk.avi` lights one tile at a time in a documented order.
+        Decoding Ledset's own frames back through our mapping must reproduce
+        that order **exactly**, which is what makes this the only test in the
+        suite that can kill a permutation of the tile grid: sending a tile
+        column to the wrong port, or reversing tile rows within a port, changes
+        the decoded sequence and fails here. `tile_col -> (controller, port)`
+        is a single `divmod` in `frame.py`, and it is the same mechanism that
+        becomes *controller* placement above 8 tile columns — so this assertion
+        is also the only pre-hardware check on that.
+
+        What it does **not** constrain, and must not be read as constraining:
+
+        * **The 8×8 intra-tile scan table.** Every lit tile here is uniformly
+          white, so the scan table is invisible to this capture — row-reverse,
+          column-reverse and serpentine all decode identically. That table
+          rests on the decompiled `InitFloor` alone; see `floors.py`.
+        * **Tile columns 4–7 individually.** The capture is truncated before
+          the walk reaches them; see `EXPECTED_WALK`. `06-halves` pins them
+          only as a set.
         """
         tile_px = RIG.type.tile_px
-        positions = set()
+        # [position, frame count], in arrival order. Deliberately not a set:
+        # the *sequence* is the assertion, so a permutation that visits the
+        # right tiles in the wrong order must have nowhere to hide.
+        runs: list[list] = []
         whole = 0
         torn = 0
         for payload_frame in load("07-tilewalk.pcapng"):
@@ -178,14 +220,37 @@ class ImageIn(unittest.TestCase):
                 # A torn frame tears mid-pixel as well as mid-tile: Ledset's
                 # send thread reads the capture buffer at byte granularity.
                 torn += 1
-            positions.add((xs.pop(), ys.pop()))
+            position = (xs.pop(), ys.pop())
+            if runs and runs[-1][0] == position:
+                runs[-1][1] += 1
+            else:
+                runs.append([position, 1])
 
         self.assertGreaterEqual(whole, 100, "most frames must show a fully lit tile")
         self.assertLessEqual(torn, 2, "Ledset's documented torn frames, and no more")
-        self.assertGreaterEqual(len(positions), 8, "the walk should visit many tiles")
-        for tile_col, tile_row in positions:
-            self.assertLess(tile_col, RIG.tile_cols)
-            self.assertLess(tile_row, RIG.tile_rows)
+
+        self.assertEqual(
+            tuple(position for position, _ in runs),
+            EXPECTED_WALK,
+            "decoded walk does not match test-patterns/tilewalk_timing.md rows 1-8",
+        )
+
+        for index, (position, frames) in enumerate(runs[:-1], start=1):
+            self.assertIn(
+                frames,
+                FRAMES_PER_POSITION,
+                f"walk position {index} {position} held for {frames} frames",
+            )
+        # Position 8 is cut short by the end of the capture, not by the video.
+        # If `07-tilewalk.pcapng` is ever replaced with a complete capture,
+        # extend `EXPECTED_WALK` to rows 9–11 and delete this assertion —
+        # that is what closes the columns 4–7 gap.
+        self.assertGreaterEqual(runs[-1][1], 1)
+        self.assertLess(
+            runs[-1][1],
+            min(FRAMES_PER_POSITION),
+            "the capture is documented as truncated mid-position-8",
+        )
 
 
 if __name__ == "__main__":

@@ -16,7 +16,8 @@ python -m mapper plan --type 8x8_4P --cols 10 --rows 5
 # the invariant suite, over every legal geometry
 python -m mapper matrix
 
-# regenerate the conformance fixtures
+# regenerate the conformance fixtures. Refuses to overwrite an existing set —
+# add --force, and only for a reviewed contract change. See "Fixtures" below.
 python -m mapper fixtures --out fixtures
 
 # a Ledset mapper XML, for driving the oracle without UI automation
@@ -72,14 +73,40 @@ bytes:
   `02-white`, with the other three being Ledset's two documented loop-boundary
   blanks and one documented torn frame;
 - decoding Ledset's frames *back* through our mapping reproduces the picture the
-  source video showed: `06-halves` is a clean vertical split, and every frame of
-  `07-tilewalk` is exactly one fully lit, tile-aligned square.
+  source video showed: `06-halves` is a clean vertical split, and `07-tilewalk`
+  decodes to one fully lit, tile-aligned square per frame, visiting tiles in
+  **exactly** the order `tilewalk_timing.md` says the video lights them —
+  `(0,0) (1,0) (2,0) (3,0) (0,1) (0,2) (0,3) (0,4)` — for ~2 s each.
 
 That last check is the one that matters. A solid colour cannot detect a
 permutation — every wrong mapping of a white frame is still a white frame. The
 same sampling bias produced two earlier self-consistent-but-wrong conclusions
 (the "512-byte packet" and "byte 4 always 0x00" findings). Fixtures therefore
 use `gradient24`, which is unique per pixel.
+
+### What `07-tilewalk` does and does not constrain
+
+It is the only capture that resolves *individual* tiles, so the ordered-sequence
+assertion above is the only thing in the suite that can kill a permutation of
+the tile grid. Verified by mutation: swapping tile columns pairwise in
+`frame.py::_port_offset` (0↔1, 2↔3, 4↔5, 6↔7 — every column on the wrong port),
+or reversing tile rows within each port, now fails `test_oracle_capture`. Before
+the ordering assertion existed, both mutations passed every capture-based test
+and were caught only by `test_fixtures`. That matters beyond this rig:
+`tile_col -> (controller, port)` is one `divmod`, and above 8 tile columns the
+same line decides *controller* placement.
+
+Two things it still does not reach, both measured, not assumed:
+
+- **Tile columns 4–7 are pinned only as a set**, by `06-halves`.
+  `07-tilewalk.pcapng` is truncated — 238 frames over 25.9 s, stopping ~0.65 s
+  into position 8 — so rows 9–11 of the timing sheet (`(7,0)`, `(7,4)`,
+  `(4,2)`), the ones that would resolve columns 7 and 4 individually, were never
+  captured.
+- **The 8 × 8 intra-tile scan table is invisible to every capture we hold.**
+  Each lit tile is uniformly white, so row-reverse, column-reverse and
+  serpentine all decode identically; all three were mutated and left every
+  capture-based assertion bit-identical to the control.
 
 ## What is *not* proven
 
@@ -95,6 +122,16 @@ use `gradient24`, which is unique per pixel.
 - **6 × 6 floor types are carried as data and are unsupported.** The transpose
   scan table is implemented and round-trips, but there is no 6 × 6 hardware, so
   no claim is made.
+- **The intra-tile scan table is a decompilation-only assumption**, at every
+  floor type. `InitFloor` in the vendor source says identity for 8 × 8, and one
+  floor observation (`CAPTURE_RESULTS.md` Q4) pins 2 of its 64 slots. No capture
+  constrains it and none can — see above. `test_derived.test_scan_tables`
+  compares it against the constant the code was written to emit, so it detects
+  drift and proves nothing. Closing it needs a per-pixel-unique `gradient24`
+  Ledset playback capture, which needs hardware and an attended session.
+- **Tile columns 4–7 have never been resolved individually by any capture**, and
+  no multi-controller layout has been observed at all. The 10 × 5 `8x8_4P` run
+  is the first test of either.
 
 ## Fixtures
 
@@ -112,6 +149,20 @@ the minimum floor where the only packet is also the last, a port payload under
 507 bytes, both orientation flags, and one 6 × 6 config. `test_fixtures.py`
 regenerates them and fails on any drift, so a contract change shows up as a
 reviewed diff.
+
+**Do not regenerate to make `test_fixtures` go green.** Outside the single
+geometry the captures cover (8 × 5 `8x8_8P`), these committed bytes are the only
+thing in the suite that would notice a tile column landing on the wrong port or
+the wrong controller — the invariants only check that the mapping is a
+bijection, which a permuted mapping still is. A red `test_fixtures` is that
+alarm firing. `python -m mapper fixtures` therefore refuses to overwrite an
+existing set; `--force` is for a contract change you have already reviewed, and
+the fixture diff belongs in the same commit as the code that caused it.
+
+Note the limit of the alarm: the fixtures were emitted by this same code, so it
+detects *drift*, not a day-one error. A mapping bug present when they were first
+generated would have been baked into the committed bytes with every test green.
+Only the captures can catch that, and only where they have spatial resolution.
 
 ## Relationship to `tools/Send-FloorTest.ps1`
 

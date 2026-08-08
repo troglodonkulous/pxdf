@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -72,6 +73,33 @@ class CommittedFixtures(unittest.TestCase):
     def test_fixture_names_are_unique(self):
         names = [spec.name for spec in fixtures_module.fixture_specs()]
         self.assertEqual(len(names), len(set(names)))
+
+
+class OverwriteGuard(unittest.TestCase):
+    """`emit` must not quietly replace a fixture set.
+
+    A builder handed a red `test_fixtures` is one plausible command away from
+    regenerating the fixtures and committing the bug as the new contract. The
+    fixtures are the only tripwire on the tile-to-port mapping at geometries
+    the captures do not reach, so that command has to be deliberate.
+    """
+
+    def test_refuses_to_overwrite_without_force(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first = fixtures_module.emit(tmp)
+            self.assertTrue(first)
+            with self.assertRaises(fixtures_module.FixturesExist) as caught:
+                fixtures_module.emit(tmp)
+            self.assertIn("--force", str(caught.exception))
+
+    def test_force_overwrites(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fixtures_module.emit(tmp)
+            self.assertTrue(fixtures_module.emit(tmp, force=True))
+
+    def test_the_committed_set_is_guarded(self):
+        """Not hypothetical: `fixtures/` is populated, so the guard is live."""
+        self.assertTrue(fixtures_module.existing_fixtures(FIXTURES))
 
 
 class MapperXmlRoundTrip(unittest.TestCase):

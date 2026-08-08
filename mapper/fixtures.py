@@ -29,6 +29,10 @@ from .plan import build_plan
 SCHEMA = "ddf-mapper-fixture/1"
 
 
+class FixturesExist(Exception):
+    """Raised rather than silently overwrite an existing fixture set."""
+
+
 @dataclass(frozen=True)
 class FixtureSpec:
     config: FloorConfig
@@ -139,9 +143,46 @@ def build_manifest(spec: FixtureSpec) -> tuple[dict, list[bytes]]:
     return manifest, datagrams
 
 
-def emit(out_dir: str | Path) -> list[Path]:
-    """Write every fixture. Returns the paths written, in order."""
+def existing_fixtures(out_dir: str | Path) -> list[Path]:
+    """Fixture files already present at `out_dir`."""
     out = Path(out_dir)
+    found = list((out / "manifests").glob("*.json")) + list((out / "golden").glob("*.bin"))
+    if (out / "index.json").exists():
+        found.append(out / "index.json")
+    return sorted(found)
+
+
+def emit(out_dir: str | Path, force: bool = False) -> list[Path]:
+    """Write every fixture. Returns the paths written, in order.
+
+    Refuses to overwrite an existing set without `force`. See `FixturesExist`
+    below for why that is worth a guard rather than a convenience.
+    """
+    out = Path(out_dir)
+    present = existing_fixtures(out)
+    if present and not force:
+        raise FixturesExist(
+            f"refusing to overwrite {len(present)} existing fixture file(s) in "
+            f"{out.resolve()}.\n"
+            "\n"
+            "`fixtures/` is the only tripwire in the suite on the tile-to-port\n"
+            "mapping. `test_fixtures` compares the committed bytes against what\n"
+            "the mapper produces right now; at geometries the captures do not\n"
+            "cover -- which is every geometry except 8x5 8x8_8P -- nothing else\n"
+            "would notice a tile column placed on the wrong port or controller.\n"
+            "Regenerating over a red `test_fixtures` converts the alarm into a\n"
+            "silently updated contract, and the bug becomes the new baseline.\n"
+            "\n"
+            "If `test_fixtures` is failing, that is the alarm working. Read the\n"
+            "diff in the mapper first. Only once the contract change is intended\n"
+            "and reviewed:\n"
+            "\n"
+            f"    python -m mapper fixtures --out {out} --force\n"
+            "\n"
+            "and commit the fixture diff in the same change as the code that\n"
+            "caused it, so a reviewer sees both."
+        )
+
     (out / "manifests").mkdir(parents=True, exist_ok=True)
     (out / "golden").mkdir(parents=True, exist_ok=True)
 

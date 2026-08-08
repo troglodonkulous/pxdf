@@ -31,12 +31,35 @@ MAX_TILE_COLS = 32
 
 
 def _identity_scan(n: int) -> tuple[int, ...]:
-    """Row-major, no serpentine. The 8x8 floor types use this."""
+    """Row-major, no serpentine. The 8x8 floor types use this.
+
+    **Decompilation-only assumption — no capture constrains this table.**
+
+    It is read off `InitFloor` in the vendor source (`docs/DECOMP_FINDINGS.md`),
+    and corroborated by a two-pixel floor observation (`CAPTURE_RESULTS.md` Q4)
+    which pins 2 of the 64 slots. Nothing more.
+
+    Every spatial capture in `captures/` is tile-*uniform*: `06-halves` splits
+    on a tile boundary and `07-tilewalk` lights whole tiles. Permuting this
+    table therefore changes no captured byte — row-reverse, column-reverse and
+    serpentine were all measured to leave every capture-based assertion
+    bit-identical to the control. `test_derived.test_scan_tables` does catch a
+    change, but only by comparing this against the constant it was written to
+    emit; that is drift detection, not evidence.
+
+    Closing it needs a per-pixel-unique `gradient24` Ledset playback capture,
+    which requires hardware and an attended session.
+    """
     return tuple(range(n * n))
 
 
 def _transpose_scan(n: int) -> tuple[int, ...]:
-    """`table[k + n*j] = n*k + j` — the 6x6 floor types use this."""
+    """`table[k + n*j] = n*k + j` — the 6x6 floor types use this.
+
+    Decompilation-only, and doubly unproven: there is no 6x6 hardware either.
+    See `_identity_scan` for why no capture could constrain it even if there
+    were.
+    """
     table = [0] * (n * n)
     for j in range(n):
         for k in range(n):
@@ -51,6 +74,10 @@ class FloorType:
     `scan_table[slot]` is the index of the source pixel within the tile that
     the controller expects at output slot `slot`. Packing needs the inverse,
     which is precomputed as `slot_of_source`.
+
+    `scan_table` is the one field here that no capture constrains, at any floor
+    type — see `_identity_scan` and `_transpose_scan`. `hardware_verified`
+    below does **not** extend to it.
     """
 
     name: str
@@ -63,6 +90,8 @@ class FloorType:
     #: in later, but we have no 6x6 hardware and make no claim about it.
     supported: bool
     #: Verified byte-identical against a Ledset capture on real hardware.
+    #: Covers the packet plan, the payload bytes and the tile -> port mapping.
+    #: It does **not** cover `scan_table`, which no capture can see.
     hardware_verified: bool
     slot_of_source: tuple[int, ...] = field(init=False, repr=False, compare=False)
 

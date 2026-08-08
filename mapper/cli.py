@@ -77,7 +77,11 @@ def cmd_matrix(args) -> int:
 
 
 def cmd_fixtures(args) -> int:
-    written = fixtures_module.emit(args.out)
+    try:
+        written = fixtures_module.emit(args.out, force=args.force)
+    except fixtures_module.FixturesExist as exc:
+        print(exc, file=sys.stderr)
+        return 2
     for path in written:
         print(path)
     print(f"{len(written)} file(s) written to {Path(args.out).resolve()}")
@@ -162,6 +166,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     fixtures = sub.add_parser("fixtures", help="emit conformance fixtures")
     fixtures.add_argument("--out", default="fixtures")
+    fixtures.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite an existing fixture set — only for a reviewed contract change",
+    )
     fixtures.set_defaults(func=cmd_fixtures)
 
     xml = sub.add_parser("xml", help="write a Ledset mapper XML for a geometry")

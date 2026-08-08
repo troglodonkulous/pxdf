@@ -305,7 +305,7 @@ Tiles are **column-major**: tile `(col, row)` sits at
 one contiguous tile column, and controller `c` owns tile columns
 `Pc .. Pc+P-1`.
 
-### 4.2 Within a tile ✅
+### 4.2 Within a tile ⚠️ decompilation-only
 
 A `T*T`-entry lookup table maps output slot → source pixel. For **8×8** floor
 types it is the **identity** — plain row-major, left-to-right, top-to-bottom,
@@ -313,9 +313,23 @@ types it is the **identity** — plain row-major, left-to-right, top-to-bottom,
 which happens to be its own inverse. This proves the table is a real scan remap
 and that other floor types differ.
 
-The identity was confirmed on real LEDs (`CAPTURE_RESULTS.md` Q4) and again off
-the wire: every Ledset frame in `captures/07-tilewalk.pcapng` decodes back
-through our mapping to exactly one fully lit, tile-aligned square.
+**This is the one part of §4 that no capture constrains.** Its support is
+`InitFloor` in the decompiled source, plus a two-lit-pixel floor observation
+(`CAPTURE_RESULTS.md` Q4) that pins 2 of the 64 entries.
+
+An earlier version of this section also cited `captures/07-tilewalk.pcapng` —
+"every frame decodes to exactly one fully lit, tile-aligned square". **That is
+not evidence for this table and the claim has been withdrawn.** A fully lit
+square is uniform, so any permutation *within* the tile decodes to the same
+square. Confirmed by mutation on 2026-08-07: row-reverse, column-reverse and
+serpentine each leave every capture-derived assertion bit-identical to the
+control. The tilewalk capture constrains which *tile* lights, which is §4.1, not
+which pixel within it.
+
+Closing this needs a per-pixel-unique `gradient24` played through Ledset and
+captured. Until then, treat it as an assumption — a correct one on the balance
+of evidence, but one that would produce a scrambled tile, not an obviously dead
+floor, if wrong.
 
 ### 4.3 Packet boundaries straddle tiles ⚠️
 
@@ -468,8 +482,8 @@ All blocking questions are closed. Evidence: `docs/CAPTURE_RESULTS.md`.
 | Q1 | Which physical tile is logical `(0,0)`? Rotation / mirroring? | ✅ Bottom-right at the cable end. **180° rotation**, no mirror, no transpose — see §4.4. Rig-specific; keep it a parameter. |
 | Q2 | Is the end-of-frame flag required to latch a frame? | ✅ **Required.** Without it the floor never latches; it shows only sporadic partial flickers with byte-level tearing. Set `0x80` once per controller per frame. |
 | Q3 | What emits the 966-byte packet? | ✅ **Nothing in this system.** Absent across 7,725 captured packets covering all five patterns; only 512 and 458 appeared. Ignore it. |
-| Q4 | Is the per-tile scan really non-serpentine on real LEDs? | ✅ **Identity confirmed.** `PixelX 0→7` moved a full tile width along one row. (`PixelY 7` not yet run; tile-level corner check already excludes a rotated panel.) |
-| Q5 | Does the controller accept faster than 10 fps? | ✅ **Closed — not pursued.** 10 fps is settled as the operating rate. Vendor measured ~9.35 fps actual; our sender holds a clean 10.0. Do not spend floor time on it. |
+| Q4 | Is the per-tile scan really non-serpentine on real LEDs? | ⚠️ **Partly.** `PixelX 0→7` moved a full tile width along one row, which pins 2 of the table's 64 entries and excludes a serpentine on row 0. The rest of the table is decompilation-only, and **no capture can corroborate it** — see §4.2. (`PixelY 7` not yet run; the tile-level corner check does already exclude a rotated panel.) |
+| Q5 | Does the controller accept faster than 10 fps? | ✅ **Closed — not pursued.** 10 fps is settled as the operating rate. Ledset measures ~9.2 fps actual (mean 108.7–109.3 ms between frame starts); ours averages 10.24 fps but with more jitter. See `CAPTURE_RESULTS.md`. Do not spend floor time on it. |
 | Q6 | Brightness / gamma — is there any control? | ❓ Nothing in the send path touches pixel values; controller-side or absent. Non-blocking. |
 
 Colour order was additionally confirmed on real LEDs — `-Pattern red` renders
