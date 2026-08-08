@@ -112,7 +112,21 @@ def cmd_verify(args) -> int:
         print("no complete frames found in the capture")
         return 1
     print(format_diffs(config, diffs))
-    return 0 if any(d.ok for d in diffs) else 1
+    bad = [i for i, d in enumerate(diffs) if not d.ok]
+    if not bad:
+        return 0
+    # This used to be `any(d.ok ...)`, i.e. one matching frame out of 46 exited
+    # 0 — `verify` reported success on a mapping that was wrong 45 times out of
+    # 46, which is the one thing this command exists not to do. Mismatches must
+    # be named and budgeted, never averaged away: Ledset's own defects (two
+    # loop-boundary blanks per capture, the occasional torn frame) are real and
+    # expected, so they are declared with --allow-mismatch rather than silently
+    # tolerated. See `mapper/tests/test_oracle_capture.py`.
+    print(f"differing frames: {', '.join(str(i) for i in bad)}", file=sys.stderr)
+    if len(bad) <= args.allow_mismatch:
+        print(f"within the --allow-mismatch {args.allow_mismatch} budget", file=sys.stderr)
+        return 0
+    return 1
 
 
 def cmd_send(args) -> int:
@@ -185,6 +199,14 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--tile-col", type=int, default=0)
     verify.add_argument("--tile-row", type=int, default=0)
     verify.add_argument("--no-eof", action="store_true")
+    verify.add_argument(
+        "--allow-mismatch",
+        type=int,
+        default=0,
+        metavar="N",
+        help="exit 0 with up to N differing frames, for Ledset's documented "
+        "loop-boundary blanks and torn frames (02-white needs 3)",
+    )
     verify.set_defaults(func=cmd_verify)
 
     send = sub.add_parser("send", help="broadcast a pattern to the floor")

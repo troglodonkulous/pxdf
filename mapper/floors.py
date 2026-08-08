@@ -35,9 +35,16 @@ def _identity_scan(n: int) -> tuple[int, ...]:
 
     **Decompilation-only assumption — no capture constrains this table.**
 
-    It is read off `InitFloor` in the vendor source (`docs/DECOMP_FINDINGS.md`),
-    and corroborated by a two-pixel floor observation (`CAPTURE_RESULTS.md` Q4)
-    which pins 2 of the 64 slots. Nothing more.
+    It is read off `InitFloor` in the vendor source (`docs/DECOMP_FINDINGS.md`).
+    The two-pixel floor observation in `CAPTURE_RESULTS.md` Q4 is weaker
+    corroboration than it has been described as: **both observed pixels are on
+    tile row 0**, where a standard serpentine is indistinguishable from
+    identity (`scan_table[0] = 0`, `scan_table[7] = 7` under both). Q4 therefore
+    excludes row-reverse and column-reverse, and is **zero evidence against
+    serpentine** — which is the most common real tile wiring, and so the
+    leading alternative. The discriminating observation is a pixel off row 0;
+    `-PixelX 0 -PixelY 7` is written up in `docs/CAPTURE_PLAN.md` §9 and has
+    not been run.
 
     Every spatial capture in `captures/` is tile-*uniform*: `06-halves` splits
     on a tile boundary and `07-tilewalk` lights whole tiles. Permuting this

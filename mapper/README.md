@@ -46,6 +46,7 @@ python -m unittest discover -t . -s mapper/tests    # ~19 s
 | `frame.py` | Framebuffer ↔ send buffer ↔ datagrams, both directions. |
 | `patterns.py` | Framebuffer sources, including the per-pixel-unique `gradient24`. |
 | `pcapng.py` | Dependency-free capture reader, Ethernet/IPv4/UDP only. |
+| `avi.py` | Dependency-free AVI reader, uncompressed 24-bit only. Exists so the oracle's tile-walk sequence is read from the video Ledset played rather than transcribed. |
 | `verify.py` | Capture-versus-expected diff, reported as a table. |
 | `fixtures.py` | Conformance fixture generation. |
 | `mapper_xml.py` | Ledset mapper XML, read and written. |
@@ -75,8 +76,17 @@ bytes:
 - decoding Ledset's frames *back* through our mapping reproduces the picture the
   source video showed: `06-halves` is a clean vertical split, and `07-tilewalk`
   decodes to one fully lit, tile-aligned square per frame, visiting tiles in
-  **exactly** the order `tilewalk_timing.md` says the video lights them —
-  `(0,0) (1,0) (2,0) (3,0) (0,1) (0,2) (0,3) (0,4)` — for ~2 s each.
+  **exactly** the order the video lights them, for ~2 s each.
+
+That last sequence is not typed into the test. `mapper/avi.py` reads
+`test-patterns/07-tilewalk.avi` — the file Ledset actually played — reduces each
+of its 240 frames to the one tile it lights, and collapses that to 11 runs of 20
+frames; the capture's decoded run sequence is asserted to be a *prefix* of it.
+The point is provenance: `tilewalk_timing.md` is **generated** from the same
+`positions` list that renders the video, so asserting against the timing sheet
+would have been circular in exactly the way that produced this project's five
+self-consistent-but-wrong conclusions. It also means the recapture that closes
+tile columns 4–7 needs no code edit — the prefix just gets longer.
 
 That last check is the one that matters. A solid colour cannot detect a
 permutation — every wrong mapping of a white frame is still a white frame. The
@@ -92,17 +102,24 @@ the tile grid. Verified by mutation: swapping tile columns pairwise in
 `frame.py::_port_offset` (0↔1, 2↔3, 4↔5, 6↔7 — every column on the wrong port),
 or reversing tile rows within each port, now fails `test_oracle_capture`. Before
 the ordering assertion existed, both mutations passed every capture-based test
-and were caught only by `test_fixtures`. That matters beyond this rig:
-`tile_col -> (controller, port)` is one `divmod`, and above 8 tile columns the
-same line decides *controller* placement.
+and were caught only by `test_fixtures`.
 
-Two things it still does not reach, both measured, not assumed:
+It does **not** extend to controller placement, and must not be read as doing
+so. The oracle rig is 8 tile columns at 8 ports per controller — *one*
+controller — so every controller-level permutation is a literal no-op there.
+Measured: `swap_ports_on_ctrl_ge1` (ports 0↔1 on every controller except 0)
+leaves `send_buffer_sources` bit-identical at 8×5 `8x8_8P` and changes it at
+10×5 `8x8_4P`. `tile_col -> (controller, port)` being one `divmod` makes it the
+same *mechanism*, which is not the same *evidence*.
+
+Three things it still does not reach, all measured, not assumed:
 
 - **Tile columns 4–7 are pinned only as a set**, by `06-halves`.
   `07-tilewalk.pcapng` is truncated — 238 frames over 25.9 s, stopping ~0.65 s
   into position 8 — so rows 9–11 of the timing sheet (`(7,0)`, `(7,4)`,
   `(4,2)`), the ones that would resolve columns 7 and 4 individually, were never
   captured.
+- **Controller ordering is unconstrained by anything pre-hardware**, see above.
 - **The 8 × 8 intra-tile scan table is invisible to every capture we hold.**
   Each lit tile is uniformly white, so row-reverse, column-reverse and
   serpentine all decode identically; all three were mutated and left every
@@ -123,15 +140,30 @@ Two things it still does not reach, both measured, not assumed:
   scan table is implemented and round-trips, but there is no 6 × 6 hardware, so
   no claim is made.
 - **The intra-tile scan table is a decompilation-only assumption**, at every
-  floor type. `InitFloor` in the vendor source says identity for 8 × 8, and one
-  floor observation (`CAPTURE_RESULTS.md` Q4) pins 2 of its 64 slots. No capture
-  constrains it and none can — see above. `test_derived.test_scan_tables`
+  floor type. `InitFloor` in the vendor source says identity for 8 × 8. The
+  floor observation in `CAPTURE_RESULTS.md` Q4 is weaker than it has been
+  described as: **both its pixels are on tile row 0**, where serpentine and
+  identity agree exactly (`scan_table[0] = 0`, `scan_table[7] = 7` under both).
+  Q4 excludes row-reverse and column-reverse; it is zero evidence against
+  serpentine, which is the most common real tile wiring and therefore the
+  leading alternative. The discriminating observation is a pixel off row 0 —
+  `-PixelX 0 -PixelY 7`, already written into `docs/CAPTURE_PLAN.md` §9, not yet
+  run. No capture we hold constrains it and none can — see above.
+  `test_derived.test_scan_tables`
   compares it against the constant the code was written to emit, so it detects
   drift and proves nothing. Closing it needs a per-pixel-unique `gradient24`
   Ledset playback capture, which needs hardware and an attended session.
 - **Tile columns 4–7 have never been resolved individually by any capture**, and
   no multi-controller layout has been observed at all. The 10 × 5 `8x8_4P` run
-  is the first test of either.
+  is the first test of either. **These two are not equally open.** Columns 4–7
+  are a `divmod` with no mechanism by which they could be permuted while 0–3 are
+  right — they are unproven but not suspect, and the truncated `07-tilewalk`
+  recapture closes them. **Controller ordering is the one most likely to be
+  wrong in reality**: it is decided by cabling at load-in, not by code, so
+  nothing in this repo can predict it. Note that
+  `test_derived.test_controller_owns_its_tile_columns` is false comfort — it
+  asserts only the *sets* `{0:{0,1,2,3}, 1:{4,5,6,7}, 2:{8,9}}`, which both
+  surviving controller-level mutations satisfy. Only hardware settles it.
 
 ## Fixtures
 

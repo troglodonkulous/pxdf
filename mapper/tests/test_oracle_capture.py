@@ -19,6 +19,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+from mapper.avi import Video, read_video
 from mapper.floors import FloorConfig
 from mapper.frame import buffer_from_datagrams, build_frame, unpack_send_buffer
 from mapper.orientation import IDENTITY
@@ -26,22 +27,80 @@ from mapper.patterns import black, solid, white
 from mapper.pcapng import read_udp, split_frames
 from mapper.plan import build_plan
 
-CAPTURES = Path(__file__).resolve().parents[2] / "captures"
+ROOT = Path(__file__).resolve().parents[2]
+CAPTURES = ROOT / "captures"
+VIDEOS = ROOT / "test-patterns"
 
 #: The rig those captures were taken on.
 RIG = FloorConfig.of("8x8_8P", 8, 5)
 
-#: Rows 1–8 of `test-patterns/tilewalk_timing.md`, in playback order. This is
-#: the only sequence in the repo that resolves individual tiles, so it is the
-#: only thing that can kill a permutation of the tile grid.
+#: The video's full walk, as `((tile_col, tile_row), frame_count)` runs.
+TILEWALK_VIDEO = VIDEOS / "07-tilewalk.avi"
+
+
+def _lit_tile(video: Video, frame: bytes) -> tuple[int, int] | None:
+    """The one tile lit in a video frame, or `None` if the frame is black."""
+    lit = {
+        (x, y)
+        for y in range(video.height)
+        for x in range(video.width)
+        if video.pixel(frame, x, y) != (0, 0, 0)
+    }
+    if not lit:
+        return None
+    tile_px = RIG.type.tile_px
+    columns = {x // tile_px for x, _ in lit}
+    rows = {y // tile_px for _, y in lit}
+    if len(columns) != 1 or len(rows) != 1:
+        raise AssertionError(f"video frame lights more than one tile: {columns} x {rows}")
+    return columns.pop(), rows.pop()
+
+
+def walk_from_video(path: Path) -> tuple[tuple[tuple[int, int], int], ...]:
+    """The tile-walk sequence read straight out of the source video.
+
+    Each frame is reduced to the single tile it lights, consecutive identical
+    frames collapse into one run, and the black lead-in drops out. The result
+    is `((tile_col, tile_row), frame_count)` in playback order.
+
+    This is the whole point of `mapper/avi.py`: the expected sequence is
+    derived from the file Ledset actually played, not from a transcription of
+    it. `tilewalk_timing.md` is *generated* from the same list that renders the
+    video, so asserting against the timing sheet would have been circular in
+    exactly the way this repo has been burned by five times already.
+    """
+    video = read_video(path)
+    if (video.width, video.height) != (RIG.width_px, RIG.height_px):
+        raise AssertionError(
+            f"{path} is {video.width}x{video.height}, but the rig is "
+            f"{RIG.width_px}x{RIG.height_px} — wrong asset for this test"
+        )
+    runs: list[list] = []
+    for frame in video.frames:
+        position = _lit_tile(video, frame)
+        if position is None:
+            continue
+        if runs and runs[-1][0] == position:
+            runs[-1][1] += 1
+        else:
+            runs.append([position, 1])
+    return tuple((position, count) for position, count in runs)
+
+
+#: The walk `test-patterns/07-tilewalk.avi` performs, decoded from the file
+#: itself. Eleven positions of 20 frames each after a 20-frame black lead-in.
+#: This is the only sequence in the repo that resolves individual tiles, so it
+#: is the only thing that can kill a permutation of the tile grid.
 #:
 #: **The capture is truncated.** `07-tilewalk.pcapng` holds 238 complete frames
-#: over a 25.9 s span and stops ~0.65 s into position 8, so rows 9–11 of the
-#: timing sheet — `(7,0)`, `(7,4)` and `(4,2)` — were never captured. Those are
-#: exactly the positions that would pin tile columns 7 and 4 individually.
-#: Columns 4–7 are therefore constrained only as a *set*, by `06-halves`.
+#: over a 25.9 s span and stops 7 frames into position 8, so positions 9–11 —
+#: `(7,0)`, `(7,4)` and `(4,2)` — were never transmitted. Those are exactly the
+#: ones that would pin tile columns 7 and 4 individually. Columns 4–7 are
+#: therefore constrained only as a *set*, by `06-halves`. The capture is
+#: consequently asserted as a *prefix* of this, which means a recapture to
+#: completion needs no edit here: the prefix simply gets longer.
 #: See `docs/CAPTURE_RESULTS.md` for the full statement of what is left open.
-EXPECTED_WALK = ((0, 0), (1, 0), (2, 0), (3, 0), (0, 1), (0, 2), (0, 3), (0, 4))
+EXPECTED_WALK = tuple(position for position, _ in walk_from_video(TILEWALK_VIDEO))
 
 #: Frames one walk position may occupy.
 #:
@@ -77,6 +136,40 @@ def decode(frame: list[bytes]) -> bytearray:
 def pixel(framebuffer: bytes, x: int, y: int) -> tuple[int, int, int]:
     i = (y * RIG.width_px + x) * 3
     return tuple(framebuffer[i : i + 3])
+
+
+class TileWalkVideo(unittest.TestCase):
+    """The ground-truth asset itself, so a swapped or regenerated file is loud.
+
+    `EXPECTED_WALK` is derived from this video rather than typed, which removes
+    the hand-retyping path but not the risk that the *file* changes. These
+    assertions pin the asset's shape, so `tools/New-PatternAvi.ps1` rerun at a
+    different geometry — `tile_walk_positions(cols, rows)` emits a different
+    sequence — fails here rather than silently shortening the oracle.
+    """
+
+    def test_video_header(self):
+        video = read_video(TILEWALK_VIDEO)
+        self.assertEqual((video.width, video.height), (RIG.width_px, RIG.height_px))
+        self.assertEqual(len(video.frames), 240)
+        # biHeight is -40. Reading it as bottom-up mirrors every frame
+        # vertically, which maps tile row r to 4-r and yields a wrong but
+        # entirely plausible-looking walk.
+        self.assertTrue(video.top_down, "biHeight is negative: the video is top-down")
+
+    def test_video_walk_is_eleven_positions(self):
+        runs = walk_from_video(TILEWALK_VIDEO)
+        self.assertEqual(len(runs), 11, "the tile-walk video must hold all 11 positions")
+        for position, frames in runs:
+            self.assertEqual(frames, 20, f"position {position} is not 2.0 s at 10 fps")
+        self.assertEqual(len(set(EXPECTED_WALK)), 11, "the walk must visit 11 distinct tiles")
+        # Deliberately *not* re-asserting the 11 positions as a literal here.
+        # That would put back the hand-typed constant this file exists to
+        # remove, and it would be checkable only against `tilewalk_timing.md`,
+        # which is generated from the same list that renders the video. The
+        # real guard against a swapped asset is `captures/07-tilewalk.pcapng`:
+        # it is Ledset's own bytes, it cannot be regenerated without hardware,
+        # and `ImageIn` below asserts the video's first 8 positions against it.
 
 
 class CaptureShape(unittest.TestCase):
@@ -168,15 +261,13 @@ class ImageIn(unittest.TestCase):
     def test_tilewalk_decodes_to_exactly_one_lit_tile(self):
         """The one capture that resolves individual tiles rather than a set.
 
-        `07-tilewalk.avi` lights one tile at a time in a documented order.
-        Decoding Ledset's own frames back through our mapping must reproduce
-        that order **exactly**, which is what makes this the only test in the
-        suite that can kill a permutation of the tile grid: sending a tile
-        column to the wrong port, or reversing tile rows within a port, changes
-        the decoded sequence and fails here. `tile_col -> (controller, port)`
-        is a single `divmod` in `frame.py`, and it is the same mechanism that
-        becomes *controller* placement above 8 tile columns — so this assertion
-        is also the only pre-hardware check on that.
+        `07-tilewalk.avi` lights one tile at a time. Decoding Ledset's own
+        frames back through our mapping must reproduce the order the video
+        itself walks — read out of the file by `walk_from_video`, not typed —
+        which is what makes this the only test in the suite that can kill a
+        permutation of the tile grid: sending a tile column to the wrong port,
+        or reversing tile rows within a port, changes the decoded sequence and
+        fails here.
 
         What it does **not** constrain, and must not be read as constraining:
 
@@ -187,6 +278,14 @@ class ImageIn(unittest.TestCase):
         * **Tile columns 4–7 individually.** The capture is truncated before
           the walk reaches them; see `EXPECTED_WALK`. `06-halves` pins them
           only as a set.
+        * **Controller placement.** `tile_col -> (controller, port)` is one
+          `divmod`, and above 8 tile columns the same line decides the
+          controller — but "same mechanism" is not "same evidence". Measured:
+          swapping ports 0↔1 on every controller *except* controller 0 changes
+          controller placement above tile column 3 and leaves this test green,
+          because the only columns this capture resolves individually are 0–3,
+          all on controller 0. Controller ordering is unproven and is closed by
+          hardware, not here.
         """
         tile_px = RIG.type.tile_px
         # [position, frame count], in arrival order. Deliberately not a set:
@@ -229,10 +328,19 @@ class ImageIn(unittest.TestCase):
         self.assertGreaterEqual(whole, 100, "most frames must show a fully lit tile")
         self.assertLessEqual(torn, 2, "Ledset's documented torn frames, and no more")
 
+        captured = tuple(position for position, _ in runs)
+        # The capture stops part-way through the video, so it can only ever be
+        # a *prefix* of the video's walk. A floor for how long that prefix must
+        # be is what keeps this an assertion rather than a formality: without
+        # it, a mutation that collapsed the walk to a single run would pass.
+        # Today's capture yields 8; a recapture to completion yields 11 and
+        # needs no edit here.
+        self.assertGreaterEqual(len(captured), 8, "the capture resolves 8 positions")
+        self.assertLessEqual(len(captured), len(EXPECTED_WALK))
         self.assertEqual(
-            tuple(position for position, _ in runs),
-            EXPECTED_WALK,
-            "decoded walk does not match test-patterns/tilewalk_timing.md rows 1-8",
+            captured,
+            EXPECTED_WALK[: len(captured)],
+            "decoded walk is not a prefix of the walk in test-patterns/07-tilewalk.avi",
         )
 
         for index, (position, frames) in enumerate(runs[:-1], start=1):
@@ -241,16 +349,19 @@ class ImageIn(unittest.TestCase):
                 FRAMES_PER_POSITION,
                 f"walk position {index} {position} held for {frames} frames",
             )
-        # Position 8 is cut short by the end of the capture, not by the video.
-        # If `07-tilewalk.pcapng` is ever replaced with a complete capture,
-        # extend `EXPECTED_WALK` to rows 9–11 and delete this assertion —
-        # that is what closes the columns 4–7 gap.
+        # The last run is short only because the capture ends mid-position —
+        # today, 7 frames into position 8 `(0,4)`. On a complete capture the
+        # walk runs out at the same time the video does and the last run is
+        # full-length, so both are accepted.
         self.assertGreaterEqual(runs[-1][1], 1)
-        self.assertLess(
-            runs[-1][1],
-            min(FRAMES_PER_POSITION),
-            "the capture is documented as truncated mid-position-8",
-        )
+        if len(captured) < len(EXPECTED_WALK):
+            self.assertLess(
+                runs[-1][1],
+                min(FRAMES_PER_POSITION),
+                "the capture is documented as truncated mid-position",
+            )
+        else:
+            self.assertIn(runs[-1][1], FRAMES_PER_POSITION)
 
 
 if __name__ == "__main__":

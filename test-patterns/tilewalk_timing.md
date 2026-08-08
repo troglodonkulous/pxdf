@@ -25,8 +25,11 @@ Note when playback begins, then add these offsets.
 ## The 2026-08-06 capture only reaches row 8
 
 `captures/07-tilewalk.pcapng` is **truncated**. It holds 238 complete frames over
-a 25.879 s span: a 102-frame black lead-in, then rows 1-8 at 18-19 frames each,
-then it stops ~0.65 s into row 8's successor position — video time ~16.7 s of 24.
+a 25.879 s span: a 102-frame black lead-in, then rows 1-7 at 18-19 frames each,
+then row 8 `(0,4)` for **7 frames**, and the capture ends. There is no successor
+position — the capture stops ~0.65 s *into* row 8, at video time ~16.7 s of 24.
+(An earlier revision of this file said rows 1-8 were complete and the cut fell in
+row 8's successor. That was wrong; `docs/CAPTURE_RESULTS.md` had it right.)
 
 **Rows 9, 10 and 11 were never transmitted to the wire.** They are exactly the
 positions that would resolve tile columns 7 and 4 on their own, so with this
@@ -34,6 +37,12 @@ capture alone those columns — and 5 and 6 — are constrained only as a *set*,
 `06-halves`. See `docs/CAPTURE_RESULTS.md` § "What remains".
 
 Recapturing this video to completion is the cheapest way to close that gap: the
-asset already contains the missing positions. When a complete capture exists,
-extend `EXPECTED_WALK` in `mapper/tests/test_oracle_capture.py` from 8 rows to
-all 11.
+asset already contains the missing positions. **No code change is needed when
+that capture lands.** `EXPECTED_WALK` in `mapper/tests/test_oracle_capture.py`
+is no longer typed — it is read out of `07-tilewalk.avi` by `mapper/avi.py`, and
+the capture is asserted to be a *prefix* of it. A complete capture simply makes
+the prefix 11 long instead of 8.
+
+This sheet is **generated** by `tools/make_test_patterns.py` from the same
+`positions` list that renders the video, so it is a description of the asset,
+not independent evidence about it. Nothing in the test suite reads this file.
