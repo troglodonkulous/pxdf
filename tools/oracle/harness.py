@@ -45,6 +45,23 @@ DEFAULT_CONFIGS = Path(__file__).resolve().parent / "configs.dryrun.json"
 DEFAULT_JSON_OUT = Path(__file__).resolve().parent / "out" / "report.json"
 
 
+def _unused_path(path: Path) -> Path:
+    """`path`, or the first `-2`, `-3`, ... variant that does not exist yet.
+
+    A second take never overwrites the first. At the floor a re-run usually
+    means the operator thinks the previous window was botched -- and "thinks"
+    is the operative word. Deciding which take was good is a job for after the
+    session, and it needs both files to still exist.
+    """
+    if not path.exists():
+        return path
+    for n in range(2, 1000):
+        candidate = path.with_name(f"{path.stem}-{n}{path.suffix}")
+        if not candidate.exists():
+            return candidate
+    raise RuntimeError(f"too many existing captures named like {path}")
+
+
 def cmd_run(args) -> int:
     configs = load_configs(args.configs)
     if args.only:
@@ -58,14 +75,29 @@ def cmd_run(args) -> int:
             )
             return 2
         configs = [oc for oc in configs if oc.name in wanted]
+
+    # A live run opens one capture window per row, and the acceptance rows are
+    # not interchangeable -- one of them needs the controllers physically moved
+    # first. Walking the list would record whatever happened to be on the wire
+    # and hand back verdicts about nothing, which is worse than an error.
+    if args.live and len(configs) > 1:
+        print(
+            f"--live over {len(configs)} configs needs --only: each row is a separate "
+            f"capture window and they are not interchangeable. Pick one of "
+            f"{[oc.name for oc in configs]}",
+            file=sys.stderr,
+        )
+        return 2
+
     results = []
     for oc in configs:
         if args.live:
             if not oc.capture:
-                out = Path(args.out_dir) / f"{oc.name}.pcapng"
+                out = _unused_path(Path(args.out_dir) / f"{oc.name}.pcapng")
                 print(
                     f"[{oc.name}] capturing on interface {args.interface} for {args.seconds}s "
-                    f"-- start playback on the floor now (this call does not touch Ledset)",
+                    f"-> {out}"
+                    f" -- start playback on the floor now (this call does not touch Ledset)",
                     file=sys.stderr,
                 )
                 capture_mod.capture_for(args.interface, out, args.seconds)

@@ -96,12 +96,15 @@ The harness prints "start playback on the floor now" and captures for 8
 seconds. It does not drive Ledset — pressing play is the operator's job. Start
 the clip, let it run through the window, and let the capture close itself.
 
-**`--only` is not optional.** Without it the run walks all three acceptance
-rows back to back, including the one that needs the controllers physically
-moved first, and records three windows of whatever was on the wire.
+**`--only` is not optional**, and the harness refuses a multi-row `--live` run
+without it (exit 2): each row is its own capture window, and one of them needs
+the controllers physically moved first.
 
-The capture lands in `captures/oracle/acceptance-gradient24-identity.pcapng`
-and the verdict prints immediately. A second opinion on the same file:
+The capture lands in `captures/oracle/acceptance-gradient24-identity.pcapng` —
+**the harness prints the exact path**, because a second take is written as
+`-2`, `-3`, … rather than overwriting the first. Deciding which take was good
+is a job for after the session. The verdict prints immediately. A second
+opinion on the same file:
 
 ```bash
 python -m mapper verify captures/oracle/acceptance-gradient24-identity.pcapng \
@@ -153,6 +156,10 @@ detect a port swap at all — solid colour carries no positional information.
 Four open questions, one 8-second window. Nothing else on the project's list
 approaches that ratio.
 
+**Before reading any of them as the diagnosis, apply the discriminator in §5.**
+Four of these five failure modes localise to a port. The fifth does not, and it
+is the one that looks most like the others.
+
 **1. The first multi-controller oracle.** Every capture in `captures/` is the
 single-controller 2026-08-06 rig. Every multi-controller claim in `mapper/`
 rests on invariants alone, and the acceptance geometry is three controllers
@@ -181,6 +188,32 @@ evidence against serpentine**, the most common real tile wiring. A
 per-pixel-unique capture is what discriminates. *Failure looks like:* a
 mismatch that recurs on every port equally rather than locating to one, since a
 wrong scan table is wrong inside every tile.
+
+**5. Whether Ledset transforms pixel values on the way to the wire.** Newly
+exercised by this capture, and not previously on the list. Every Ledset capture
+the project holds is saturated-only — black, white, red, halves — and `0x00`
+and `0xFF` are fixed points of any brightness scale or gamma LUT, so **nothing
+captured so far constrains intermediate pixel values at all**. `PROTOCOL.md` Q6
+carries brightness/gamma as open, and gradient24 is almost entirely
+intermediate values, so this is the first file that can see it. *Failure looks
+like:* zero frames matched, mismatch on every packet ordinal, `recur` near
+100 % — **the same surface reading as a wrong scan table (4).**
+
+### 5b. The discriminator — run this before concluding anything
+
+Modes 1–3 localise: the failing rows name one or two `ctrlN/portM`. Modes 4 and
+5 do not, and they are told apart by *what* the bytes are, not where:
+
+- **A wrong scan table permutes bytes within a tile.** The multiset of byte
+  values inside one tile's payload is unchanged; only their order moved.
+- **A value transform changes the values.** Observed is a monotone function of
+  expected — same ordering, different magnitudes — and the multiset changes.
+
+The capture is already on disk, so this costs no floor time. Do not queue a
+change against `mapper/floors.py::_identity_scan` until the multiset test has
+ruled out mode 5. The "held" note below defers brightness/gamma on the grounds
+that nothing in *our* send path touches pixel values; that says nothing about
+Ledset's.
 
 ---
 
