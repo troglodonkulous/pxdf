@@ -305,7 +305,7 @@ Tiles are **column-major**: tile `(col, row)` sits at
 one contiguous tile column, and controller `c` owns tile columns
 `Pc .. Pc+P-1`.
 
-### 4.2 Within a tile ⚠️ decompilation-only
+### 4.2 Within a tile ✅ (8×8; 6×6 remains decompilation-only)
 
 A `T*T`-entry lookup table maps output slot → source pixel. For **8×8** floor
 types it is the **identity** — plain row-major, left-to-right, top-to-bottom,
@@ -313,9 +313,21 @@ types it is the **identity** — plain row-major, left-to-right, top-to-bottom,
 which happens to be its own inverse. This proves the table is a real scan remap
 and that other floor types differ.
 
-**This is the one part of §4 that no capture constrains.** Its support is
-`InitFloor` in the decompiled source, plus a two-lit-pixel floor observation
-(`CAPTURE_RESULTS.md` Q4) that pins 2 of the 64 entries.
+**Closed for the 8×8 types on 2026-08-08** by
+`captures/oracle/acceptance-gradient24-identity.pcapng` — a per-pixel-unique
+`gradient24` played through Ledset at `8x8_4P` 10×5 and captured, of which 68 of
+72 complete frames matched `mapper/floors.py::_identity_scan` byte for byte, the
+other 4 being the vendor's own documented loop-boundary blanks and one torn
+frame. Per-pixel-unique content is what makes this evidence: it is the property
+the two-lit-pixel and fully-lit-square observations lacked. See §8 Q4 and
+`PRE-PROBE.md`'s gate-2 Result.
+
+Its earlier support — `InitFloor` in the decompiled source, plus a two-lit-pixel
+floor observation (`CAPTURE_RESULTS.md` Q4) pinning 2 of the 64 entries — is now
+corroboration rather than the load-bearing argument.
+
+**The 6×6 transpose is still decompilation-only** and no capture constrains it.
+There is no 6×6 hardware, so it is unownable — see §7.
 
 An earlier version of this section also cited `captures/07-tilewalk.pcapng` —
 "every frame decodes to exactly one fully lit, tile-aligned square". **That is
@@ -326,10 +338,10 @@ serpentine each leave every capture-derived assertion bit-identical to the
 control. The tilewalk capture constrains which *tile* lights, which is §4.1, not
 which pixel within it.
 
-Closing this needs a per-pixel-unique `gradient24` played through Ledset and
-captured. Until then, treat it as an assumption — a correct one on the balance
-of evidence, but one that would produce a scrambled tile, not an obviously dead
-floor, if wrong.
+The capture named above is exactly the test that paragraph asked for, and the
+table survived it. Kept here because the withdrawal is the more useful half of
+the record: the failure mode it warns about — a scrambled tile rather than an
+obviously dead floor — is why solid colours were never going to close this.
 
 ### 4.3 Packet boundaries straddle tiles ⚠️
 
