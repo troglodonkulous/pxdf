@@ -562,6 +562,25 @@ clean mapper. It is an **instrument test, not evidence about Ledset**: it proves
 what the harness does with a capture of this shape, not that Ledset agrees with
 us. Only the attended capture can do the latter.
 
+It is produced by `tools/oracle/make_synth_capture.py`, and every row of the
+table below is reproducible in one command each:
+
+```bash
+python -m tools.oracle.make_synth_capture --check                # the `none` row
+python -m tools.oracle.make_synth_capture --fault f1  --check    # F1
+python -m tools.oracle.make_synth_capture --fault f1b --check    # F1b
+python -m tools.oracle.make_synth_capture --fault f2  --check    # F2
+```
+
+`--check` runs `decode_diff.verify_config` over the file it just wrote and
+prints the `report.to_table` row, so the numbers come out of the harness rather
+than out of the generator's own claims about itself. The capture lands in
+`tools/oracle/out/` and is **not** committed -- it is a build product of a
+committed generator, which is the reproducible half. Faults are injected on the
+*observed* side, the same equivalence `InjectedMappingFaults` relies on (below).
+`tools/oracle/tests/test_make_synth_capture.py` pins the four verdicts so the
+table cannot drift away from the code.
+
 | fault | capture | round 1 | now |
 |---|---|---|---|
 | none | `06-halves` | PASS 41 matched, 5 tol | PASS 41 matched, 5/5 tol, recur 2 % |
