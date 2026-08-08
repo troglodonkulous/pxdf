@@ -1,5 +1,6 @@
 {
   "_comment": "The list for the attended Player-page session (`--live`), once gate 2 clears. Not runnable yet -- every entry needs a capture that does not exist. Geometry, pattern and orientation are fixed; exact hold time and AVI file are pair C's run-sheet to finalise. See docs/ORACLE_HARNESS.md 'Blocked on the attended session' for the ordered list this JSON encodes.",
+  "_max_tolerated_derivation": "No capture exists at this geometry, so max_tolerated cannot be measured yet and is DERIVED: media/09-gradient24-8x8_4P-10x5.avi is 60 frames at 10 fps = a 6.0 s loop; Ledset sends at ~9.2 fps (mapper/tests/test_oracle_capture.py, median 109 ms between frame starts, consistent across all five Ledset captures), so an 8 s capture window holds ~74 frames and can span at most 2 loop boundaries. Blank frames per boundary: 2 documented, 2-3 measured, budget 3. Torn frames: at most 2 in any measured capture, budget 3 for the longer window. 2*3 + 3 = 9. RE-MEASURE against the real capture as soon as one exists, and re-derive this if the window or the clip length changes -- a budget carried over from a different capture is exactly the unbounded tolerance this field was added to remove.",
   "configs": [
     {
       "name": "acceptance-gradient24-identity",
@@ -9,7 +10,8 @@
       "pattern": "gradient24",
       "orientation": "identity",
       "capture": null,
-      "notes": "TOP PRIORITY (per critic finding on the mapper). Every current capture is tile-uniform, so nothing today constrains intra-tile pixel order or port assignment -- a wrong scan table or a swapped port passes every existing capture. gradient24 is per-pixel-unique and this is the first oracle at 3 controllers with a partial last one. Media: tools/oracle/media/09-gradient24-8x8_4P-10x5.avi (generated, verified to load and decode via Ledset's own VideoGrabber.dll -- see docs/ORACLE_HARNESS.md)."
+      "max_tolerated": 9,
+      "notes": "TOP PRIORITY (per critic finding on the mapper). Every current capture is tile-uniform, so nothing today constrains intra-tile pixel order or port assignment -- a wrong scan table or a swapped port passes every existing capture. gradient24 is per-pixel-unique and this is the first oracle at 3 controllers with a partial last one. It is also the ONLY capture that can see a fault between two tile columns that carry identical content in every existing capture (docs/ORACLE_HARNESS.md S8, fault F2). Media: tools/oracle/media/09-gradient24-8x8_4P-10x5.avi (generated, verified to load and decode via Ledset's own VideoGrabber.dll -- see docs/ORACLE_HARNESS.md). max_tolerated derived above."
     },
     {
       "name": "acceptance-white-identity",
@@ -19,7 +21,8 @@
       "pattern": "white",
       "orientation": "identity",
       "capture": null,
-      "notes": "Coarse multi-controller sanity check, cheap to run right after the gradient24 capture at the same geometry."
+      "max_tolerated": 9,
+      "notes": "Coarse multi-controller sanity check, cheap to run right after the gradient24 capture at the same geometry. Cannot detect a port swap at all (solid colour); it is here for packet count, headers and controller placement only. max_tolerated derived above."
     },
     {
       "name": "acceptance-gradient24-rotate180",
@@ -29,7 +32,8 @@
       "pattern": "gradient24",
       "orientation": "rotate180",
       "capture": null,
-      "notes": "Decision 20, arrangement #2 -- same floor, controllers moved to the opposite end. Wire-level bytes will match the identity-orientation capture exactly (orientation is a framebuffer-read-side transform in mapper/orientation.py, never a packet reorder) -- this row exists to confirm the *physical* corner checks, not to add a second wire-level oracle. Run in the same attended session as arrangement #1 per decision 20."
+      "max_tolerated": 9,
+      "notes": "Decision 20, arrangement #2 -- same floor, controllers moved to the opposite end. Wire-level bytes will match the identity-orientation capture exactly (orientation is a framebuffer-read-side transform in mapper/orientation.py, never a packet reorder) -- this row exists to confirm the *physical* corner checks, not to add a second wire-level oracle. Run in the same attended session as arrangement #1 per decision 20. max_tolerated derived above."
     }
   ]
 }

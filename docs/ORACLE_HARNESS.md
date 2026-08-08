@@ -31,7 +31,7 @@ tools/oracle/
   verify-xml-control-path.ps1   live control-path verification (built, not run this session -- S3)
   make-gradient-avi.ps1          renders mapper.patterns.gradient24 as a Ledset-loadable AVI
   media/09-gradient24-8x8_4P-10x5.avi   the rendered file, verified to decode via VideoGrabber.dll
-  tests/                     unit tests, stdlib unittest, 14 tests
+  tests/                     unit tests, stdlib unittest, 33 tests
 ```
 
 Nothing here reimplements the protocol. `decode_diff.py` calls
@@ -43,11 +43,28 @@ Nothing here reimplements the protocol. `decode_diff.py` calls
   byte4)` via `build_plan()`, instead of leaving it as a bare index;
 - classifies an unmatched frame against the two Ledset playback defects
   `docs/CAPTURE_RESULTS.md` documents (loop-boundary all-black frame; torn
-  frame from the vendor's unlocked send thread) so the pass/fail line
-  matches this project's actual bar -- **zero *unexplained* rows**, not zero
-  diffs. A header mismatch is never classified as either defect, since a
-  real mapping bug is free to break headers and neither vendor defect is;
+  frame from the vendor's unlocked send thread). A header mismatch is never
+  classified as either defect, since a real mapping bug is free to break
+  headers and neither vendor defect is;
+- **checks those defect labels against the rest of the capture.** A per-frame
+  classifier cannot tell a vendor tear from a mapping fault, because the
+  difference between them is not visible in one frame: a tear is a timing
+  accident and lands somewhere new each time, a mapping fault is a property of
+  the packet plan and lands on the same packet every frame. `decode_diff.py`
+  therefore also computes, across the whole capture, how often each packet
+  ordinal differed, and promotes a recurring one out of "tolerated" into
+  `systematic-mismatch` -- **located at the offending
+  `(controller, port, packetIndex)`**, which is the thing an operator can act
+  on. Round 1 shipped without this and a misassigned port was absorbed
+  completely; see S8, which is the whole story;
+- bounds every "explained" bucket, so none of them is an unbounded output
+  counter: `max_tolerated` per config, a maximum blank run, and partial frames
+  allowed only at the capture-window edges;
 - turns a list of configs into one table + one JSON file.
+
+**The bar is stated once, in full, in S8.** Do not restate it as "zero
+unexplained rows" anywhere -- that was round 1's phrasing, it was one clause of
+five, and implementing it literally passed a misassigned port.
 
 ## 2. The control path -- design, statically verified; live verification blocked
 
@@ -203,17 +220,35 @@ row with `error` set rather than silently skipped.
 ### Dry-run output, this session, against the real `captures/*.pcapng`
 
 ```
-name                         status  pkts  frames  match  tol  unexp  first divergence
---------------------------------------------------------------------------------------
-01-black                     PASS      16      46     46    0      0  -
-02-white                     PASS      16      46     43    3      0  frame 4 [torn-frame] ctrl0/port0/pkt0 byte4=0x00 body offset 0: expected 255 got 0
-03-red                       PASS      16      44     40    4      0  frame 11 [loop-boundary-blank] ctrl0/port0/pkt0 byte4=0x00 body offset 2: expected 255 got 0
-06-halves                    PASS      16      46     41    5      0  frame 6 [torn-frame] ctrl0/port1/pkt1 byte4=0x01 body offset 69: expected 255 got 0
-20-ours-white                PASS      16      50     50    0      0  -
-8x8_4P_10x5-acceptance-gradient24 ERROR      -       -      -    -      -  no capture available for this config
+name                         status  pkts  frames  match     tol  unexp  part  recur  detail
+--------------------------------------------------------------------------------------------
+01-black                     PASS      16      46     46     0/0      0     1     0%  -
+02-white                     PASS      16      46     43     3/3      0     1     2%  frame 4 [torn-frame] ctrl0/port0/pkt0 byte4=0x00 body offset 0: expected 255 got 0
+03-red                       PASS      16      44     40     4/4      0     1     2%  frame 11 [loop-boundary-blank] ctrl0/port0/pkt0 byte4=0x00 body offset 2: expected 255 got 0
+06-halves                    PASS      16      46     41     5/5      0     1     2%  frame 6 [torn-frame] ctrl0/port0/pkt1 byte4=0x01 body offset 69: expected 255 got 0
+20-ours-white                PASS      16      50     50     0/0      0     0     0%  -
+8x8_4P_10x5-acceptance-gradient24 ERROR      -       -      -       -      -     -      -  no capture available for this config
 
 5/6 configs passed
 ```
+
+Reading the columns:
+
+- `tol` is **tolerated / budget**, not a bare count. The budget is the config
+  list's `max_tolerated`, measured per capture (S8). `3/3` means the capture
+  spent its whole budget and one more tolerated frame would fail it.
+- `part` counts partial frames -- groups whose packet count is not the plan's.
+  Every Ledset capture here ends one datagram into the next frame, because the
+  capture window closes mid-frame; `20-ours-white` stops on a frame boundary.
+  They are counted rather than dropped, because the table's denominator must
+  not be something the code chose without saying so, and a partial frame
+  *inside* the capture is a controller dropout and fails.
+- `recur` is the worst packet ordinal's mismatch rate across frames -- the
+  cross-frame reading, printed on every row whether it passes or not. **2 % is
+  a vendor tear. 100 % is a mapping fault.** It is printed on passing rows
+  deliberately: this project's recurring failure mode is a measurement that
+  agrees with itself, and a number that is always on the row regresses
+  visibly, where a boolean only flips.
 
 Exit code 1 (the acceptance-geometry row has no capture yet -- intentional;
 see S5). The 46-frame counts for `02-white` and `06-halves` match
@@ -243,6 +278,22 @@ nothing for `--live` to usefully run against yet regardless -- see S5.
   intra-tile pixel order or `tile_col -> (controller, port)` port
   assignment at the packet-capture level. `gradient24` closes this --
   S6 item 1.
+  **Measured this session, exactly:** injecting "tile column 7 reads column 6"
+  into `mapper.plan.build_plan` changes **not one byte** of the expected frame
+  for `01-black`, `02-white`, `03-red`, `06-halves` or `20-ours-white`
+  (SHA-256 of the whole frame identical in all five). No change to this
+  harness can ever detect that fault from those files, because the files do
+  not contain the information. `06-halves` constrains tile columns only as
+  the two sets `{0,1,2,3}` and `{4,5,6,7}`; any permutation *within* a set is
+  invisible. S8 has the numbers.
+- **Every diff is against one still expected frame.** The harness builds a
+  single expected frame from the config's pattern and compares every captured
+  frame to it, so the capture must be of *static* content. A moving clip
+  disagrees on nearly every frame and now reads as `systematic-mismatch` --
+  which is the correct verdict (it does not match) but a misleading diagnosis
+  (nothing is wrong with the port mapping). `07-tilewalk.pcapng` is exactly
+  this shape and is deliberately absent from every config list;
+  `mapper/tests/test_oracle_capture.py` handles it with a different method.
 - **The XML control path's read side (Ledset picks the geometry back up) is
   unverified live** -- designed, code-complete, blocked this session (S2).
 - **`--live` has never transmitted or captured a real frame.** Its
@@ -291,6 +342,17 @@ either passive capture or Mapper-page-only automation.
      tools/oracle/configs.acceptance.json`. A pass here is the first
      evidence, of any kind, that `tile_col -> (controller, port)` is
      correct above one controller's worth of columns.
+   - **Then re-measure `max_tolerated` against the real capture and write the
+     measurement into `notes`.** The 9 in both config lists today is *derived*
+     from the clip length, Ledset's ~9.2 fps and the observed 2-3 blanks per
+     loop boundary (the arithmetic is in `configs.acceptance.json`'s
+     `_max_tolerated_derivation`), not measured -- no capture exists at this
+     geometry. A budget carried over from a different capture is exactly the
+     unbounded tolerance S8 exists to remove.
+   - **Read the `recur` column, not just PASS/FAIL.** On this capture it is the
+     whole point: ~0-2 % is Ledset's send thread, ~100 % is a port reading the
+     wrong tile column, and the row names the port. S8 has the injected-fault
+     numbers this reading was calibrated against.
 2. **Live-verify the XML control path's read side** (S2):
    `powershell -File tools\oracle\verify-xml-control-path.ps1 -CandidateXml
    <path> -ExpectType 8x8_4P -ExpectWidthFeet 20 -ExpectHeightFeet 10
@@ -329,4 +391,210 @@ either passive capture or Mapper-page-only automation.
 - Nothing else. `mapper/floors.py`, `mapper/plan.py`, `mapper/frame.py`,
   `mapper/orientation.py`, `mapper/patterns.py`, `mapper/pcapng.py`,
   `mapper/verify.py` are all used exactly as exported, unmodified, and this
-  session never edited a file under `mapper/`.
+  session never edited a file under `mapper/`. The fault-injection work in S8
+  patched `mapper/plan.py` **in a throwaway copy under the scratch directory
+  only**; the repo's copy was never touched.
+
+## 8. The pass criterion, and what it was proved against
+
+### 8.1 Why this section exists
+
+Round 1 stated the bar as "**zero *unexplained* rows**, not zero diffs" -- here
+and in `decode_diff.py`'s docstring -- and implemented `_classify` as a
+*per-frame* predicate whose torn-frame arm was:
+
+```python
+if 0 < len(bad) < len(observed):
+    return "torn-frame"
+```
+
+No bound on how many packets, no bound on bytes within them, no contiguity
+requirement, no relation to neighbouring frames. The complement was the whole
+story: the only frame that could ever reach `unexplained` was one with a header
+mismatch, or one where *every* packet's body was wrong and not all-zero. **A
+mapping fault that spares even one packet was, by construction, indistinguishable
+from a documented vendor defect.**
+
+Injecting a real fault -- swap the tile column that ports 3 and 4 read, headers
+left correct, exactly the fault class S6 item 1 says the acceptance capture
+exists to catch -- produced this:
+
+```
+06-halves    FAIL   16    46     0    46      0  frame 0 [torn-frame] ctrl0/port3/pkt0 ...
+```
+
+46 of 46 frames classified `torn-frame`; `unexp` = 0. Implementing the
+documented criterion literally would have printed `PASS ... 0 matched, 46
+tolerated`. The only thing that stopped it was an undocumented, untested
+`and matched > 0` in the source -- and that guard held only because a systematic
+fault corrupts *every* frame, which was only true because the acceptance media
+is 60 identical frames. One invariant frame flips it to PASS.
+
+Worse, the FAIL misdiagnosed. `tol 46, unexp 0, [torn-frame]` reads as "Ledset
+tore 46 frames"; the rational operator response is *re-capture*, and every
+re-capture reproduces it identically. That is a fifth self-consistent-but-wrong
+conclusion, staged for the acceptance session, on the one capture that settles
+port assignment.
+
+### 8.2 The criterion, in full
+
+A config passes when **all five** hold. They are checked in
+`decode_diff.analyse_frames` and each one is killed by at least one test in
+`tools/oracle/tests/test_decode_diff.py` (verified by mutation -- S8.5):
+
+1. **Zero unexplained frames.** Including the two cross-frame promotions:
+   `systematic-mismatch` (8.3) and `sustained-blank` (8.4). The promotions are
+   the point -- without them this clause alone passed a misassigned port.
+2. **Tolerated frames within `max_tolerated`**, a per-config field of the config
+   list, *measured against that capture and justified in its `notes`*. It
+   defaults to **0**: a config that has not written the number down gets no
+   allowance. Before this, `tol` was an unbounded output counter -- 46/46
+   tolerated still printed and still passed.
+3. **Partial frames only at the capture-window edges.** A group whose packet
+   count is not the plan's is legitimate as the first or last group (the window
+   opened or closed mid-frame); anywhere else it is a controller dropout. They
+   are counted and printed either way. Before this they were dropped silently
+   and the table's denominator was chosen by the code without saying so.
+4. **At least one frame matched exactly.** Round 1's accidental guard, now a
+   stated criterion with a test. It is *not* redundant with (2): (2) implies
+   `matched >= frames_total - max_tolerated`, which is positive only when the
+   capture is longer than its own tolerance budget. This clause is the floor for
+   a capture that is not -- precisely the case where every other check has too
+   little data to mean anything. A capture whose every frame is written off has
+   proved nothing, whatever its budget.
+5. **No error.** A missing capture is an `ERROR` row and a non-zero exit, never
+   a skipped one.
+
+### 8.3 The recurrence threshold, and how it was derived
+
+The discriminating axis is **cross-frame recurrence**, which a per-frame
+classifier structurally cannot see. A vendor tear is a timing accident in an
+unlocked send thread and lands somewhere new each time; a mapping fault is a
+property of the packet plan and lands on the same packet every frame.
+
+`decode_diff.MAX_RECURRENCE = 0.25`. Measured, not chosen. Numerator: frames
+whose observed bodies were **not** all zero -- an all-zero frame carries no
+information about port assignment (every port carried the same value), so
+counting it would let a capture's loop-boundary count set the noise floor of the
+check that has to catch mapping faults. Denominator: every complete frame.
+
+Worst-recurring packet ordinal, every real capture in `captures/`:
+
+| capture | frames | worst packet recurs |
+|---|---|---|
+| `01-black` | 46 | 0/46 = 0.0 % |
+| `02-white` | 46 | 1/46 = 2.2 % |
+| `03-red` | 44 | 1/44 = 2.3 % |
+| `06-halves` | 46 | 1/46 = 2.2 % |
+| `20-ours-white` | 50 | 0/50 = 0.0 % |
+
+**Ceiling 2.3 %,** across 232 complete frames and two independent senders
+(Ledset for `01`/`02`/`03`/`06`, our own Python sender for `20`). In no real
+capture does any packet ordinal tear in more than **one** frame.
+
+Against that, injected mapping faults (S8.5) recur in **93-100 %** of frames.
+
+25 % sits ~11x above the worst real reading and ~4x below the fault signal. The
+width is what absorbs a capture much shorter or much tear-ier than the ones
+measured: it still permits 11 independent tears on the same packet in a 44-frame
+capture, roughly an order of magnitude more vendor misbehaviour than has ever
+been observed. A second guard, `MIN_RECURRENT_FRAMES = 2`, stops a three-frame
+capture with a single tear from reading as 33 %: one occurrence is not a pattern.
+
+This is the same discipline as `mapper/tests/test_oracle_capture.py`'s
+`FRAMES_PER_POSITION = range(16, 22)` -- a measured band whose width is
+justified against the failures it must catch, in both directions.
+
+**`test_measured_ceiling_is_far_below_the_threshold` re-measures all five
+captures on every run** and fails if the 2.3 % ceiling stops being true, so the
+number in the source cannot quietly stop being derived from anything.
+
+#### The residual gap, stated
+
+Criteria (1) and (2) compose but do not close completely. A fault must recur in
+**≤ 25 %** of frames to dodge the recurrence check, and in **≤ `max_tolerated`**
+frames to dodge the tolerance bound. For `06-halves` (46 frames, budget 5) the
+uncovered band is a fault that shows on 1-5 frames and no more. That requires
+source content under which the fault is invisible in the other 41 -- which is
+possible for a moving clip and **impossible for the acceptance media**, which is
+60 identical frames: a fault there is visible in all of them or in none. This is
+one more reason the acceptance capture must be the gradient24 clip and not
+something with motion in it.
+
+### 8.4 The two secondary defects, also fixed
+
+- **`loop-boundary-blank` never checked for a loop boundary.** It tested
+  `len(bad) == len(observed)`, which is neither necessary nor sufficient. Not
+  sufficient: any all-black capture -- media that failed to load, a clip not
+  playing, an idle floor -- was tolerated wholesale. Not necessary: on
+  `06-halves`, whose source is already half black, a genuine loop-boundary blank
+  differs in only 8 of 16 packets, so all three of that capture's real blanks
+  (frames 31-33) were mislabelled `torn-frame`. Now the blank test looks at the
+  observed bytes (`_is_blank`), and a run longer than `MAX_BLANK_RUN = 6`
+  consecutive blanks is `sustained-blank`, not a loop boundary. Measured runs in
+  the real captures: 2, 3, 3 -- the bound is 2x the longest. `max_tolerated`
+  bounds the same failure independently; the run check exists so the *diagnosis*
+  is right, not only the verdict.
+- **Partial frames were dropped and counted nowhere.** Criterion (3) above.
+  Measured: each Ledset capture ends with exactly one trailing group of one
+  datagram; `20-ours-white` ends on a frame boundary with none. Both a leading
+  and a trailing partial group are allowed, since a capture window can open as
+  well as close mid-frame.
+
+### 8.5 Proof: injected faults, before and after
+
+Faults were injected into `mapper/plan.py::build_plan` **in a throwaway copy of
+the repo under the scratch directory**, never in the working tree, by remapping
+which global tile column a port reads -- headers, packet counts and lengths all
+left correct. This is the exact fault class the acceptance capture exists to
+catch.
+
+- **F1** -- tile columns 3 and 4 swapped (at `8x8_8P` this is ports 3 and 4 of
+  the only controller; at the acceptance geometry it is a *cross-controller*
+  swap, ctrl0/port3 <-> ctrl1/port0).
+- **F1b** -- tile columns 0 and 5 swapped.
+- **F2** -- tile column 7 reads column 6.
+
+`90-synth-acceptance` is a **synthetic** capture at the acceptance geometry
+(`8x8_4P` 10x5, gradient24, 74 frames + the trailing partial, with a 3-frame
+blank run and 2 torn frames injected as vendor defects), generated from the
+clean mapper. It is an **instrument test, not evidence about Ledset**: it proves
+what the harness does with a capture of this shape, not that Ledset agrees with
+us. Only the attended capture can do the latter.
+
+| fault | capture | round 1 | now |
+|---|---|---|---|
+| none | `06-halves` | PASS 41 matched, 5 tol | PASS 41 matched, 5/5 tol, recur 2 % |
+| none | `90-synth-acceptance` | -- | PASS 69 matched, 5/9 tol, recur 1 % |
+| F1 | `06-halves` | FAIL, `tol 46, unexp 0, [torn-frame]` | FAIL, `tol 0/5, unexp 46, recur 93 %`, **`systematic-mismatch: ctrl0/port3/pkt0 differs in 43/46 frames (93%), limit 25%; 4 packets over the limit on ctrl0/port3, ctrl0/port4`** |
+| F1 | `90-synth-acceptance` | -- | FAIL, recur 96 %, located **ctrl0/port3, ctrl1/port0** |
+| F1b | `06-halves` | FAIL, `tol 46, unexp 0, [torn-frame]` | FAIL, recur 93 %, located **ctrl0/port0, ctrl0/port5** |
+| F1b | `90-synth-acceptance` | -- | FAIL, recur 96 %, located **ctrl0/port0, ctrl1/port1** |
+| F2 | `06-halves` | PASS (table byte-identical to clean) | PASS -- **and this is correct**, see below |
+| F2 | `90-synth-acceptance` | -- | FAIL, recur 96 %, located **ctrl1/port3** (= tile column 7) |
+
+Every real capture still passes unfaulted, which is the other half of the
+result: a recurrence threshold that fails `06-halves` would be useless.
+
+**F2 cannot be caught on the existing captures, and no change to
+`tools/oracle/**` could ever catch it there.** Injecting it changes not one byte
+of the expected frame for any of the five (SHA-256 of the concatenated frame
+identical to the clean mapper's in all five cases; `06-halves` differs only for
+F1 and F1b). Tile columns 6 and 7 carry identical content in every capture the
+repo has, so the fault leaves no signature to detect. It is caught at the
+acceptance geometry with per-pixel-unique content, which is precisely the gap S5
+and S6 item 1 already describe -- this session measured its size rather than
+narrowing it.
+
+The corresponding unit tests -- `InjectedMappingFaults` in
+`tools/oracle/tests/test_decode_diff.py` -- reproduce all three faults on the
+*observed* side rather than by patching `mapper/`, which belongs to another
+pair. The two are equivalent: `datagrams_from_buffer` slices each packet at
+`tile_col * port_data_size`, so changing which tile column a port reads produces
+byte-for-byte the same diff as changing which bytes arrive on it.
+
+Each of the five criteria was then **mutation-tested**: disabling it in a
+scratch copy must turn the suite red. It does -- recurrence off kills 6 tests,
+the blank fix 13, and the tolerance bound, blank-run bound, interior-partial
+check and exact-match floor 1 each. A criterion no test defends is a criterion a
+cold builder deletes as redundant.

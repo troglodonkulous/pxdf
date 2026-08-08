@@ -30,6 +30,13 @@ class OracleConfig:
     the harness still emits a row for it, marked as blocked rather than
     silently skipped, which is the honest way to represent "this geometry
     has no oracle" (`mapper/README.md`'s own soft spot #3).
+
+    `max_tolerated` is how many frames of this capture may be written off as a
+    known Ledset defect. It **must be measured, per capture, and justified in
+    `notes`** -- it is the bound that stops "explained" from being an unbounded
+    output counter, and an unbounded tolerance is how a mapping fault gets
+    laundered into a PASS. It defaults to **0** on purpose: a new config gets no
+    budget until someone has looked at the capture and written the number down.
     """
 
     name: str
@@ -42,6 +49,7 @@ class OracleConfig:
     capture: str | None = None
     tile_col: int = 0
     tile_row: int = 0
+    max_tolerated: int = 0
     notes: str = ""
 
     @property

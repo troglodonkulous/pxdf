@@ -59,11 +59,44 @@ class ReportRendering(unittest.TestCase):
         self.assertIn("configs passed", table)
 
         payload = json.loads(to_json(results))
-        self.assertEqual(payload["schema"], "ddf-oracle-report/1")
+        self.assertEqual(payload["schema"], "ddf-oracle-report/2")
         self.assertEqual(payload["summary"]["total"], len(results))
         self.assertEqual(
             payload["summary"]["passed"] + payload["summary"]["failed"], len(results)
         )
+
+    def test_every_row_carries_the_recurrence_reading_and_the_tolerance_budget(self):
+        """The instrument's readings must be on the row even when it passes.
+
+        A verdict that only appears as PASS/FAIL is exactly the kind of
+        self-agreeing measurement this project keeps getting wrong; a printed
+        number regresses visibly.
+        """
+        configs = load(DRYRUN)
+        results = [
+            verify_config(oc, (ROOT / oc.capture) if oc.capture else None) for oc in configs
+        ]
+        payload = json.loads(to_json(results))
+        for row in payload["configs"]:
+            if row["error"]:
+                continue
+            self.assertIn("worstRecurrence", row)
+            self.assertIn("maxTolerated", row)
+            self.assertIn("partialFrames", row)
+            self.assertIsInstance(row["systematicMismatches"], list)
+            self.assertLessEqual(row["framesTolerated"], row["maxTolerated"])
+
+        table = to_table(results)
+        self.assertIn("recur", table)
+        self.assertIn("3/3", table, "02-white's tolerated count must print against its budget")
+
+    def test_every_config_with_a_capture_has_a_measured_tolerance_budget_note(self):
+        """`max_tolerated` is a measurement, so the config must say what was measured."""
+        for oc in load(DRYRUN):
+            if oc.capture is None:
+                continue
+            with self.subTest(config=oc.name):
+                self.assertIn("Measured", oc.notes, "max_tolerated must be justified in notes")
 
 
 if __name__ == "__main__":
