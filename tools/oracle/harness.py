@@ -2,7 +2,9 @@
 
     python -m tools.oracle.harness run                                # dry-run (default)
     python -m tools.oracle.harness run --configs my-list.json
-    python -m tools.oracle.harness run --live --interface 8 --seconds 6   # see below
+    python -m tools.oracle.harness run --live --interface 8 --seconds 8 \
+        --configs tools/oracle/configs.acceptance.json \
+        --only acceptance-gradient24-identity
     python -m tools.oracle.harness list-interfaces
 
 Dry-run reads `captures/*.pcapng` already in the repo and touches no hardware,
@@ -12,10 +14,16 @@ proves itself without going near the floor.
 `--live` starts a **passive** packet capture and waits. It never drives
 Ledset, never opens media, and never sends anything -- getting a frame onto
 the wire during the capture window is the operator's job, exactly as
-`docs/CAPTURE_PLAN.md` already documents by hand. As of this writing every
-config in `configs.acceptance.json` has `capture: null`, so `--live` has
-nothing to run yet regardless -- see `docs/ORACLE_HARNESS.md` for what is
-still blocked and why.
+`docs/CAPTURE_PLAN.md` already documents by hand. A config whose `capture` is
+`null` is precisely the one `--live` captures for: the null says "no oracle
+exists for this geometry yet", and `--live` is how one gets made.
+
+**Use `--only` for every attended run.** The acceptance list holds three rows
+and `--live` captures a window for each in turn, but they are not
+interchangeable: the third needs the controllers physically moved to the far
+end first (decision 20). Capturing them back to back would record whatever
+happened to be on the wire, which is how a session produces a table of numbers
+that means nothing. One row, one window, one verdict.
 """
 
 from __future__ import annotations
@@ -39,6 +47,17 @@ DEFAULT_JSON_OUT = Path(__file__).resolve().parent / "out" / "report.json"
 
 def cmd_run(args) -> int:
     configs = load_configs(args.configs)
+    if args.only:
+        wanted = set(args.only)
+        unknown = wanted - {oc.name for oc in configs}
+        if unknown:
+            print(
+                f"no config named {sorted(unknown)} in {args.configs} "
+                f"(available: {[oc.name for oc in configs]})",
+                file=sys.stderr,
+            )
+            return 2
+        configs = [oc for oc in configs if oc.name in wanted]
     results = []
     for oc in configs:
         if args.live:
@@ -79,6 +98,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = sub.add_parser("run", help="run a config list, emit a pass/fail table + JSON")
     run.add_argument("--configs", default=str(DEFAULT_CONFIGS), help="config list JSON (default: the dry-run list)")
+    run.add_argument(
+        "--only", action="append", metavar="NAME",
+        help="run just this config by name, repeatable. Required in practice for --live: "
+             "the acceptance rows are not interchangeable and each needs its own window.",
+    )
     run.add_argument(
         "--live", action="store_true",
         help="capture live instead of reading captures/*.pcapng. Never drives Ledset -- "
