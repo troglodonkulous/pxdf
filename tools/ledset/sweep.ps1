@@ -1,4 +1,4 @@
-param([int]$SettleMs = 120, [int]$OkMs = 300, [int]$CapMs = 200, [string]$OutDir, [switch]$Full)
+param([int]$SettleMs = 120, [int]$OkMs = 300, [int]$CapMs = 200, [int]$ExpandMs = 220, [string]$OutDir, [switch]$Full)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
@@ -28,15 +28,45 @@ foreach ($aid in @('cbo_Type','cbo_FeetOfWidth','cbo_FeetOfHeight','btn_OK')) {
 $liCond = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)
 $txCond = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
 
-function PickIdx($aid,$idx){ $its=$cache[$aid].FindAll($TS::Descendants,$liCond); $its[$idx].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select() }
+# A WPF ComboBox realises no ListItem until its popup opens, so FindAll on a
+# closed combo returns zero items and every Pick below fails on a null. Expand
+# first, always. (The dropdown virtualises -- 10 of 32 render on screen -- but
+# expanding realises all 32 to UIA, which is why the sweep can reach 64 ft.)
+function Items($aid){
+  $ec = $cache[$aid].GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+  if ($ec.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) {
+    $ec.Expand()
+    Start-Sleep -Milliseconds $ExpandMs
+  }
+  return $cache[$aid].FindAll($TS::Descendants,$liCond)
+}
+function Collapse($aid){
+  try {
+    $ec = $cache[$aid].GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    if ($ec.Current.ExpandCollapseState -eq [System.Windows.Automation.ExpandCollapseState]::Expanded) { $ec.Collapse() }
+  } catch { }
+}
+function PickIdx($aid,$idx){
+  $its = Items $aid
+  $its[$idx].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+  Collapse $aid
+}
 function PickName($aid,$n){
-  $its=$cache[$aid].FindAll($TS::Descendants,$liCond)
-  foreach($i in $its){ if($i.Current.Name -eq $n){ $i.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); return $true } }
+  $its = Items $aid
+  foreach($i in $its){
+    if($i.Current.Name -eq $n){
+      $i.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+      Collapse $aid
+      return $true
+    }
+  }
+  Collapse $aid
   return $false
 }
 function Names($aid){
-  $its=$cache[$aid].FindAll($TS::Descendants,$liCond)
+  $its = Items $aid
   $out=@(); foreach($i in $its){ $out += $i.Current.Name }
+  Collapse $aid
   return $out
 }
 function Sel($aid){ $s=$cache[$aid].GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection(); if($s.Count){$s[0].Current.Name}else{'<none>'} }
