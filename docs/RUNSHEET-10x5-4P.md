@@ -22,8 +22,9 @@ written down here.
 **Do not re-litigate:** frame rate (10 fps, decision 21) or the end-of-frame
 flag requirement in general (Q2, closed — it is required). Both are settled.
 
-**Estimated time:** 75–100 minutes for arrangement #1, 45–60 minutes for
-arrangement #2's delta (mostly the physical move plus a full re-walk).
+**Estimated time:** 90–120 minutes for arrangement #1 (PF1b's block map adds
+10–20 minutes and is not optional), 55–75 minutes for arrangement #2's delta
+(the physical move, a fresh block map, and a full re-walk).
 
 **Working directory for every command below:**
 
@@ -61,10 +62,16 @@ A back to `plan.py`/`frame.py` with a specific failing column). Getting the
 diagnosis wrong wastes the one hardware session that can resolve any of them.
 
 A partial mitigation landed in parallel with this run-sheet: an assertion on
-the `07-tilewalk` capture now pins tile columns 0–3 and their rows. **Columns
-4–7 are still constrained only as a set (order unverified), and nothing
-multi-controller — meaning columns 4–9, and every controller boundary — is
-constrained at all.** Assume that state throughout.
+the `07-tilewalk` capture (`mapper/tests/test_oracle_capture.py`,
+`EXPECTED_WALK`) now pins tile columns 0–3 at row 0 and tile column 0's rows
+0–4 — eight positions, on a **single-controller** capture. That capture is
+**truncated**, not a full walk: 238 complete frames over 25.9 s, stopping about
+0.65 s into position 8, roughly 16.7 s into a 24 s video. The three positions
+that would have resolved columns 7 and 4 individually — `(7,0)`, `(7,4)`,
+`(4,2)` — were never captured. **Columns 4–7 are therefore still constrained
+only as a set, by `06-halves`, and nothing multi-controller — meaning columns
+4–9 and every controller boundary — is constrained at all.** Assume that state
+throughout.
 
 ### The two independent senders, and what their agreement actually proves
 
@@ -108,18 +115,43 @@ actually put on the wire and diff them against the plan:
 ```
 
 (run in a second window while the same `send` command is active — see PF3 for
-`<N>`), then:
+`<N>`), then verify **with the same pattern arguments the send under test
+used**:
 
 ```powershell
-python -m mapper verify captures\session-<label>.pcapng --type 8x8_4P --cols 10 --rows 5 --pattern tile --tile-col 0 --tile-row 0
+python -m mapper verify captures\session-<label>.pcapng --type 8x8_4P --cols 10 --rows 5 --orientation <same as the send> --pattern <same as the send> [--tile-col N --tile-row M]
 ```
 
-Expected: `N/N complete frames byte-identical`. If this **fails**, the bytes
-that left the machine were already wrong — that's a bug before the network
-even enters the picture. If it **passes**, the correct bytes left the machine
-and whatever went wrong is downstream of the wire: a controller's own
-addressing/Device-Order behaviour, the daisy chain, or orientation. This
-narrows the four-way ambiguity in §0 by one, cheaply, any time you need it.
+Concretely, for the three shapes this session actually sends:
+
+| Step under test | Verify arguments |
+|---|---|
+| V1a / V1b / V1c, M1, V3 | `--pattern tile --tile-col N --tile-row M` — the *same* `N`/`M` |
+| §6 V4 | `--pattern gradient24` |
+| PF1b white, appendix white | `--pattern white` |
+
+`--orientation` must also match: `identity` for §3–§5 and for anything the PS1
+sent (it applies no transform at all), `<derived>` for V3/V4. A mismatched
+`--pattern` or `--orientation` produces a body-bytes failure that has nothing
+to do with the floor, and reads exactly like the bug you are hunting.
+
+> **This diagnostic cannot be applied to M0.** `verify` compares every complete
+> frame in the capture against **one** expected framebuffer, and there is no
+> `tilewalk` pattern in the Python CLI at all (`--pattern` accepts
+> `black|blue|gradient24|green|red|white|tile`). A multi-frame walk has a
+> different framebuffer per position by construction, so nothing here can check
+> it and a failure would carry no information. If you need wire-level evidence
+> for a specific column of the walk, re-send that one column as a static
+> `--pattern tile` from Python (that is M1) and verify *that*.
+
+Expected: `N/N complete frames byte-identical`. **Read that line, not the exit
+code** — `verify` exits 0 if *any* frame matched, so a partially-correct run
+looks like a pass to a script. If this **fails**, the bytes that left the
+machine were already wrong — that's a bug before the network even enters the
+picture. If it **passes**, the correct bytes left the machine and whatever went
+wrong is downstream of the wire: a controller's own addressing/Device-Order
+behaviour, the daisy chain, or orientation. This narrows the four-way ambiguity
+in §0 by one, cheaply, any time you need it.
 
 ---
 
@@ -142,7 +174,33 @@ something improvised.
 
 ---
 
-## 2. Pre-flight — nothing transmits in this section
+## 2. Pre-flight
+
+Nothing in this section transmits **except PF1b**, and PF1b is not optional.
+Its step 0 sends `--pattern white` once and the floor will light; its fallback
+(steps 1–2, only if the tile chains cannot be traced by eye) sends the same
+command twice more between power states.
+
+**Run order — changed in this revision.** PF2 (the Device Order menu read) now
+runs **before** PF1b, and a new gate **PF2b** sits between them:
+
+> **PF1 → PF2 → PF2b → PF1b → PF3 → PF4 → PF5 → PF6**
+
+PF2 was previously placed after PF1b on the grounds that it is a menu read and
+needs nothing disturbed. That is still true — but PF2b needs PF1's chain counts
+**and** PF2's Device Orders together, and PF2b has to run before the first
+transmit, because a rig that fails it produces a PF1b step 0 that matches none
+of PF1b's own branches. PF2's one dependency on PF1b is the "physical columns"
+column of its table; leave that column blank on the first pass and fill it in
+when PF1b is done.
+
+**On "ground truth".** The chain **trace** in PF1b step 2 is the only evidence
+in this document that owes nothing to our sender's `tile_col → (controller,
+port)` arithmetic. PF1b step 0's white field and PF1b step 4's power-down
+fallback both go through that arithmetic and can therefore be misread by it —
+step 4 in a particularly dangerous way, because it agrees with itself and lands
+on the expected answer. See the warning in step 4. Everything in §3–§6 is
+written against the map PF1b produces, so the map has to be right.
 
 ### PF1 — Physical topology
 
@@ -163,38 +221,423 @@ two tables separate — conflating them is exactly the trap §3 is designed to
 pull apart, and now a third fact (which tile columns the sender's code
 *intends* for that Device Order) has to stay separate from both of these too.
 
-Also confirm, per unit, which physical connectors have a tile chain plugged in:
+Also record, per unit, **which physical connectors have a tile chain plugged
+in, and how many chains leave each one.** Record what you see. Do not correct
+anything to match an expectation:
 
-| Unit (by chain position) | Connectors populated | Tile columns expected |
-|---|---|---|
-| 1 | 1, 2, 3, 4 | 4 columns |
-| 2 | 1, 2, 3, 4 | 4 columns |
-| 3 | **1, 2 only** — 3 and 4 must be empty | 2 columns |
+| Unit (by chain position) | Connectors populated | Chains leaving each | Tile columns driven |
+|---|---|---|---|
+| 1 | | | |
+| 2 | | | |
+| 3 | | | |
 
-Connector `i` (1-based) on a `_4P` unit drives logical port `i-1` (one chain
-per connector on this floor type — unlike `_8P`, where each connector drives
-two). If chain-position-3's connectors 3/4 are populated instead of 1/2 (or
-any other pair), later predictions about "controller 2's first port" will be
-wrong for a reason that has nothing to do with Device Order, broadcast, or a
-code bug — check this now, it's cheap and it's a pure hardware fact.
+**Total the "chains leaving each" column across all three units before you move
+on.** It must come to **10** — one chain per physical tile column. If it comes
+to more than 10, at least one logical port is driving two chains and some tile
+column can never be reached (see PF2b); if it comes to fewer, a column is
+unpowered. Also write down, explicitly, **which chain position is the short one
+— the unit with fewer than 4 chains.** PF2b is entirely about that unit and it
+is the one fact this table exists to produce.
+
+Column counts of 4 / 4 / 2 are what `PORT_COUNT_A_CONTROLLER = 4` and
+`lastControlPortCount = 2` predict, and PF4/PF5 confirm the sender believes
+that. **Which unit gets the 2 is not a free choice** — PF2b. The **connector**
+counts are not predicted by anything:
+
+> ⚠️ **Which physical connectors carry a `_4P` floor's four logical ports is
+> nowhere established.** `PROTOCOL.md` §1 records as ✅-verified *hardware* that
+> this controller has **4 physical connectors, each driving 2 chains** — 8
+> chains available per unit. That is a property of the box and does not change
+> because a software floor type changed. So a `_4P` unit's four ports could
+> plausibly sit on connectors 1–4 (one chain each, the second chain of each
+> connector idle) **or** on connectors 1–2 (both chains of each). Nothing in
+> the repo settles it, and an earlier draft of this run-sheet asserted the
+> first and directed you to empty chain-position-3's connectors 3 and 4. That
+> directive is withdrawn — **do not unplug anything to satisfy it.**
+
+**The connector ↔ logical-port relationship is an output of this session, not
+an input.** Record the populated connectors here, record where each chain lands
+in PF1b, and let M0's walk say which logical port each one turned out to be.
+Write the answer into §10 and into `PROTOCOL.md` §1 afterwards.
 
 ### PF2 — Device Order on each unit
 
+**Moved: this now runs before PF1b** (see §2's run order). It is a menu read
+and disturbs nothing, and PF2b needs it.
+
 Not queryable from software — the controller never answers a query (§2,
 `PROTOCOL.md`: no ARP, no ping, no discovery, ever). Read it directly off each
-physical unit's own display/menu before connecting anything. Record which
-physical unit (by chain position from PF1) reports which order:
+physical unit's own display/menu. Record which physical unit — by chain
+position from PF1 — reports which order. Leave the "physical columns" column
+blank for now and fill it in after PF1b:
 
-| Chain position | Device Order shown on unit | Expected |
-|---|---|---|
-| 1 | | `01` (Master) |
-| 2 | | `02` (Slave) |
-| 3 | | `03` (Slave) |
+| Chain position | Chains (PF1) | Device Order shown on unit | Work mode shown | Physical columns (fill after PF1b) |
+|---|---|---|---|---|
+| 1 | | | | |
+| 2 | | | | |
+| 3 | | | | |
 
-If any reading is wrong or duplicated, fix it now, on the unit, before any
-transmit step. This table is the ground truth §3 relies on to tell a Device
-Order problem apart from everything else — if it's wrong, every downstream
+**§3 requires that the three values are distinct and all lie in `01`–`03`.**
+Whether they run `01`/`02`/`03` *in chain order* is a convenience, not a
+requirement: nothing in `PROTOCOL.md` or the decompiled source says the Master
+must sit at chain position 1, and byte 1 carries the order, not the position.
+If they are distinct but out of chain order, record it and carry it forward
+into §3's predictions.
+
+> ⚠️ **One exception to "don't fix it to look tidy", and it is not cosmetic.**
+> Which unit holds the **highest** order is *not* free — it is bound to that
+> unit's chain count by PF2b below. An earlier draft of this section told you to
+> carry any distinct-but-unordered arrangement forward untouched; that was wrong
+> for exactly one of the six arrangements. Read PF2b before deciding this table
+> is finished.
+
+If any value is duplicated, or outside `01`–`03`, fix it now, on the unit,
+before any transmit step. Also record each unit's **work mode**: a unit in
+Sound/DMX/Auto rather than the mode the other two are in will not render our
+frames at all, and reads as an absent unit in §3.
+
+> Two things this table assumes and does not prove, both of which §3 and PF2b's
+> D3 probe can turn into findings: that Device Order `0k` corresponds to byte 1
+> = `k−1`, and that the daisy chain relays broadcast regardless of which unit is
+> Master. Neither is established anywhere in this repo.
+
+This table plus PF1b is the ground truth §3 relies on to tell a Device Order
+problem apart from everything else — if either is wrong, every downstream
 diagnosis in this document is unreliable.
+
+### PF2b — Port coverage: does every populated chain have packets to render?
+
+**No transmission. Paper only, from PF1's chain counts and PF2's Device Orders.
+Five minutes. It must be done before the first send.**
+
+This gate is new and nothing before it substitutes for it. It catches a rig
+that is powered, cabled, relayed, holds three distinct in-range Device Orders,
+passes §3 cleanly, passes PF1b's power-down fallback cleanly — and **still
+cannot light more than 8 of its 10 columns, on any pattern, ever.** Every other
+gate in this document silently assumes that the tile chains a unit physically
+has and the logical ports its controller index actually receives are the same
+set. They are not automatically the same set.
+
+#### The mechanism
+
+The last controller does not get a full set of ports. `mapper/floors.py`'s
+`ports_on()` gives it `tile_cols % ports_per_controller` = `10 % 4` = **2**, and
+`tools\Send-FloorTest.ps1` computes the identical thing (`$portsHere = $rem`).
+`mapper plan` (PF4) shows it directly — controller 2 has four packets, not
+eight, and they are ports 0 and 1:
+
+```
+ 16    2    0    0   0x00   512        0
+ 17    2    0    1   0x01   458      507
+ 18    2    1    0   0x00   512        0
+ 19    2    1    1   0x81   458      507
+```
+
+**No packet is ever emitted for ports 2 or 3 of controller 2.** A chain plugged
+into those ports on the unit holding that controller index is not dim, not
+mis-mapped, and not late — it receives nothing, for the whole session.
+
+So a unit lights exactly the columns in `S ∩ {0 … ports_on(c) − 1}`, where `S`
+is the set of logical ports its populated chains sit on and `c` is the
+controller index its Device Order selects. Nothing anywhere reports the
+difference.
+
+#### The rule, in general form
+
+Let `P` = the floor type's ports per controller (**4** for `8x8_4P`), `C` = tile
+columns (**10**), `N = ceil(C/P)` = controllers (**3**), and
+`L = C mod P`, or `P` when that is zero (**2**). The sender emits ports
+`0 … P−1` for controller index `i < N−1`, and ports `0 … L−1` for `i = N−1`.
+
+> **The floor fills if and only if, for every unit, the set of logical ports its
+> populated chains occupy is *exactly* the prefix `{0 … ports_on(c) − 1}` that
+> its own controller index carries, and the `N` controller indices are
+> distinct.**
+
+For this rig that is three checkable facts:
+
+1. **Chain counts are `{P, P, …, L}` = `{4, 4, 2}`** as a multiset, and total
+   `C` = 10. Two units with 3 chains each is not a legal 10-column rig no matter
+   what the menus say.
+2. **The short unit — the one with `L` chains — holds the highest Device Order,
+   `0N` = `03`.** The other `N−1` units hold `01` and `02`, in either order.
+3. **The short unit's chains sit on the connectors that are logical ports
+   `0 … L−1`** — here ports **0 and 1**, not any other pair. Which connector is
+   which logical port is PF1's open question; if you cannot answer it yet, D3
+   below answers it for the only unit that matters.
+
+When `C mod P == 0` the rule is **vacuous** — every controller carries a full
+set and any assignment works. That is why nothing before this rig could have
+exposed it: the 8×5 oracle floor was a single controller, and the invariant
+suite checks that pixels land at *unique* slots, never that every populated
+chain is *covered*.
+
+**Corollary — one chain per port.** Total chains must equal `C`. If a unit
+drives two chains from one logical port (PF1's connector question, hypothesis
+"2 connectors × 2 chains **mirrored**"), then the ports in use total fewer than
+`C`, and some tile columns are unreachable by construction. On this rig,
+mirroring and full coverage are mutually exclusive. Record it as a hardware
+fact, and expect a dark run in M0.
+
+#### The check
+
+Compute, per unit, `min(chains, ports_on(order − 1))` with `ports_on = (4, 4,
+2)` — assuming chains sit on the low connectors; if they don't, use the
+intersection instead. Sum it. **The sum must be 10.**
+
+| Chain position | Chains (PF1) | Device Order (PF2) | Controller index | Ports carried | **Columns it can light** |
+|---|---|---|---|---|---|
+| 1 | | | | | |
+| 2 | | | | | |
+| 3 | | | | | |
+| | **10** | distinct, `01`–`03` | | | **total must be 10** |
+
+**If the total is less than 10, stop and fix it here.** The fix is at the menu
+in almost every case: swap the Device Orders of the short unit and whichever
+unit currently holds `03`. No cable moves, no power-down, 30 seconds. Only if
+the short unit's chains are on the *wrong connectors* does a cable move
+(§1 — power down first).
+
+**Rigs that pass every other gate in this document and still cannot fill:**
+
+| Chains 1/2/3 | Orders 1/2/3 | Lights | Why every other gate misses it |
+|---|---|---|---|
+| 2 / 4 / 4 | `01`/`02`/`03` | **8** | Tidiest possible rig: clean PF1, clean PF2, in chain order. `03` is on a 4-chain unit, so 2 of its chains never receive. |
+| 4 / 4 / 2 | `03`/`01`/`02` | **8** | Distinct and in range, so old PF2 said "carry it forward". `03` is on a 4-chain unit again. |
+| 4 / 4 / 2, short unit on ports **2,3** | `01`/`02`/`03` | **8** | Chain counts and orders both correct; the short unit's two chains and the two ports it receives **do not intersect**, so it renders nothing at all, ever, on any pattern — and that is indistinguishable at the floor from a relay failure. See §7. |
+
+#### D3 — which Device Order actually selects the last controller index
+
+Run this when PF2b's paper check cannot be completed — you don't yet know which
+connector is which logical port, or you want the `0k ⇒ k−1` assumption tested
+rather than assumed. Three menu changes, three sends, **no cable touched**.
+Unlike PF1b's power-down fallback it cannot confirm its own expectation,
+because what it reads is a *count of lit columns on one unit*, not a region of
+floor whose extent you already believe you know.
+
+Use **chain position 1** — reachable from the PC with no relay hop — and only
+if PF1 says it has a full `P` = 4 chains (if it doesn't, use whichever unit
+does; it must still be one you can watch). For each order `01`, `02`, `03`:
+
+1. Set it to an order that carries a **full** port set (`01` or `02`) and send
+   `--pattern black --duration 1`. **Do not skip this.** A chain that receives
+   no data holds its last latched frame, and without the clear you will read a
+   stale white column as a live one.
+2. Set it to the value under test.
+3. Send `--pattern white --duration 10` and count, **while the sender is still
+   running**, how many of *that unit's own* columns are lit. Ignore the rest of
+   the floor — the other units may be duplicating content and it does not
+   matter here.
+
+**Predicted, if `0k ⇒` controller index `k−1`:** `01` → 4 columns, `02` → 4,
+`03` → **2**.
+
+| Observed | What it establishes | Next |
+|---|---|---|
+| Exactly one order lights `L` = 2 columns, the other two light 4 | The port-coverage arithmetic is confirmed on real hardware, and **that order is the one selecting the last controller index**. The short unit must hold it. | If PF2 has it elsewhere, swap the two units' orders at the menu and redo PF2b. |
+| …and that order is `03` | Additionally consistent with `0k ⇒` byte 1 = `k−1` — the convention PF2 flags as unestablished anywhere in the repo. This is the cheapest evidence for it the session can produce. | Record as a finding (§8). |
+| …but that order is `01` or `02` | **The Device-Order ↔ controller-index convention is not `k−1`.** Major finding. | Photograph the menu; re-state every PF2/PF2b/§3 prediction against the observed correspondence before continuing. Nothing in §3–§6 is interpretable until you do. |
+| All three orders light the same count, or two of them light 2 | The correspondence is not one-to-one over `01`–`03`, or the unit does not have the chain count PF1 recorded. | Re-check PF1's count for that unit first. If PF1 is right, record as a finding and escalate — do not proceed on an assumed correspondence. |
+
+### PF1b — Reference frame and the physical block map
+
+**Everything downstream depends on this step and nothing downstream can
+substitute for it.** Chain position does *not* determine which tiles a unit
+drives; the tile-chain cabling does, and that is a free choice made at load-in.
+A floor cabled middle → left → right is perfectly healthy and would put
+chain-position-1's block in the *middle* of the floor. Without this map, every
+"the unit lit the wrong block" branch below is unusable: a benign cabling
+choice and the exact code bug this session exists to find produce the identical
+observation.
+
+#### 1. Fix a reference frame, and photograph it
+
+Pick one edge of the floor and name it. Suggested wording, adapt to the room:
+
+> *Standing at the controller end, facing the floor: the leftmost tile column
+> is **P1**, the rightmost is **P10**. The tile row nearest me is **R1**, the
+> row furthest from me is **R5**.*
+
+**Take the photograph from that standing position**, with something in shot
+that fixes the viewpoint (the controllers, a doorway, a taped arrow on the
+floor). Write the sentence you chose into §10.
+
+From here on, every "left", "right", "up", "down", "near", "far", every corner
+name and every predicted block in this document means a `P`/`R` coordinate
+against that photo. There are 4 corners × 2 handednesses = 8 mutually
+consistent ways to read "+x moves right, +y moves down" off an unlabelled
+floor; the photo is what collapses them to one. §5 is not derivable without it.
+
+**Also declare the intended origin now:** logical `(0, 0)` shall be the tile at
+**(P1, R1)**, logical `+x` shall run P1 → P10, logical `+y` shall run R1 → R5.
+That choice is free, but it must be made *before* §5 rather than fitted to the
+result, or §5 has no answer to produce.
+
+#### 2. Record the block map
+
+Trace each tile chain from the connector it leaves to the physical column it
+enters, and fill in all ten rows:
+
+| Chain position | Connector | Chain (if the connector drives 2) | Physical column |
+|---|---|---|---|
+| 1 | | | P__ |
+| 1 | | | P__ |
+| 1 | | | P__ |
+| 1 | | | P__ |
+| 2 | | | P__ |
+| 2 | | | P__ |
+| 2 | | | P__ |
+| 2 | | | P__ |
+| 3 | | | P__ |
+| 3 | | | P__ |
+
+Then write down the three **blocks** as sets of physical columns, e.g.
+"position 1 → {P5,P6,P7,P8}, position 2 → {P1,P2,P3,P4}, position 3 →
+{P9,P10}". Every prediction in §3–§6 is stated against these sets.
+
+A block whose columns are **not contiguous**, or a {4,4,2} split that does not
+land on column boundaries, is a legitimate thing to find and is not by itself a
+fault — record it and carry it forward. It does mean the walk in §4 will not
+look like three tidy left-to-right runs, and §5's derivation needs care.
+
+#### 3. Step 0 — the white baseline. Run this whether or not you traced the chains
+
+**This is the first transmit of the session and the cheapest gate in the
+document.** ~30 seconds. All three units powered, Ledset fully closed.
+
+> ⚠️ **Black first, and read the floor while the sender is still running.** A
+> controller holds its last latched frame, so whatever the floor was showing
+> when you walked in is still there and a silently failed white send reads as a
+> lit floor. And the third branch below is a **flicker** verdict — the one
+> observation in this document that cannot be made after the sender exits,
+> because what you are looking at then is a still frame by definition. Each
+> command prints `sending to 255.255.255.255:60001 at 10 fps for 10.0s` and then
+> exits; make the observation inside that window.
+
+```powershell
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
+```
+
+Confirm the floor is fully dark. If it is not, you are looking at a held frame
+or a unit that ignores our packets — resolve that before the white send, or
+every reading below is of something else.
+
+```powershell
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern white --duration 10
+```
+
+**Predicted:** all 50 tiles white — **provided PF2b's column total came to 10.**
+If PF2b totalled less than 10, predict that number of lit columns instead, and
+go fix PF2b rather than running this.
+
+**Why white is a good reachability gate, stated precisely.** Every controller
+index carries white, so a Device Order collision does not by itself darken
+anything: two units sharing an order both render white, and the floor still
+fills. But a collision *can* darken the floor indirectly, by moving a four-chain
+unit onto the index that only carries two ports. The correct statement is:
+
+> **A collision never darkens a column by itself. What darkens columns is a unit
+> whose populated ports are not covered by the ports its controller index
+> carries — PF2b.** White is immune to a collision **only while no four-chain
+> unit holds `03`.**
+
+| Chains 1/2/3 | Orders 1/2/3 | Columns lit |
+|---|---|---|
+| 4 / 4 / 2 | `01`/`01`/`03` — two collide | 4 + 4 + 2 = **10, fills** |
+| 4 / 4 / 2 | `02`/`02`/`02` — three-way | 4 + 4 + 2 = **10, fills** |
+| 4 / 4 / 2 | `03`/`02`/`03` | 2 + 4 + 2 = **8, does not fill** |
+| 4 / 4 / 2 | `03`/`03`/`03` | 2 + 2 + 2 = **6, does not fill** |
+| 2 / 4 / 4 | `01`/`02`/`03` — no collision at all | 2 + 4 + 2 = **8, does not fill** |
+
+So a *full* white floor still answers the relay question on its own, and that
+inference is sound. What is **not** sound is the converse: a floor that is not
+full is not evidence of a relay or Device Order fault until PF2b is clean.
+Therefore —
+
+- **All 50 lit** → every unit is receiving frames *and* latching them *and*
+  holds a Device Order in `01`–`03` *and* every populated chain is covered.
+  **Broadcast relay through the daisy chain is proven for this cabling** — this
+  is the finding `PROTOCOL.md` §1 and Handoff 1 §8 have both been waiting for.
+  Record it; §3's dark branches can then stop considering relay at all, and
+  §7's relay abort becomes unreachable.
+- **Part of a block dark** — some columns of one unit lit, others dark, with
+  the unit plainly powered and its neighbours fine; or **fewer than 10 columns
+  lit with every unit showing something** → **this is the port-coverage
+  signature, and it is not a code bug and not an abort.** Go back to **PF2b**
+  now. Count the lit columns per unit and compare each against PF1's chain
+  count for that unit: the unit lighting fewer columns than it has chains is the
+  one whose Device Order is wrong. Check that the short unit holds `03`; if a
+  four-chain unit holds `03`, swap the two orders at the menu (30 seconds, no
+  cable) and re-send. If the counts still don't reconcile, run **D3** — the
+  `0k ⇒ k−1` convention may be the thing that is wrong, not the cabling.
+- **A whole block dark** → that unit is not receiving, is not powered, is not
+  latching, holds a Device Order outside `01`–`03`, **or its populated chains
+  and the ports its controller index carries do not intersect at all** (PF2b's
+  third failing rig: two chains on connectors that are ports 2 and 3, holding
+  `03`). That last case renders nothing on any pattern for the whole session and
+  is indistinguishable here from a relay failure — **PF2b and D3 must both be
+  clean for that unit before §7's relay abort is even reachable.** Otherwise
+  resolve it via §3's decision procedure, D1/D2. The fallback below cannot run
+  until the baseline is clean.
+- **A block flickering rather than lit** → this is the `CAPTURE_RESULTS.md` Q2
+  "unlatched" signature, and a full white field is the *only* pattern on which
+  it is diagnosable, and only *live* — see the warning above. See V1c.
+
+Leave the floor in a known state afterwards:
+
+```powershell
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
+```
+
+#### 4. Empirical fallback, if the chains can't be traced by eye
+
+~10 minutes, no cable is moved. It re-sends the same white command above
+between power states.
+
+> ⚠️ **This fallback is *not* independent of our sender's arithmetic, and an
+> earlier draft claimed it was.** What goes dark when you cut a unit's power is
+> not that unit's block — it is `block ∩ ports its controller index carries`.
+> Under PF2b's first failing rig (chains 2/4/4, orders `01`/`02`/`03`), powering
+> down position 3 darkens **2** columns and this step tells you to write "2
+> columns, position 3" — the exact number it predicted — while position 3
+> actually drives **4**. The recorded map is then `{2,4,4}` read as `{4,4,2}`,
+> and every §3–§6 prediction downstream is stated against a map that is wrong in
+> a way nothing later can detect. **The check in bold below is what stops it
+> confirming its own expectation. Do not skip it.**
+
+> **After every step below: compare the number of newly-dark columns against
+> PF1's *chain count* for the unit you just powered down.** They must be equal.
+> If the dark region is **smaller** than the chain count, some of that unit's
+> chains were already dark before you cut the power — a port-coverage failure,
+> go back to **PF2b** and **D3**. The fallback map is wrong; fix the coverage,
+> re-run step 0, and start the fallback again. If coverage is confirmed clean
+> and the counts still disagree, **only an eye trace (step 2 above) will do** —
+> record the fallback map as unusable and trace the chains.
+
+**Power only** — use each unit's own power switch or supply. **No data cable is
+touched at any point in PF1b**, so §1's hot-swap rule is not in play.
+
+**Step 1.** Power down chain position 3 only. Re-send. The region that goes
+dark is position 3's block *as far as it is being driven*. Expect a number of
+columns equal to **PF1's chain count for position 3** — 2 on a correctly bound
+rig, and 4 if position 3 is the four-chain unit. Not "expect 2".
+
+**Step 2.** Power position 3 back up, and power down chain position **2 only**.
+Re-send. Predicted: positions 2 *and* 3 are both dark — position 3 is powered
+but can only be reached through position 2. The region that is newly dark
+relative to step 1 is position 2's block; expect **PF1's chain count for
+position 2**. The region still lit is position 1's block; expect PF1's chain
+count for position 1.
+
+(Powering 2 and 3 down together gives the same block map, but step 2 as written
+costs nothing extra and additionally confirms the daisy-chain topology PF1
+traced. **If position 3's block stays lit with position 2 powered down**, the
+chain is not the order PF1 recorded — the units may be on a switch rather than
+daisy-chained, or the hops are in a different order. Re-trace PF1 before
+continuing: §3's relay reasoning depends on that order being right.)
+
+Fill in the block sets above from what you saw, then power everything back up
+and re-run step 0 to confirm you are back to 50 lit.
 
 ### PF3 — Capture NIC
 
@@ -265,25 +708,43 @@ python -m unittest discover -t . -s mapper/tests
 python -m mapper matrix --supported-only
 ```
 
-**Predicted:** `OK` (33 tests), then `1056 legal configurations checked...`.
-Not required every session, but cheap (under a minute total) and rules out an
-unrelated regression before you're standing on the floor. Per §0, a green run
-here says nothing new about the controller-placement question — that's the
-whole point of this session.
+**Predicted:** `OK`, **no failures and no errors** — do *not* pin the test
+count; it grows as the suite does (36 on 2026-08-07, 33 when this sheet was
+first drafted). A changed count is not a finding. Then, from `matrix`:
+
+```
+1056 legal configurations checked across supported floor types
+10,779,648 pixels placed, every one at a unique wire slot
+```
+
+Not required every session, but cheap (about 20 s for the suite, a few seconds
+for `matrix`) and rules out an unrelated regression before you're standing on
+the floor. Per §0, a green run here says nothing new about the
+controller-placement question — that's the whole point of this session.
 
 ---
 
 ## 3. First verify step — broadcast, Device Order, or a swapped block
 
-**This is the fastest test in the document and the first hard gate.** Handoff
-1 §8 flags broadcast propagation through the daisy chain as unproven: pure
-broadcast, no addressing beyond byte 1, so if `OUTPUT`→`INPUT` doesn't relay
-it, controllers 2 and 3 never see a frame — a hardware limit, nothing to do
-with our code. A mis-set Device Order can produce an equally silent, non-error
-failure. And now — per §0 — a wrong `tile_col → (controller, port)` mapping
-in the sender can *also* put a lit tile on the wrong physical block, with no
-error either. All three need pulling apart, and the earlier that happens the
-better, so this section runs before anything else touches the network.
+**Prerequisite: PF1b.** Every prediction in this section is stated as a
+physical column set from PF1b's block map, against PF1b's reference photo. If
+PF1b is not filled in, stop and fill it in — without it, a benign cabling
+choice and the exact code bug this session exists to find are the same
+observation, and you will escalate the wrong one.
+
+Handoff 1 §8 flags broadcast propagation through the daisy chain as unproven:
+pure broadcast, no addressing beyond byte 1, so if `OUTPUT`→`INPUT` doesn't
+relay it, controllers 2 and 3 never see a frame — a hardware limit, nothing to
+do with our code. A mis-set Device Order can produce an equally silent,
+non-error failure. And now — per §0 — a wrong `tile_col → (controller, port)`
+mapping in the sender can *also* put a lit tile on the wrong physical block,
+with no error either. All three need pulling apart.
+
+Note that **PF1b step 0 has already answered the relay question** if it lit all
+50 tiles: `--pattern white` fills the floor whatever the Device Orders are, so
+a full white floor means every unit receives and latches. This section is
+therefore mostly a Device-Order and first-port test, and its abort branch
+should never fire on a rig whose PF1b baseline was clean.
 
 (§4 goes further — every column, every port, both senders. This section is
 the cheap first gate: three quick sends, one per controller's **first port
@@ -291,34 +752,197 @@ only**, to catch the coarse cases immediately. A subtler bug confined to a
 non-zero port would pass here and get caught in §4 instead — that's a known,
 accepted gap in this section by itself, not in the session as a whole.)
 
-**Read the whole floor after each send below, not just the block you're
-targeting**, and apply this once, to all three:
+### How to read §3 — run all three sends first, diagnose once
 
-- **Exactly 1 tile lit, in the block PF1 says is wired to the unit PF2
-  confirmed holds this test's target Device Order** → pass for this column.
-- **Exactly 1 tile lit, but in a different block than PF1/PF2 predicts, and
-  nothing else lit anywhere** → **not** a Device Order collision (a collision
-  always produces two or more simultaneously lit tiles — see below). First
-  re-check PF1 and PF2 in person; a stale or mis-transcribed reading there
-  will look exactly like this. If both check out, this is a candidate
-  **mapping bug**: the sender computed the wrong `(controller, port)` for this
-  tile column. Do not conclude this from a single sender — run the same
-  tile-col through both Python and the PS1 (§4, M1) before escalating. If both
-  land on the same wrong block, the bug is conceptual/shared; if only one
-  does, it's specific to that implementation.
-- **Nothing lit anywhere** → PF2 already read Device Order directly off the
-  physical unit, so this isn't an addressing mismatch for the unit that should
-  be showing it. This points at broadcast not reaching that unit — see the
-  abort condition in §7. (For controller 2 specifically, there is a second
-  candidate — see V1c below.)
-- **2 or more tiles lit simultaneously** → **duplicated content**, a genuine
-  Device Order collision. Mechanism: every controller receives every packet
-  every frame (pure broadcast, filtered locally by byte 1); if two physical
-  units share a Device Order, both act on the same byte-1 value and each
-  renders it onto its own local ports — so the same lit tile appears in both
-  units' blocks, at the same relative position, at once. Unambiguous: re-read
-  PF2 for every block that lit, find the collision, fix it on the unit, re-run
-  PF2 and this test.
+**Do not diagnose after V1a.** No single send can identify the fault here, and
+the previous draft of this document aborted the session on observations that
+are a two-second menu fix. Run V1a, V1b and V1c, record the whole triple, then
+apply the procedure below **once**.
+
+**A controller holds its last latched frame.** Between the three sends the
+floor keeps showing whatever the previous send lit, so a silently failed send
+reads as a duplicate. Send black between them, and read the floor **while the
+sender is still running** (each command prints `sending to
+255.255.255.255:60001 at 10 fps for 8.0s` and then exits):
+
+```powershell
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
+```
+
+**Read the whole floor after each send, not just the block you're targeting.**
+Record, in PF1b's `P`/`R` coordinates:
+
+| Send | byte 1 | tiles lit | physical column(s) lit | block(s), per PF1b |
+|---|---|---|---|---|
+| V1a `--tile-col 0` | `0x00` | | | |
+| V1b `--tile-col 4` | `0x01` | | | |
+| V1c `--tile-col 8` | `0x02` | | | |
+
+#### The mechanism, in full
+
+Every controller receives every packet of every frame — pure broadcast, filtered
+locally by byte 1 — and a unit holding Device Order `0k` acts on byte 1 = `k−1`
+and ignores the rest. So for one send:
+
+- Each participating unit renders **at most one tile** (one byte-1 value, one
+  port index, one chain).
+- If **two units share** a Device Order, both render the same content onto
+  their own chains: the same lit tile in two different blocks, at the same
+  relative position, simultaneously.
+- Every collision therefore **orphans** a byte-1 value that no unit is
+  configured for, and the send addressing an orphan **lights nothing.** With
+  three units and three values, a two-way collision produces one dark send and
+  a three-way collision produces two.
+
+**Dark is not a synonym for "broadcast isn't reaching that unit".** It is the
+normal signature of a Device Order fault, and the previous draft's routing of
+every dark cell to §7 was wrong. The five patterns worth naming:
+
+| Device Orders on positions 1/2/3 | V1a | V1b | V1c |
+|---|---|---|---|
+| `01`/`02`/`03` — healthy | 1 tile | 1 tile | 1 tile |
+| `01`/`01`/`03` — two collide | **2 tiles** | **dark** | 1 tile |
+| `02`/`02`/`02` — three-way | **dark** | **3 tiles** | **dark** |
+| `01`/`02`/`04` — one out of range | 1 tile | 1 tile | **dark** |
+| `01`/`02`/`03`, relay not forwarding past hop 1 | 1 tile | **dark** | **dark** |
+
+Note the third row: a three-way collision makes **V1a itself dark**. That is
+the first transmit step of the session, and it is a menu fix, not an abort.
+
+#### Step 1 — count
+
+Let **T** = the total number of tiles lit across all three sends, and let **r**
+= the number of tiles one participating unit lights per send. **Determine `r`
+before you count anything**: it is 1 under PF1's connector hypothesis A (four
+connectors, one chain each) and also under hypothesis B read as four ports on
+two connectors; it is **2** only if a connector's two chains *mirror* one
+logical port, which shows up as two tiles lit at the same relative position
+**inside one block**. Look for that first. Then:
+
+> **U = T / r** is the number of units that are (i) receiving frames, (ii)
+> latching them, (iii) holding a Device Order in `01`–`03`, **and (iv) have a
+> populated chain on logical port 0 of the controller index that order
+> selects.**
+
+Condition (iv) is new and is not cosmetic. §3 sends tile-cols 0, 4 and 8 —
+port 0 of each controller, and nothing else. A unit whose chains are on ports 1
+and 2, or on ports 2 and 3, is fully live and lights columns under `white`, yet
+contributes **nothing** to any of these three sends. Every "dark" cell below
+therefore has one more explanation than the table used to admit, and **PF2b is
+what excludes it.** (This also assumes each unit is in its expected work mode
+and `Floor Mir64` profile — a unit in Sound/DMX/Auto will not render our frames
+at all and counts as absent.)
+
+If `r` = 2, note that on this rig it is *arithmetically impossible* for all ten
+tile columns to be reachable — 10 chains driven by 5 logical ports means 5 tile
+columns are never emitted anywhere. See PF2b's corollary; expect dark runs in
+M0 and record it as a hardware finding.
+
+If **PF1b step 0 lit all 50 tiles**, U must be 3 (so T = 3, or 6 if `r` = 2) and
+**broadcast relay is already proven for this cabling** — §7's relay abort is
+unreachable from §3 and every dark send below is a Device Order fault. That is
+the expected case. Note the direction of that inference: all-50-lit ⇒ relay
+proven is sound, but *not*-all-50-lit does **not** imply a relay or Device Order
+fault until PF2b is clean.
+
+**In the table below, read every count as units' worth: "1 tile" means `r`
+tiles, "2 tiles" means `2r`, and the `T` column is `U`.**
+
+#### Step 2 — route on the triple
+
+| T | Shape | Verdict | Action |
+|---|---|---|---|
+| 3 | 1 / 1 / 1, three different blocks | All three orders distinct, all three units live. | Go to step 3 (the block check). |
+| 3 | one send lights **2**, one lights 1, one dark | **Two-unit Device Order collision.** Relay is fine — all three units answered something. | On *one* of the two blocks that lit together, set the unit's Device Order to the orphaned value (the dark send's `0x0N` → order `0(N+1)`). Re-run PF2, re-run §3. **No abort.** |
+| 3 | one send lights **3**, two dark | **Three-way collision.** Relay is fine. | Set two of the three units to the two orphaned values. Re-run PF2, re-run §3. **No abort.** |
+| 2 | 1 / 1 / dark, two different blocks | One unit is not participating: order outside `01`–`03`, unpowered, not latching, wrong work mode, or not receiving. | **D1**, then **D2**. |
+| 2 | one send lights **2**, two dark | A two-unit collision **and** a third unit not participating. | Fix the collision as above, then **D1**/**D2** for the remaining orphan. |
+| 1 | 1 / dark / dark | Two units not participating. If PF1b step 0 was clean, they were live minutes ago — suspect Device Order or power, not relay. If PF1b step 0 also showed them dark, relay-at-hop-1 is the leading hypothesis. | **D1**, then **D2**. |
+| 0 | all three dark | **Not a per-unit fault** — three independent units do not fail at once. | Check Ledset is fully closed; check `--local-ip` against PF3; confirm the command actually ran (read its console output, not the floor); re-run PF1b step 0. If `--pattern white` still lights all 50 but no `--pattern tile` send lights anything, the fault is in pattern generation, not addressing — run §0's diagnostic with `--pattern tile --tile-col 0 --tile-row 0`. |
+| any | 2 or more tiles lit **inside one block** | Not a collision — a collision puts its duplicates in *different* blocks. One unit is driving two chains from one logical port, or two chains are cabled to the same column. | Record it against PF1b: this is the `_4P` connector question in PF1 (4 connectors × 1 chain vs. 2 connectors × 2 chains). It is a hardware/cabling fact to write down, not an abort. |
+
+#### Step 3 — the block check (only meaningful once T = 3, 1/1/1)
+
+For each send, was the lit tile in the block belonging to the unit whose PF2
+Device Order matches that send's byte-1 value?
+
+- **All three match** → **pass for §3.** Note carefully what this does and does
+  not prove: it proves the three byte-1 values reach three *different* units,
+  each at that unit's first active port. It does **not** prove
+  `tile_col → (controller, port)` for any column other than 0, 4 and 8, and it
+  does not check which physical column within a block is port 0 — that is M0's
+  job, and PF1's connector↔port question is still open until then.
+  **It also cannot see a port-coverage failure at all.** PF2b's first failing rig
+  — chains 2/4/4, orders `01`/`02`/`03` — gives T = 3, shape 1/1/1, three
+  different blocks, and a block check agreeing with PF2 on all three, while two
+  of its ten columns are permanently dark. §3 only ever addresses port 0. **A
+  clean §3 is not evidence that the floor can fill; PF1b step 0's lit-column
+  count and PF2b are.**
+- **Three different blocks, but not the ones PF2 predicts** (a permutation) →
+  before reaching for a code bug, note that the convention **Device Order `0k`
+  ⇒ byte 1 = `k−1`** is itself unverified anywhere in this repo; its only
+  support is `PROTOCOL.md` §1's "`Device Order` 01/02/03…, first = Master". A
+  clean permutation of three blocks is far better explained by that convention
+  being different (e.g. 1-based, or Master not being order `01`) than by
+  `divmod`. Re-read PF2 in person, photograph each unit's menu, and record the
+  observed order↔byte-1 correspondence as a **finding**. Only if PF2 and the
+  observed permutation are consistent with each other and still disagree with
+  the code is this a mapping bug.
+- **One block wrong, two right** → candidate mapping bug for that column. Do
+  not conclude it from one sender: run the same `--tile-col` through both
+  Python and the PS1 (§4, M1) first. Both landing on the same wrong block →
+  shared/conceptual bug; only one → specific to that implementation.
+
+#### D1 — the orphan probe (the cheap disambiguator; needs no relay)
+
+Whenever a send is dark and step 2 sent you here, **do this before anything
+else.** It costs one menu change and one send, and it separates a sender-side
+fault from an addressing fault with no ambiguity.
+
+Chain position 1 is reachable directly from the PC — no hop, no relay. So:
+
+1. Write down chain position 1's current Device Order.
+2. On its own menu, set it temporarily to the **orphaned** value — the Device
+   Order corresponding to the dark send's byte 1 (`0x00`→`01`, `0x01`→`02`,
+   `0x02`→`03`). No cable is touched, so no power-down is needed.
+3. Re-send that same dark command (`--tile-col 0`, `4` or `8` respectively).
+
+| Result | What it establishes | Next |
+|---|---|---|
+| **One tile lights, in position 1's block** | For that byte-1 value the sender emits correct, latchable packets, and a unit that receives them renders them. The orphan is **not** a sender bug, **not** an EOF/latch defect for that controller group, and **not** a relay failure at hop 0. What remains is: no *receiving* unit is configured to that value. | Restore position 1's Device Order, re-read PF2, go to **D2**. |
+| **Still dark** | The fault is common to every unit for that byte-1 value: those bytes are wrong, never sent, or never latch. This is **not** Device Order and **not** relay. | Run §0's diagnostic against this exact command. If `verify` passes, the bytes were right and the fault is the controller's handling of that group — for byte 1 = `0x02`, that is precisely the EOF-on-port-1 risk in V1c, and D1 is the cleanest test of it there is, because it puts controller 2's packet group on a directly-reachable unit you can watch. Restore the Device Order and escalate to pair A with the failing controller index. |
+
+#### D2 — which unit is missing
+
+With position 1 restored, identify the block that never lit across all three
+sends. Go to that physical unit and, in this order:
+
+1. **Is it powered?** Is the link light on its `INPUT` lit, and on the upstream
+   unit's `OUTPUT`?
+2. **What Device Order does its own menu show?** Photograph it. Anything
+   outside `01`–`03` — `04`, `00`, blank — is the orphan. **Fix it on the menu,
+   re-run PF2 and re-run §3. No abort.**
+3. **What work mode is it in?** Anything other than the mode the other two are
+   in will not render our frames.
+
+4. **Do its chains and its ports intersect?** Re-read **PF2b**. A unit whose two
+   chains sit on the connectors that are logical ports 2 and 3, while its Device
+   Order selects the last controller index, receives **no packet on any port it
+   has a chain on** — the sender never emits ports 2 or 3 for controller 2 at
+   all. It renders nothing, on any pattern, for the entire session. It is
+   powered, linked, in the right work mode, holds a distinct in-range order, and
+   D1 lights on position 1 — so it satisfies every other condition below and is
+   *indistinguishable at the floor* from a relay failure. It is a five-minute
+   recable (§1 — power down first), not an abort. **Run D3 if you cannot settle
+   the connector↔port question on paper.**
+
+Only if all three units are powered, linked, in the same work mode, and show
+three *distinct* Device Orders in `01`–`03`, **and PF2b is clean for that unit
+— its populated chains sit on ports its controller index actually carries**,
+**and** D1 lit, **and** PF1b step 0 also shows that unit's block dark, is this a
+genuine relay failure. That is the only route into §7's relay abort. Record
+which hop: a missing position 3 with a live position 2 is hop 2; positions 2 and
+3 both missing is hop 1.
 
 ### V1a — controller 0
 
@@ -326,7 +950,9 @@ targeting**, and apply this once, to all three:
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 0 --tile-row 0 --duration 8
 ```
 
-**Predicted:** one tile, chain-position-1's block, first column.
+**Predicted:** one tile, **in the block PF1b assigned to the unit PF2 records
+as Device Order `01`**, at row R1 or R5 (row direction is §5's business, not
+this section's). Write down the physical column, e.g. `P5`.
 
 ### V1b — controller 1
 
@@ -334,7 +960,8 @@ python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 -
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 4 --tile-row 0 --duration 8
 ```
 
-**Predicted:** one tile, chain-position-2's block, first column.
+**Predicted:** one tile, in the block PF1b assigned to the unit holding Device
+Order `02`. Write down the physical column.
 
 ### V1c — controller 2 (partial — only 2 ports, EOF on port 1 not port 3)
 
@@ -342,7 +969,13 @@ python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 -
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 8 --tile-row 0 --duration 8
 ```
 
-**Predicted:** one tile, chain-position-3's block, first column.
+**Predicted:** one tile, in the two-column block PF1b assigned to the unit
+holding Device Order `03`. Write down the physical column.
+
+> Which of a block's columns is "first" is **not** predicted here. That depends
+> on which physical connector carries logical port 0, which PF1 has now made an
+> *output* of this session rather than an assumption. All §3 predicts is *which
+> block*. M0 resolves within-block order.
 
 This column carries one extra risk specific to being the *partial* one: its
 end-of-frame flag lands on **port 1**, not port 3 like the other two (PF4 —
@@ -352,10 +985,27 @@ where the flag always sits on the highest-numbered one. If chain-position-3's
 firmware has any assumption that the frame-end flag arrives on a fixed
 "last" port regardless of how many are actually active, it may never latch.
 
-| If nothing lights, and V1a/V1b passed | Diagnosis | Next |
+**The dark-versus-flicker discriminator is not observable with `--pattern
+tile`.** The Q2 "unlatched" signature — illumination beginning at the far end
+of each chain, dead pixels near its boundary, and 5–10 *coloured* pixels at
+that boundary in an all-white frame — was recorded on a **full white** frame.
+With one lit tile out of fifty there is nothing for a partial blit to reveal: a
+controller that never latches and a controller that is dead look identical.
+**So if V1c is dark, do not diagnose it from V1c.** Re-send white and read
+*that*:
+
+```powershell
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern white --duration 10
+```
+
+Watch only the block PF1b assigns to the unit that failed. (If PF1b step 0 was
+run, you have this observation already — reuse it rather than re-sending.)
+
+| White-field observation for that block | Diagnosis | Next |
 |---|---|---|
-| Steady dark, no flicker | Same broadcast-relay hypothesis as the general case, one hop further — see §7. | Escalate; not fixable in software at this session. |
-| Sporadic partial flicker, not a clean image | Matches the `CAPTURE_RESULTS.md` Q2 "unlatched" signature — packets arriving and being accepted, but the frame never completes from this unit's point of view. Plausibly the EOF-on-port-1 risk above. | Record precisely — this is a genuinely new finding, no partial controller existed before this rig. Do not attempt a fix on the floor; write down the exact observation for pair A. Continue testing controllers 0 and 1, which are unaffected. |
+| Block lights cleanly white | The unit receives and latches. V1c's darkness was **not** a latch or relay problem — it is Device Order (that unit is not on `03`) or a controller-2 content bug. Go to §3's D1/D2; do **not** escalate an EOF finding. | D1, then D2. |
+| Block dark, steady, no flicker at all | Not latching *and* not blitting. Consistent with the unit never receiving a packet — but only after D1 and D2 have excluded Device Order, power, link and work mode. | §3 D1 → D2 → §7 relay abort, in that order. |
+| Sporadic partial flicker, illumination starting at the far end of each chain, dead and **coloured** pixels at the boundary | The `CAPTURE_RESULTS.md` Q2 unlatched signature, on the one pattern that can show it. Packets are arriving and being accepted; the frame never completes from this unit's point of view. This is the EOF-on-port-1 risk. | Confirm with §3's **D1** — set chain position 1 to Device Order `03`, then send `--pattern white --duration 10`. As controller 2 it receives only ports 0–1, so expect **two** of its columns white and the other two dark; that is still enough white area to show or exclude the flicker signature, and `--pattern tile` is not. If position 1 also fails to latch, the EOF-on-port-1 defect is firmware-general and is a genuinely new finding (no partial controller has ever existed on this rig). If position 1 latches cleanly, the defect is specific to that one unit, which is a different and much cheaper finding. Record both units' behaviour, restore the Device Order, and hand it to pair A. Do not attempt a fix on the floor. Controllers 0 and 1 are unaffected — continue. |
 
 ---
 
@@ -373,63 +1023,143 @@ this walk is the only evidence that will ever exist for them until it runs.
 .\tools\Send-FloorTest.ps1 -Cols 10 -Rows 5 -PortsPerController 4 -Pattern tilewalk -Hold 2 -LocalIP 10.200.50.78
 ```
 
-Walks all 50 tiles, one at a time, 2 s each (~100 s total), column-major:
+Walks all 50 tiles, one at a time, 2 s each (~100 s nominal), column-major:
 tile-col 0 rows 0→4, then tile-col 1 rows 0→4, … through tile-col 9. It
 prints `tile (col=N, row=M)` to the console as it steps — **film the floor**
 so the video and the console log together give the complete map in one pass.
+Film the console in the same frame if you can, or clap once at the start so the
+audio can be aligned afterwards; the log alone has no timestamps you can trust
+to ±2 s.
 
-**Predicted:**
+(The PS1 paces to a 100 ms absolute target with catch-up. Measured on
+`captures/20-ours-white.pcapng`, which is this same script, its actual frame
+intervals ranged **34–126 ms** around a 97.6 ms mean. Over a 2 s hold that is
+invisible, but do not treat the step boundaries as exactly 2.000 s apart when
+scrubbing the video.)
 
-- Exactly one new tile lights every 2 s, advancing in a fixed physical
-  direction, no skips, no repeats, no two lit at once.
-- Each physical block (as identified by PF1's cable trace) shows **exactly**
-  4, 4, then 2 distinct tile positions before the walk visibly moves to the
-  next block — matching `PORT_COUNT_A_CONTROLLER=4` and the partial third
-  controller.
-- Within one tile-col's 5-step run, the row direction is consistent with
-  every other tile-col's 5-step run (checked properly in §5).
+**Predicted.** Split into two criteria, because they need different evidence
+and fail for different reasons:
+
+**(a) Trace-free — no cable trace needed, checkable from the video alone.**
+
+1. Exactly one tile lit at any moment; exactly one *new* tile every ~2 s.
+2. Over the whole walk, **all 50 physical tiles light exactly once** — no
+   skips, no repeats, no dead tile, no dead column.
+3. Each consecutive run of 5 steps lights **one complete physical column** —
+   all five rows of a single column, and nothing outside it. (This is the
+   strong one. It says the tile-row axis really is the port-payload axis, with
+   no transposition and no interleaving between columns.)
+4. The row direction inside a run is **the same for all ten runs** — all five
+   steps ascending, or all five descending, never mixed.
+5. The ten runs occupy **ten distinct physical columns**.
+
+Any failure of 1–5 is a real defect and needs no interpretation against
+anything physical. This is strictly stronger than "no skips, no repeats": it
+also kills transposition, interleaving and any mapping that does not group the
+floor into whole 5-tile columns.
+
+**What (a) cannot catch:** a *permutation* of the ten columns. Every
+permutation still lights 50 tiles once each in ten clean vertical runs. Only
+PF1b can distinguish a permutation from cabling.
+
+**(b) Trace-dependent — needs PF1b's block map.**
+
+6. Runs 1–4 all land inside the block PF1b assigns to the unit holding Device
+   Order `01`; runs 5–8 inside `02`'s block; runs 9–10 inside `03`'s. Block
+   sizes {4, 4, 2}, matching `PORT_COUNT_A_CONTROLLER = 4` and the partial
+   third controller.
+7. Within each block, note the physical column each run landed on **in order**.
+   That is the connector ↔ logical-port map PF1 left open — an **output** of
+   this session. Write it into §10.
+
+**The common case, and why it is not the criterion.** If PF1b shows the three
+blocks in physical order along the long axis *and* each unit's connectors
+cabled to its columns in port order, then (a)+(b) together produce the tidy
+picture: ten runs advancing monotonically P1→P10 (or P10→P1 throughout), with
+visible block joins after the 4th and 8th run. **Expect that, but do not
+require it.** A rig cabled middle → left → right produces a non-monotone walk
+on entirely healthy hardware and correct code, and PF1b is what tells the two
+apart. See §7.
+
 - The four points needed for orientation are specific steps in this same walk
   — no extra transmission needed (see §5): step 0 = `(0,0)`, step 1 = `(0,1)`,
-  step 5 = `(1,0)`, step 49 = `(9,4)`. Note the physical tile at each,
-  ideally with a timestamped photo.
+  step 5 = `(1,0)`, step 49 = `(9,4)`. Note the physical tile at each in PF1b's
+  `P`/`R` coordinates, ideally with a timestamped photo.
 
 | Observed | Diagnosis | Next |
 |---|---|---|
-| Clean walk, exactly {4, 4, 2} per block, in order | **Pass.** Mapping confirmed for all 10 columns via one sender. Continue to M1 for the cross-implementation check. | |
-| A block shows more or fewer than its expected column count before the walk visibly jumps to a different physical block | **Controller-boundary bug** — this is precisely the "controller placement above 8 columns" risk flagged in §0. Record which block, and the count actually observed. | Escalate to pair A with the exact step numbers where the boundary landed wrong. Do not attempt to patch this by adjusting orientation flags — it is not an orientation problem. |
+| (a) 1–5 all hold, and (b) 6 matches PF1b with {4, 4, 2} | **Pass.** Mapping confirmed for all 10 columns via one sender. Record the within-block column order from (b) 7 — that is the connector↔port finding. | Continue to M1 for the cross-implementation check. |
+| **(a) 2 or (a) 5 fails: one or more whole 5-step runs is dark** (no tile lights at all for an entire ~10 s interval), and/or fewer than 10 distinct physical columns light across the whole walk | **Port-coverage failure — PF2b. Not a controller-boundary bug, not a code bug, and not an abort.** A dark 5-step run means the sender addressed a `(controller, port)` that no populated chain is listening on; a permanently dark physical column means a populated chain is on a port the sender never emits. On this rig the classic instance is chains 2/4/4 with orders `01`/`02`/`03`: tile-cols 2 and 3 give ten consecutive dark steps, and the `03` unit's third and fourth chains never receive, so 8 columns light and 40 tiles. | Go to **PF2b**, then **D3** if the paper check won't close. Fix at the menu (swap the short unit onto `03`) or by moving that unit's chains to the first connectors (§1 — power down first), then re-run PF1b step 0 and this walk. **Do not escalate to pair A** and do not read the {4,4,2} row below until every column lights. |
+| (a) holds **with all 50 tiles lit and all 10 columns distinct**, but a block's run count is not 4 / 4 / 2 against PF1b's blocks | **Controller-boundary bug** — precisely the "controller placement above 8 columns" risk flagged in §0. Record which block and the count observed. **Check the dark-run row above first**: a coverage failure produces a wrong-looking run count too, and it is a menu fix rather than a code bug. | Escalate to pair A with the exact step numbers where the boundary landed wrong. Do not patch this with orientation flags — it is not an orientation problem. |
+| (a) holds, blocks are {4, 4, 2}, but the blocks are visited in a different physical order than left-to-right | **Not a bug by itself.** Check PF1b: if the cabling groups the columns that way, this is a cabling fact — record it and carry on. Only if PF1b says the blocks should have been elsewhere is it a mapping bug. | §7, third bullet. |
+| (a) 5 holds but the columns *within* one block are visited out of order — not reversed, scrambled (e.g. the block's columns come up 2nd, 4th, 1st, 3rd) | **A port permutation inside one controller.** `reverseColumnsPerController` cannot express this — it only reverses. Either that unit's connectors are cabled to its columns out of order (a cabling fact: record it in PF1b/§10, it is the answer to PF1's connector question), or `port = tileCol % ports` is wrong for that unit (a code bug). PF1b's trace is the only thing that decides which. | If PF1b traced the chains, compare directly and record the verdict. If PF1b used the empirical fallback (which resolves blocks, not columns within a block), you cannot decide it here — record the observed order as the connector↔port map and flag it as unverified against a trace. |
+| (a) 3 fails — a 5-step run spans two physical columns, or lights fewer/more than 5 distinct tiles | Transposition or interleaving: the tile-row axis is not the port-payload axis on this rig. Nothing downstream is meaningful. | Stop and escalate to pair A. Do not attempt orientation flags — `mapper/orientation.py` offers no transpose, deliberately (`PROTOCOL.md` §4.4). |
 | One 2 s interval is dark, walk resumes correctly after | Possible dropped frame/packet, or an EOF/latch hiccup at that specific boundary. Note the exact `col=/row=` printed at that moment. | Re-run the walk once. Reproducible at the same column → treat as a real per-column defect, not noise; investigate that column specifically. One-off, non-reproducible → note it, don't over-conclude from a single miss. |
-| Two tiles lit simultaneously at some step | Device Order collision, surfaced independently of §3 (a second chance to catch it, or evidence it's intermittent). | Note which two blocks; re-check PF2 on both. |
-| Row order inconsistent within one tile-col's run relative to others | See §5 — this is the `reverseColumnsPerController`-adjacent risk, not a column-boundary bug. | Continue to §5's explicit check. |
+| Two tiles lit simultaneously at some step, in **different** blocks | Device Order collision, surfaced independently of §3 (a second chance to catch it, or evidence it's intermittent). | Note which two blocks; re-check PF2 on both; re-run §3's decision procedure. |
+| Two tiles lit simultaneously at some step, in the **same** block | Not a collision. One logical port is driving two chains, or two chains are cabled to the same column — the `_4P` connector question from PF1. | Record against PF1b. Cabling/hardware fact, not an abort. |
+| Row order inconsistent within one tile-col's run relative to others ((a) 4 fails) | See §5 — this is the `reverseColumnsPerController`-adjacent risk, not a column-boundary bug. | Continue to §5's explicit check. |
 
 ### M1 — Python cross-check, all 10 columns at row 0
 
+> ⚠️ **A controller holds its last latched frame.** Ten back-to-back sends with
+> nothing between them means the floor is *never dark*, so a silently failed
+> send leaves the previous column's tile lit and reads as a duplicate or as a
+> mapping bug. **Every send below is preceded by a black frame**, and the
+> observation must still be made **while the sender is running** — each command
+> prints `sending to 255.255.255.255:60001 at 10 fps for 6.0s` and then exits,
+> and what you see after it exits is a held frame, not a live one.
+
 ```powershell
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 0 --tile-row 0 --duration 6
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 1 --tile-row 0 --duration 6
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 2 --tile-row 0 --duration 6
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 3 --tile-row 0 --duration 6
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 4 --tile-row 0 --duration 6
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 5 --tile-row 0 --duration 6
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 6 --tile-row 0 --duration 6
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 7 --tile-row 0 --duration 6
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 8 --tile-row 0 --duration 6
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 9 --tile-row 0 --duration 6
 ```
 
+Equivalent compact form, if you would rather film one continuous 70 s run than
+step through it — it prints the column label to the console before each send,
+so the video and the log align the same way M0's do:
+
+```powershell
+foreach ($c in 0..9) {
+    python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
+    Write-Host "=== M1: tile-col $c ===" -ForegroundColor Cyan
+    python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col $c --tile-row 0 --duration 6
+}
+```
+
 **Predicted:** for each `N`, the *same* physical tile M0's `tile-col=N,
-row=0` step showed (step `5N` of the M0 walk).
+row=0` step showed (step `5N` of the M0 walk), and a fully dark floor for one
+second between each pair.
 
 This is the comparison described in §0: neither sender applies an
 orientation transform here, both were run on the same hardware in the same
 session, so any per-column disagreement between the two is a real
 implementation bug, isolated to whichever one doesn't match the M0
-observation (which itself should match PF1's physical trace).
+observation (which itself should match PF1b's block map).
 
 | Observed | Diagnosis | Next |
 |---|---|---|
-| All 10 match M0 | **Pass.** Both independent implementations of `tile_col → (controller, port)` agree with each other and with the physical floor, for every column. This is the strongest evidence this session can produce that the mapping is correct. | Continue to §5. |
-| One or more columns disagree between Python and the PS1 | Confirmed sender-side bug, not hardware — pinpointed to whichever tool doesn't match the M0/PF1 physical fact for that column. | Stop treating the mapping as verified for that column (and be suspicious of neighbouring ones). Escalate to pair A with the specific `tile-col` values and both observed blocks. |
+| All 10 match M0, and the floor goes fully dark between each | **Pass.** Both independent implementations of `tile_col → (controller, port)` agree with each other and with the physical floor, for every column. This is the strongest evidence this session can produce that the mapping is correct. | Continue to §5. |
+| One or more columns disagree between Python and the PS1 | Confirmed sender-side bug, not hardware — pinpointed to whichever tool disagrees with M0 and PF1b's block map for that column. | Stop treating the mapping as verified for that column (and be suspicious of neighbouring ones). Escalate to pair A with the specific `tile-col` values and both observed physical columns. |
 | Both agree with each other but *neither* matches M0's own earlier observation for that column | Possible transient (loose connector, one dropped frame) rather than a mapping bug — a real bug would reproduce identically since nothing in the code differs between sends. | Re-run just that one column on both senders; if it now matches M0, treat the first M0 reading as noise and note it; if it still disagrees, treat as a live mapping bug per the row above. |
+| A black step does **not** darken the floor | The failure is in the *black* send, not the tile send — and it means every observation in this section was of a held frame. | Stop. Re-run PF1b step 0 and §3. Do not record any M1 row taken under this condition. |
 
 ---
 
@@ -442,18 +1172,40 @@ physical tile observed at M0's steps 0, 1, 5, and 49 (`(0,0)`, `(0,1)`,
 tile-col **9**, max tile-row **4**, not 7/4 — this floor is wider than the
 historical one).
 
-**These four fully determine the transform.** Only `rotate180` and `mirrorX`
-are possible (`PROTOCOL.md` §4.4 — 90°/270° are physically excluded because
-`port = tileCol % PORT_COUNT` binds tile columns to the port axis):
+**This derivation is only possible against PF1b's reference frame.** The origin
+corner and the viewing direction between them admit 4 corners × 2 handednesses
+= **8** mutually consistent readings of "+x moves right, +y moves down" off an
+unlabelled floor, of which the previous draft of this table named 3. PF1b fixes
+both: the photo fixes the viewpoint and the `P`/`R` labels, and PF1b §1 already
+declared the intended origin as **(P1, R1)**, `+x` toward P10, `+y` toward R5.
+With those declared, the answer is forced rather than chosen.
 
-Pick whichever physical corner you want to call logical `(0,0)` — there is no
-requirement on *which* corner, only that it's documented. Compare the
-observed direction of travel for `(1,0)` and `(0,1)` against "+x moves right,
-+y moves down" from that corner:
+Only `identity`, `mirrorX`, `rotate180` and `rotate180+mirrorX` are reachable
+(`PROTOCOL.md` §4.4 — 90°/270° are physically excluded because
+`port = tileCol % PORT_COUNT` binds tile columns to the port axis). Note what
+the fourth one is: in `orientation.py`, `rotate180` flips both axes and
+`mirrorX` then flips x back, so **`rotate180+mirrorX` is a pure y-flip**. It is
+the "y inverted, x not" case the previous table had no cell for.
 
-| Both axes inverted | Only the long axis inverted | Neither inverted |
-|---|---|---|
-| `rotate180` | `mirrorX` | `identity` |
+M0 and M1 both send with **`--orientation identity`** (the PS1 has no transform
+at all), so what you observed *is* the untransformed wire mapping. Read two
+directions off it, in `P`/`R` coordinates:
+
+- **`+x`**: from the tile at `(0,0)` to the tile at `(1,0)` — does the physical
+  column index **P increase or decrease**?
+- **`+y`**: from `(0,0)` to `(0,1)` — does the physical row index **R increase
+  or decrease**?
+
+| `+x` under identity | `+y` under identity | Identity puts logical (0,0) at | **Orientation value to use** |
+|---|---|---|---|
+| P increasing | R increasing | (P1, R1) | `identity` |
+| P **decreasing** | R increasing | (P10, R1) | `mirrorX` |
+| P increasing | R **decreasing** | (P1, R5) | `rotate180+mirrorX` |
+| P **decreasing** | R **decreasing** | (P10, R5) | `rotate180` |
+
+That value is a **session output**. Write it into §10 and into
+`mapper/orientation.py`'s comment block afterwards — it is the answer decision
+19 asks for, and there is no other step that produces it.
 
 `(9,4)` must land diagonally opposite `(0,0)`; if it doesn't, see the M1
 table above — that's more likely a per-column mapping issue on column 9
@@ -462,13 +1214,26 @@ orientation error, since orientation is a single floor-wide transform and
 wouldn't put just one corner out of place while the rest of the walk was
 clean.
 
+> **Two things whole-tile observations cannot decide.** (1) `mirrorX` reverses
+> tile columns across the *whole floor* (0…9 → 9…0) while
+> `reverseColumnsPerController` reverses them *within each group*
+> (0–3→3–0, 4–7→7–4, 8–9→9–8). Those are different permutations, so M0's walk
+> does distinguish them — but only if you check the block joins, not just the
+> ends. (2) `mirrorX` also mirrors pixels *inside* each tile, and a lit whole
+> tile cannot show that. Nothing in §3–§5 can. §6 V4's `gradient24` is the only
+> step in this document that could, and only by eye.
+
 **If M0/M1 weren't filmed clearly enough to read these four points**, fall
-back to four dedicated sends:
+back to four dedicated sends. Black between them, for the reason in M1:
 
 ```powershell
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 0 --tile-row 0 --duration 8
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 1 --tile-row 0 --duration 8
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 0 --tile-row 1 --duration 8
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern tile --tile-col 9 --tile-row 4 --duration 8
 ```
 
@@ -478,8 +1243,11 @@ python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 -
 it reverses port order inside *every* controller's group simultaneously.
 There is no way, in the current code, to reverse only one controller's
 internal cabling while leaving the other two alone. Check M0's column
-direction *within each block separately* (tile-col 0→1 vs. 4→5 vs. 8→9 — all
-already part of the same walk, no extra commands needed):
+direction *within each block separately* — tile-col 0→1 vs. 4→5 vs. 8→9, in
+`P` coordinates, all already part of the same walk, no extra commands needed.
+"Direction" here means the sign of the change in physical column index within
+that unit's block, which is only defined once PF1b says which columns the block
+contains:
 
 | Observed | Diagnosis | Next |
 |---|---|---|
@@ -492,22 +1260,34 @@ already part of the same walk, no extra commands needed):
 
 ### V3 — confirmation
 
-Re-send `(0,0)` with the orientation flag derived in §5 applied and confirm
-it now lands at whatever corner you decided is the documented origin:
+Re-send `(0,0)` with the orientation value derived in §5 applied, and confirm
+it now lands on the tile PF1b declared as the origin — **(P1, R1)**:
 
 ```powershell
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --pattern black --duration 1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --orientation <derived> --pattern tile --tile-col 0 --tile-row 0 --duration 8
 ```
 
-(`<derived>` is one of `identity`, `rotate180`, `mirrorX`, or a `+`-joined
-combination — per `mapper --help`.)
+`<derived>` is a `+`-joined combination of the four tokens the CLI accepts —
+`identity`, `rotate180`, `mirrorX`, **`reverseColumnsPerController`** — the
+last of which is the one §5 spends a subsection deriving and which the previous
+draft of this list omitted. Confirm the spelling against the CLI itself:
+
+```powershell
+python -m mapper send --help
+```
+
+(the top-level `python -m mapper --help` does *not* list the orientation
+tokens; only the sub-command's help does). An unrecognised token raises
+`unknown orientation token` and sends nothing, so a typo fails loudly rather
+than transmitting the wrong transform.
 
 | Observed | Diagnosis | Next |
 |---|---|---|
-| Correct corner | **Pass — orientation determined for arrangement #1.** | Record it (§10), continue to V4. |
+| Lands on (P1, R1) | **Pass — orientation determined for arrangement #1.** | Record it (§10), continue to V4. |
 | Still wrong | The transform derived from §5 doesn't reproduce §5's own observations — arithmetic error in deriving `<derived>`, not a new hardware fact. Re-derive, don't guess. | Fix and re-run V3 before continuing. |
 
-### V4 — full pattern at 10 fps
+### V4 — full pattern at a nominal 10 fps
 
 ```powershell
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --local-ip 10.200.50.78 --orientation <derived> --pattern gradient24 --fps 10 --duration 30
@@ -520,6 +1300,17 @@ individually confirmed (§4), so this step is a holistic sanity check, not a
 first look — a mismatch here after a clean §3–§5 would itself be an
 unexplained row, worth stopping on rather than shrugging off.
 
+> **`--fps 10` is a request, not a measured rate.** Do not predict clean 10.0
+> fps pacing and do not read jitter as a finding. Measured 2026-08-07 on
+> `captures/20-ours-white.pcapng` — which is `Send-FloorTest.ps1`, using the
+> same absolute-target sleep loop as `mapper/sender.py` — frame intervals
+> ranged **34 ms to 126 ms** around a 97.6 ms mean (**10.24 fps**), with a
+> cluster at 91–97 ms and a tail past 110 ms. Ledset itself averages
+> **9.15–9.20 fps** (mean interval 108.7–109.3 ms, whole distribution 101–116
+> ms) and is the *steadier* of the two. The Python sender's own on-the-wire
+> pacing has never been measured at all; if you want that number, this is the
+> run to capture, and it is a free by-product of §0's diagnostic.
+
 **Scope note on the two vendor defects:** this command sends one **static**
 framebuffer repeatedly — there is no video clip and therefore no loop
 boundary for the "two black frames per loop" defect to occur at. This step
@@ -529,38 +1320,63 @@ such, not silently claimed as covered. The torn-frame defect (`SendData`'s
 missing locking) is excluded by construction here — the whole buffer is built
 in Python before any packet is sent, so there is no concurrent writer to race
 against — but that's a code-level argument, not an empirical one; for direct
-evidence, capture this run (§0's universal diagnostic) and confirm every
-frame is `packets_per_frame`-complete with no header gaps.
+evidence, capture this run (§0's universal diagnostic, **with `--pattern
+gradient24`** — the framebuffer is static and identical every frame, so
+`verify` applies cleanly here) and confirm every frame is
+`packets_per_frame`-complete with no header gaps.
 
 | Observed | Diagnosis | Next |
 |---|---|---|
 | Coherent image, stable for 30 s | **Pass.** Session core is done for arrangement #1. | |
-| A whole controller's block is missing/dark | One of §3/§4's controllers has stopped responding, or a duplicate Device Order re-appeared under sustained load (thermal/power issue). | Re-run V1a–V1c to re-localise. |
-| A block shows a shifted/duplicated version of another block's content | Same duplicated-content signature as §3 — Device Order conflict, possibly intermittent. | Re-check PF2 for a loose/marginal setting; re-run §3. |
-| Periodic black flash | Shouldn't be possible given this command sends a static frame — points at the send loop's own pacing, not the vendor's loop-boundary defect. | Capture and inspect frame timing; escalate to pair A, this is a new and unexpected finding. |
-| Visible tear line, unstable over time | Contradicts the double-buffer-by-construction argument above. | Capture and run `mapper verify`; if verify passes (bytes were correct) the defect is on the controller/floor side, not the sender. |
+| A whole controller's block is missing/dark | One of §3/§4's controllers has stopped responding, or a duplicate Device Order re-appeared under sustained load (thermal/power issue). | Re-run §3's V1a–V1c triple and its decision procedure to re-localise. |
+| A block shows a shifted/duplicated version of another block's content | Same duplicated-content signature as §3 — Device Order collision, possibly intermittent. Under `gradient24` a collision is unmistakable: two blocks show *identical* colour, which the per-pixel-unique pattern otherwise never produces. | Re-check PF2 for a loose/marginal setting; re-run §3. |
+| Periodic black flash | The frame is static, so this is not content. Two candidates: the send loop's pacing (see the jitter note above — a 126 ms interval is within measured normal and is *not* a finding), or a controller failing to latch some frames. | Capture and inspect frame intervals before concluding anything. A flash that recurs on a period unrelated to the send interval, or that is confined to one block, is the interesting one — escalate that. Ordinary jitter is not. |
+| Visible tear line, unstable over time | Contradicts the double-buffer-by-construction argument above. | Capture and run `mapper verify --pattern gradient24 --orientation <derived>`; if verify passes (bytes were correct) the defect is on the controller/floor side, not the sender. |
 
 ---
 
 ## 7. Abort and safety criteria
 
+> **What is *not* an abort.** A dark send is not, by itself, an abort — it is
+> the ordinary signature of a Device Order fault and §3's decision procedure
+> fixes three of its five named patterns on a controller menu in under a
+> minute. A block lighting somewhere you didn't expect is not, by itself, an
+> abort — PF1b decides that. An earlier draft routed both straight here, which
+> would have ended the session on the first transmit step of a rig with a
+> three-way Device Order collision. **Work the §3 procedure to the end, and
+> PF1b's map, before reaching for anything below.**
+
 **Stop and do not continue** if any of the following occur:
 
-- Any observation in §3/§4 points at broadcast not reaching a controller
-  **after** PF2 has independently confirmed Device Order is correct on that
-  unit's own display, **and** M1's cross-implementation check rules out a
-  sender-side mapping bug for that column. This is a hardware/topology
-  limitation outside our code — acceptance for the multi-controller geometry
-  cannot be claimed with it unresolved. Escalate; do not attempt a software
-  workaround (per decision 18, nothing added to the PS1; per §5, the current
-  orientation model has no per-controller fix either).
+- **A genuine broadcast-relay failure.** All of the following must hold before
+  this counts: §3's **D1** probe lit (so the sender's bytes for that byte-1
+  value are correct and latchable); **D2** found the unit powered, linked, in
+  the expected work mode, and showing a distinct Device Order in `01`–`03` on
+  its own display; **PF2b is clean for that unit** — its populated chains sit on
+  logical ports its controller index actually carries, confirmed by trace or by
+  **D3**; and **PF1b step 0**'s white field also leaves that unit's block dark.
+  Only then is broadcast genuinely not reaching it.
+  **The PF2b condition is not a formality.** A two-chain unit cabled to the
+  connectors that are logical ports 2 and 3, holding Device Order `03`, receives
+  nothing on either chain — controller 2's packets exist only for ports 0 and 1
+  — and it satisfies all four of the other conditions simultaneously. Aborting
+  the session on it would end the run over two plugs moved one connector across. That is a
+  hardware/topology limitation outside our code — acceptance for the
+  multi-controller geometry cannot be claimed with it unresolved. Escalate; do
+  not attempt a software workaround (per decision 18, nothing added to the PS1;
+  per §5, the current orientation model has no per-controller fix either).
 - M1 finds a Python/PS1 disagreement on any column. Both are wrong-or-right
   together on raw mapping; a disagreement means neither can be trusted until
   resolved, and nothing built on top of that column (orientation, full
   pattern) can be trusted either.
-- M0 finds a controller-boundary count that doesn't match {4, 4, 2}. Same
-  reasoning — this is a code bug, not a floor problem, and everything past
-  that boundary is suspect until fixed.
+- M0 finds a controller-boundary count that doesn't match {4, 4, 2}, measured
+  **against PF1b's block map**. This is a code bug, not a floor problem, and
+  everything past that boundary is suspect until fixed.
+  **A boundary in an unexpected *place* is not this.** If PF1b shows the
+  cabling groups the columns that way — a floor cabled middle → left → right,
+  say — then a walk that jumps blocks in that order is a **cabling fact to
+  record in §10, not an abort**. The abort is for a boundary that falls where
+  PF1b says it should not have, or for block sizes that are not {4, 4, 2}.
 - §5 finds one controller's column direction inconsistent with the other two.
   Orientation cannot be correctly declared for this rig until it's either
   recabled or the model is extended.
@@ -587,15 +1403,40 @@ about to be touched, power down all three controllers before doing so.
 Fill in once §3–§6 are done for arrangement #1 (and again after §9 for
 arrangement #2):
 
-- Mapping (`tile_col → (controller, port)`) confirmed for all 10 columns via
-  M0 alone, and cross-confirmed via M1 against the PS1: **yes / no**
-- Broadcast reaches all three controllers, disambiguated from Device Order
-  and from a mapping bug: **yes / no**
+- PF1b's reference frame photographed, and the 10-row block map recorded (by
+  trace / by the power-down fallback — circle one): **yes / no**
+- **PF2b port coverage**: chain counts `{4, 4, 2}` totalling 10, the two-chain
+  unit holding `03`, its chains on logical ports 0–1, and PF1b step 0 lighting
+  all ten columns: **yes / no**. If "no", nothing below is interpretable —
+  §3 passes, M0 reports a boundary bug, and both are artefacts.
+- M0 pass criterion (a), **trace-free**: 50 tiles once each, ten 5-tile
+  single-column runs, consistent row direction, ten distinct columns:
+  **yes / no**
+- M0 pass criterion (b), **trace-dependent**: block sizes {4, 4, 2} landing on
+  PF1b's recorded blocks: **yes / no**
+- Mapping (`tile_col → (controller, port)`) cross-confirmed via M1 against the
+  PS1 on all 10 columns: **yes / no**
+- Broadcast reaches all three controllers (PF1b step 0 lit all 50, or §3's
+  D1/D2 resolved it), disambiguated from Device Order and from a mapping bug:
+  **yes / no**
 - Device Order collision-free across all three units, at the time of testing:
   **yes / no**
 - `reverseColumnsPerController` consistent across all three controllers (not
   needed per-unit): **yes / no**
 - Orientation determined and confirmed by V3: **value: _______**
+
+**Outputs this session produces that nothing else can** — record these even if
+every line above is "yes":
+
+- The connector ↔ logical-port map for a `_4P` unit: connector ______ = port 0,
+  ______ = port 1, ______ = port 2, ______ = port 3, and whether each populated
+  connector carries **1 or 2** chains. `PROTOCOL.md` §1 records 4 connectors
+  each physically driving 2 chains; which of them a `_4P` floor type uses has
+  never been established.
+- The observed Device Order ↔ byte-1 correspondence (is `01` really byte 1 =
+  `0x00`?). Also never established.
+- Whether the EOF flag latches when it lands on **port 1** of a partial
+  controller. First rig that can answer it.
 
 If any line is "no," the acceptance bar in decision 19 is not met yet — do
 not report the session as a pass with an asterisk; report exactly which line
@@ -631,9 +1472,19 @@ to arrangement #2.** They're re-run because they are also the vehicle for
 re-confirming broadcast/Device Order under the new cabling and for
 re-deriving orientation from scratch — both of which genuinely can change:
 
-- PF1, PF2 — topology and Device Order **will** be different; re-trace and
-  re-read, don't assume they carried over.
-- §3 (V1a–c) — the broadcast/Device-Order gate, full sequence.
+- PF1, PF2, **PF2b**, **PF1b** — topology, chain counts, Device Order and port
+  coverage **will** be different; re-trace and re-read, don't assume they carried
+  over. **PF2b especially**: a full recable is the single most likely way to end
+  up with the four-chain unit on `03`, and the resulting 8-lit-column floor
+  looks like a mapping regression that arrangement #1 did not have. **PF1b is
+  the one that matters most here**: moving the controllers to the opposite end
+  changes which unit drives which physical columns, and every §3–§6 prediction
+  is written against that map. Keep arrangement #1's reference frame and its
+  `P1…P10` / `R1…R5` labels **unchanged** — the floor did not move, only the
+  controllers did, and re-labelling the floor would make the two arrangements
+  incomparable. Re-photograph anyway, from the same standing position.
+- §3 (V1a–c) — the broadcast/Device-Order gate, full sequence, including the
+  decision procedure over the whole triple.
 - §4 (M0, M1) — full walk, both senders. If M0/M1 already found and fixed a
   mapping bug in arrangement #1, expect it to be *absent* here too (same
   code); if it's still present, that's consistent and expected, not a new
@@ -664,47 +1515,93 @@ Fill on the floor. One row per step; `Predicted` is pre-filled from above,
 step regardless of what you write here — a photo answers questions this table
 can't.
 
+**Every `Observed` cell below is a physical column `P1`…`P10` and row
+`R1`…`R5`, against PF1b's reference photo.** "Left", "the ctrl0 block" and
+"the first column" are not answers.
+
+### Reference frame — fill this in first, arrangement #1
+
+**Reference sentence** (from PF1b §1, e.g. "standing at the controller end
+facing the floor, leftmost column = P1 … P10, nearest row = R1 … R5"):
+
+> ______________________________________________________________________
+
+**Photo filename:** ____________________  **Declared origin:** (P1, R1)
+
+**Block map** (PF1b §2 — by trace / by power-down fallback, circle one):
+
+| Chain position | Device Order (PF2) | Connectors populated | Chains each | Physical columns |
+|---|---|---|---|---|
+| 1 | | | | |
+| 2 | | | | |
+| 3 | | | | |
+
+**Connector ↔ logical port** (an output; filled from M0's within-block order):
+port 0 = connector ____, port 1 = ____, port 2 = ____, port 3 = ____
+
 ### Blank copy — arrangement #1
 
 | Step | Command (key args) | Predicted | Observed | Pass? | Notes / diagnosis if not |
 |---|---|---|---|---|---|
 | PF1 | (physical trace) | 3 hops, link lights all present | | | |
-| PF2 | (unit displays) | `01`/`02`/`03` in chain order | | | |
+| PF2 | (unit displays) | 3 distinct orders in `01`–`03`; record which unit holds the highest | | | |
+| PF2b | (paper: PF1 chains × PF2 orders) | short unit holds `03`, its chains on ports 0–1; **column total = 10** | | | |
+| PF2b-D3 | (only if PF2b won't close) position 1 at `01`/`02`/`03`, white each time, black between | 4 / 4 / **2** columns on position 1 | | | |
+| PF1b-0 | `send --pattern black`, then `--pattern white --duration 10`, read live | floor dark, then **all 50 tiles lit / 10 columns** (= PF2b's total) | | | |
+| PF1b-1 | position 3 powered down, white | columns that go dark = **PF1's chain count for position 3** (not "2") | | | |
+| PF1b-2 | position 2 powered down, white | positions 2 + 3 both dark; **newly dark vs. PF1b-1** = PF1's chain count for position 2; still lit = position 1's chain count | | | |
 | PF3 | `dumpcap -D` | Ethernet, `10.200.50.0/8` | | | |
-| PF4 | `mapper plan` | 20 pkt, 9700 B, 3 EOF | | | |
+| PF4 | `mapper plan` | 20 pkt, 9700 B, 3 EOF at idx 7/15/19 | | | |
 | PF5 | `Send-FloorTest.ps1 -DryRun` | matches PF4 | | | |
-| PF6 | `unittest` / `matrix` | OK / 1056 checked | | | |
-| V1a | `send --tile-col 0` | 1 tile, ctrl0 block, port 0 | | | |
-| V1b | `send --tile-col 4` | 1 tile, ctrl1 block, port 0 | | | |
-| V1c | `send --tile-col 8` | 1 tile, ctrl2 block, port 0 | | | |
-| M0 | PS1 `-Pattern tilewalk` | 50 steps, {4,4,2} per block, no dup/dark | | | |
-| M1-0..9 | `send --tile-col 0..9` | matches M0 at each column | | | |
-| S-col | column direction, all 3 ctrls | consistent | | | |
-| S-row | `(0,0)`→`(0,1)` | one-tile move | | | |
-| Orient | derived from M0 steps 0/1/5/49 | `rotate180`/`mirrorX`/`identity` | | | |
-| V3 | `send --orientation <x> --tile-col 0` | lands at chosen origin corner | | | |
+| PF6 | `unittest` / `matrix` | `OK`, no failures / 1056 checked | | | |
+| V1a | `send --tile-col 0` | 1 tile, in `01`'s block per PF1b | | | |
+| V1b | `send --tile-col 4` | 1 tile, in `02`'s block per PF1b | | | |
+| V1c | `send --tile-col 8` | 1 tile, in `03`'s block per PF1b | | | |
+| V1-T | total tiles lit across V1a+V1b+V1c | **3** | | | |
+| M0-a | PS1 `-Pattern tilewalk`, trace-free criterion | 50 tiles once each, ten 5-tile single-column runs, one row direction, ten distinct columns | | | |
+| M0-b | same run, against PF1b | blocks {4, 4, 2} on PF1b's recorded columns | | | |
+| M1-0..9 | `send --tile-col 0..9`, black between | matches M0 at each column; floor dark between | | | |
+| S-col | column direction within each block | consistent across all 3 | | | |
+| S-row | `(0,0)`→`(0,1)` | one tile, R changes by 1 | | | |
+| Orient | §5 table, from M0 steps 0/1/5/49 | `identity` / `mirrorX` / `rotate180` / `rotate180+mirrorX` | | | |
+| V3 | `send --orientation <x> --tile-col 0` | lands on (P1, R1) | | | |
 | V4 | `send --pattern gradient24 --duration 30` | coherent, stable, no flash/tear | | | |
 
 **Derived orientation, arrangement #1:** `rotate180 = ___`  `mirrorX = ___`
-`reverseColumnsPerController = ___`
+`reverseColumnsPerController = ___`  → `--orientation ______________`
 
 ### Blank copy — arrangement #2 delta
+
+Same reference frame and the same `P`/`R` labels as arrangement #1 — the floor
+did not move. Re-photograph and re-trace the block map anyway; the controllers
+did.
+
+**Block map, post-move:**
+
+| Chain position | Device Order | Connectors populated | Chains each | Physical columns |
+|---|---|---|---|---|
+| 1 | | | | |
+| 2 | | | | |
+| 3 | | | | |
 
 | Step | Command (key args) | Predicted | Observed | Pass? | Notes / diagnosis if not |
 |---|---|---|---|---|---|
 | A2-PF1 | (physical trace, post-move) | 3 hops, link lights all present | | | |
-| A2-PF2 | (unit displays, post-move) | `01`/`02`/`03` in chain order | | | |
-| A2-V1a | `send --tile-col 0` | 1 tile, ctrl0 block, port 0 | | | |
-| A2-V1b | `send --tile-col 4` | 1 tile, ctrl1 block, port 0 | | | |
-| A2-V1c | `send --tile-col 8` | 1 tile, ctrl2 block, port 0 | | | |
-| A2-M0 | PS1 `-Pattern tilewalk` | 50 steps, {4,4,2} per block, no dup/dark | | | |
-| A2-M1-0..9 | `send --tile-col 0..9` | matches A2-M0 at each column | | | |
-| A2-Orient | derived from A2-M0 steps 0/1/5/49 | `rotate180`/`mirrorX`/`identity` | | | |
-| A2-V3 | orientation confirm | lands at chosen origin | | | |
+| A2-PF1b | white, then the two power-downs | block map, post-move | | | |
+| A2-PF2 | (unit displays, post-move) | `01`/`02`/`03`, distinct | | | |
+| A2-V1a | `send --tile-col 0` | 1 tile, in `01`'s block per A2-PF1b | | | |
+| A2-V1b | `send --tile-col 4` | 1 tile, in `02`'s block per A2-PF1b | | | |
+| A2-V1c | `send --tile-col 8` | 1 tile, in `03`'s block per A2-PF1b | | | |
+| A2-V1-T | total tiles lit across the triple | **3** | | | |
+| A2-M0-a | PS1 `-Pattern tilewalk`, trace-free criterion | as M0-a | | | |
+| A2-M0-b | same run, against A2-PF1b | blocks {4, 4, 2} on A2-PF1b's columns | | | |
+| A2-M1-0..9 | `send --tile-col 0..9`, black between | matches A2-M0 at each column | | | |
+| A2-Orient | §5 table, from A2-M0 steps 0/1/5/49 | one of the four | | | |
+| A2-V3 | orientation confirm | lands on (P1, R1) | | | |
 | A2-V4 | (optional) full pattern | coherent, stable | | | |
 
 **Derived orientation, arrangement #2:** `rotate180 = ___`  `mirrorX = ___`
-`reverseColumnsPerController = ___`
+`reverseColumnsPerController = ___`  → `--orientation ______________`
 
 **Session-level result:** orientation was verified in ______ (1 / 2) cabling
 arrangements, and the mapping was independently confirmed in ______ (1 / 2)
