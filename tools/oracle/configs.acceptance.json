@@ -1,0 +1,35 @@
+{
+  "_comment": "The list for the attended Player-page session (`--live`), once gate 2 clears. Not runnable yet -- every entry needs a capture that does not exist. Geometry, pattern and orientation are fixed; exact hold time and AVI file are pair C's run-sheet to finalise. See docs/ORACLE_HARNESS.md 'Blocked on the attended session' for the ordered list this JSON encodes.",
+  "configs": [
+    {
+      "name": "acceptance-gradient24-identity",
+      "type": "8x8_4P",
+      "cols": 10,
+      "rows": 5,
+      "pattern": "gradient24",
+      "orientation": "identity",
+      "capture": null,
+      "notes": "TOP PRIORITY (per critic finding on the mapper). Every current capture is tile-uniform, so nothing today constrains intra-tile pixel order or port assignment -- a wrong scan table or a swapped port passes every existing capture. gradient24 is per-pixel-unique and this is the first oracle at 3 controllers with a partial last one. Media: tools/oracle/media/09-gradient24-8x8_4P-10x5.avi (generated, verified to load and decode via Ledset's own VideoGrabber.dll -- see docs/ORACLE_HARNESS.md)."
+    },
+    {
+      "name": "acceptance-white-identity",
+      "type": "8x8_4P",
+      "cols": 10,
+      "rows": 5,
+      "pattern": "white",
+      "orientation": "identity",
+      "capture": null,
+      "notes": "Coarse multi-controller sanity check, cheap to run right after the gradient24 capture at the same geometry."
+    },
+    {
+      "name": "acceptance-gradient24-rotate180",
+      "type": "8x8_4P",
+      "cols": 10,
+      "rows": 5,
+      "pattern": "gradient24",
+      "orientation": "rotate180",
+      "capture": null,
+      "notes": "Decision 20, arrangement #2 -- same floor, controllers moved to the opposite end. Wire-level bytes will match the identity-orientation capture exactly (orientation is a framebuffer-read-side transform in mapper/orientation.py, never a packet reorder) -- this row exists to confirm the *physical* corner checks, not to add a second wire-level oracle. Run in the same attended session as arrangement #1 per decision 20."
+    }
+  ]
+}
