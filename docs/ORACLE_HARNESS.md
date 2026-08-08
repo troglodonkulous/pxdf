@@ -99,8 +99,23 @@ $ diff reference/Test3.mapper.xml generated-test3.xml
 `mapper.mapper_xml.to_xml()`'s output is byte-for-byte identical to the
 vendor's own file, confirming the write side of decision 5 end to end.
 
-**Read side (the actual "Ledset picks it up and reports the geometry back")
-is designed and built, not run live this session.** `verify-xml-control-path.ps1`
+**Read side verified live 2026-08-08** (gate 2, attended). `verify-xml-control-path.ps1`
+was run against a `python -m mapper xml --type 8x8_4P --cols 10 --rows 5`
+candidate: Ledset closed, relaunched, and came back reporting **20 ft × 10 ft
+and three drawn controllers**, which is the geometry that XML describes. The
+8-second capture taken minutes later matched the `8x8_4P` 10×5 packet plan on
+68 of 72 frames, which confirms the same thing from the wire rather than from
+the UI. Decision 5's control path therefore works end to end, write and read.
+
+One caveat, and it is a defect in the script rather than the path: the script
+printed `MATCH: False`, because its `ComboText 'cbo_Type'` read returned the
+empty string and the final comparison is a four-way `-and`. The three numeric
+reads were all correct. See `docs/PRE-PROBE.md` §6 for the diagnosis and for
+why the geometry is confirmed independently of that combo. **Fix `ComboText`
+before the gate-4 session**, which leans on this script harder.
+
+The original design note follows, unchanged, because it is still the
+description of what the script does. `verify-xml-control-path.ps1`
 implements it: write the candidate XML to the file `Configure.ini`'s
 `MapperPath` already points at, `CloseMainWindow()` on the running LedSet
 process (its own `Closing` handler stops the send timer -- `PipeMsgSend.SetTimer(isSet:
@@ -111,13 +126,10 @@ anywhere in the script) to confirm `cbo_Type`/`cbo_FeetOfWidth`/`cbo_FeetOfHeigh
 and the drawn controller count match. It restores the target file's original
 content and the caller's foreground window before exiting either way.
 
-It was not run: an attempt was blocked by this environment's own permission
-system (`Stage 2 classifier error` on the Bash tool, twice, non-transient),
-independent of and in addition to the design constraint that Ledset must not
-be disturbed while attended. **Live verification of the read side is
-therefore blocked twice over** -- by the permission system in this session,
-and, regardless of that, it needs the operator's attention because it briefly
-closes and relaunches Ledset. See S6, item 2.
+It was blocked for two sessions -- once by this environment's own permission
+system (`Stage 2 classifier error` on the Bash tool, twice, non-transient), and
+independently by the design constraint that Ledset must not be disturbed
+unattended. Both cleared on 2026-08-08 with the operator present.
 
 Wrote no files under `C:\Users\USER\dev\Dance Floor\Release\` (the vendor
 install). The XML target (`Configure.ini`'s `MapperPath` value,
@@ -266,18 +278,30 @@ nothing for `--live` to usefully run against yet regardless -- see S5.
 
 ## 5. What it cannot yet do
 
-- **No multi-controller oracle exists.** Every capture in `captures/` is the
-  single-controller 2026-08-06 rig. The acceptance geometry (`8x8_4P`,
-  10x5, three controllers, partial last controller) has never been
-  captured through Ledset.
-- **No capture can currently detect a misplaced tile or a misassigned
-  port**, project-wide (not specific to this harness -- a critic found this
-  against `mapper/`, and `docs/RUNSHEET-10x5-4P.md` S0 documents the same
-  gap independently). Every existing capture is tile-uniform (solid
-  colours, or one lit tile in isolation), so nothing today constrains
-  intra-tile pixel order or `tile_col -> (controller, port)` port
-  assignment at the packet-capture level. `gradient24` closes this --
-  S6 item 1.
+**Two entries were struck on 2026-08-08 by the gate-2 captures** (`captures/oracle/`,
+both rows of `configs.acceptance.json`). They are kept here, struck, because
+what closed them is the more useful record.
+
+- ~~**No multi-controller oracle exists.**~~ One exists:
+  `captures/oracle/acceptance-gradient24-identity.pcapng`, `8x8_4P` 10x5, three
+  controllers with a partial last one, 72 complete frames, 68 matched byte for
+  byte. Every capture in `captures/` is still the single-controller 2026-08-06
+  rig; the multi-controller ones live under `captures/oracle/`.
+- ~~**No capture can currently detect a misplaced tile or a misassigned
+  port.**~~ `gradient24` closed this exactly as S6 item 1 predicted it would.
+  The gap was real and project-wide (a critic found it against `mapper/`, and
+  `docs/RUNSHEET-10x5-4P.md` S0 documents it independently): every capture in
+  `captures/` is tile-uniform, so none of them constrains intra-tile pixel
+  order or `tile_col -> (controller, port)` assignment at all. The acceptance
+  capture is per-pixel-unique and constrains both -- **and passed**, with worst
+  recurrence 1/72 and no systematic mismatch anywhere. That is also the first
+  real-data evidence that `mapper/floors.py::_identity_scan` is the true
+  intra-tile order rather than a decompilation guess, since a serpentine would
+  have mismatched inside every tile of every frame.
+- **What that capture does *not* settle** is the Device-Order convention: byte 1
+  being the controller index is still unestablished, and correct bytes on the
+  wire say nothing about which physical unit receives them. That needs the
+  `docs/RUNSHEET-10x5-4P.md` S3 sends, on the floor, with eyes on the tiles.
   **Measured this session, exactly:** injecting "tile column 7 reads column 6"
   into `mapper.plan.build_plan` changes **not one byte** of the expected frame
   for `01-black`, `02-white`, `03-red`, `06-halves` or `20-ours-white`
@@ -294,12 +318,12 @@ nothing for `--live` to usefully run against yet regardless -- see S5.
   (nothing is wrong with the port mapping). `07-tilewalk.pcapng` is exactly
   this shape and is deliberately absent from every config list;
   `mapper/tests/test_oracle_capture.py` handles it with a different method.
-- **The XML control path's read side (Ledset picks the geometry back up) is
-  unverified live** -- designed, code-complete, blocked this session (S2).
-- **`--live` has never transmitted or captured a real frame.** Its
-  mechanics (`capture.capture_for`/`start`/`stop`) are verified
-  structurally against the loopback interface only (S3); the real floor NIC
-  has only been enumerated, never captured on.
+- ~~**The XML control path's read side is unverified live.**~~ Verified
+  2026-08-08 (S2), with one reporting defect in the script itself.
+- ~~**`--live` has never transmitted or captured a real frame.**~~ It captured
+  two, on the real floor NIC (interface 8), on 2026-08-08. The `capture_for`
+  duration-based path is the one that ran; `start`/`stop` is still
+  loopback-verified only.
 - **Arrangement #2 (decision 20) has no oracle plan yet beyond
   `configs.acceptance.json`'s placeholder row** -- its wire bytes are
   predicted to be identical to arrangement #1's (orientation is a
@@ -310,6 +334,13 @@ nothing for `--live` to usefully run against yet regardless -- see S5.
   second wire-level test.
 
 ## 6. Blocked on the attended session -- ordered list
+
+**Run 2026-08-08. Items 1 and 2 are done; item 3 is half done (the white row
+was captured, the `rotate180` row was not, because it needs the controllers
+physically moved and that belongs to the gate-4 session); item 4 was not done
+and is now worth less.** The list is kept in full below because it is the
+record of what the session was for, and `docs/PRE-PROBE.md` carries the
+results.
 
 Hand this to the user as one session, in this order. Nothing below opens
 media or presses play except where explicitly marked -- everything else is
@@ -488,9 +519,20 @@ Worst-recurring packet ordinal, every real capture in `captures/`:
 | `06-halves` | 46 | 1/46 = 2.2 % |
 | `20-ours-white` | 50 | 0/50 = 0.0 % |
 
-**Ceiling 2.3 %,** across 232 complete frames and two independent senders
-(Ledset for `01`/`02`/`03`/`06`, our own Python sender for `20`). In no real
-capture does any packet ordinal tear in more than **one** frame.
+Plus the two multi-controller captures taken at the acceptance geometry on
+2026-08-08, which are the first real test of this number at three controllers:
+
+| capture | frames | worst packet recurs |
+|---|---|---|
+| `oracle/acceptance-gradient24-identity` | 72 | 1/72 = 1.4 % |
+| `oracle/acceptance-white-identity` | 74 | 1/74 = 1.4 % |
+
+**Ceiling 2.3 %,** across 378 complete frames and two independent senders
+(Ledset for `01`/`02`/`03`/`06` and both acceptance rows, our own Python sender
+for `20`). In no real capture does any packet ordinal tear in more than **one**
+frame -- including the two taken at three controllers with per-pixel-unique
+content, which is the case this threshold was built to be trusted on and had
+never been tested against.
 
 Against that, injected mapping faults (S8.5) recur in **93-100 %** of frames.
 
