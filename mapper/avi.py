@@ -33,6 +33,11 @@ class Video:
     #: `biHeight < 0`, i.e. row 0 of the buffer is the *top* row of the image.
     top_down: bool
     frames: list[bytes]
+    #: The clip's authored frame rate from the video stream's `strh`, or `None`
+    #: if the file did not carry one. **Nothing plays at this rate on its own.**
+    #: It exists so a mismatch between how a clip was authored and how it is
+    #: being sent can be *noticed*; `sender.DEFAULT_FPS` still decides.
+    fps: float | None = None
 
     @property
     def stride(self) -> int:
@@ -70,6 +75,28 @@ def _is_frame(fourcc: bytes) -> bool:
     return len(fourcc) == 4 and fourcc[:2].isdigit() and fourcc[2:] in (b"db", b"dc")
 
 
+def _stream_fps(data: bytes, offset: int) -> float | None:
+    """`dwRate / dwScale` from an AVISTREAMHEADER, for video streams only.
+
+    Read but never obeyed. A clip authored at 25 or 30 fps and sent at
+    `DEFAULT_FPS` plays at the wrong speed, and no byte comparison anywhere in
+    this project can see it: every individual frame is correct and only the
+    spacing between them is wrong. This is the one thing that can notice, which
+    is why it is parsed even though `sender` ignores it.
+
+    Rates are genuinely fractional in the wild — 30000/1001 for NTSC — so this
+    returns a float and lets the caller decide what an integer `--fps` should
+    do about it.
+    """
+    fcc_type = data[offset : offset + 4]
+    if fcc_type != b"vids":
+        return None
+    scale, rate = struct.unpack_from("<II", data, offset + 20)
+    if scale == 0:
+        return None
+    return rate / scale
+
+
 def read_video(path: str | Path) -> Video:
     """Read an uncompressed 24-bit AVI. Raises on anything else."""
     data = Path(path).read_bytes()
@@ -77,12 +104,15 @@ def read_video(path: str | Path) -> Video:
         raise ValueError(f"{path}: not a RIFF AVI file")
 
     header: tuple[int, ...] | None = None
+    fps: float | None = None
     frames: list[bytes] = []
     for fourcc, offset, size in _chunks(data, 12, len(data)):
         if fourcc == b"strf" and header is None:
             # BITMAPINFOHEADER: biSize biWidth biHeight biPlanes biBitCount
             # biCompression. biWidth and biHeight are signed.
             header = struct.unpack_from("<iiiHHI", data, offset)
+        elif fourcc == b"strh" and fps is None:
+            fps = _stream_fps(data, offset)
         elif _is_frame(fourcc):
             frames.append(data[offset : offset + size])
 
@@ -95,7 +125,7 @@ def read_video(path: str | Path) -> Video:
             f"biBitCount={bit_count} biCompression={compression}"
         )
 
-    video = Video(width, abs(height), height < 0, frames)
+    video = Video(width, abs(height), height < 0, frames, fps)
     expected = video.stride * video.height
     for index, frame in enumerate(frames):
         if len(frame) != expected:

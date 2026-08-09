@@ -11,6 +11,13 @@ test-patterns*/thn/
 # staging duplicate, and docs/PRE-PROBE.md says how to put it back.
 test-patterns*/09-gradient24-8x8_4P-10x5.avi
 
+# --- Source media, not authored here ------------------------------------------
+# Licensed stock footage dropped in for the real-media trials: ~188 MB of h264,
+# none of it produced by this repo, and `tools/make_clip.py` output beside it is
+# equally derived. The tracked corpus is `test-patterns/*.avi` -- generated,
+# small, and reproducible from `tools/make_test_patterns.py`.
+test-patterns/Test Clips/
+
 # --- Python -------------------------------------------------------------------
 __pycache__/
 *.py[cod]

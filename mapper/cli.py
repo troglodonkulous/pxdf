@@ -180,6 +180,45 @@ def cmd_send(args) -> int:
     return 0
 
 
+def _resolve_fps(args, clip_fps: float | None) -> int:
+    """Decide the send rate, and say so when the clip disagrees.
+
+    An explicit `--fps` always wins. Otherwise `--clip-fps` decides what a
+    clip's own authored rate is worth:
+
+    * `warn` — send at `DEFAULT_FPS` and say the clip was authored differently.
+    * `adopt` — send at the clip's own rate, rounded, since `run` takes an int.
+    * `ignore` — the Phase 3 behaviour, silent.
+
+    Which of these ships is an open question, deliberately settled at the floor
+    rather than here: it depends on a rate ceiling nobody has measured yet.
+    """
+    if args.fps is not None:
+        return args.fps
+    if clip_fps is None or args.clip_fps == "ignore":
+        return DEFAULT_FPS
+
+    if args.clip_fps == "adopt":
+        rate = int(round(clip_fps))
+        if abs(clip_fps - rate) > 0.001:
+            print(
+                f"note: clip is {clip_fps:.3f} fps; sending at {rate} -- the sender "
+                f"takes a whole number of frames per second",
+                file=sys.stderr,
+            )
+        return rate
+
+    if abs(clip_fps - DEFAULT_FPS) > 0.001:
+        print(
+            f"warning: clip is authored at {clip_fps:.3f} fps but is being sent at "
+            f"{DEFAULT_FPS} -- it will play at {DEFAULT_FPS / clip_fps:.2f}x speed "
+            f"and take {clip_fps / DEFAULT_FPS:.2f}x as long. "
+            f"Pass --fps {int(round(clip_fps))} to match it.",
+            file=sys.stderr,
+        )
+    return DEFAULT_FPS
+
+
 def cmd_play(args) -> int:
     config = _config(args)
     orientation = Orientation.parse(args.orientation)
@@ -190,7 +229,8 @@ def cmd_play(args) -> int:
     # a per-frame decode on the send loop is the one thing that could
     # reintroduce the gaps this command exists to remove.
     try:
-        frames = framebuffers(read_video(args.video), config)
+        video = read_video(args.video)
+        frames = framebuffers(video, config)
     except ValueError as exc:
         # A wrong-geometry asset and an unreadable one are both ordinary
         # operator errors — `tools/make_clip.py` exists to fix the first — and
@@ -200,6 +240,8 @@ def cmd_play(args) -> int:
     if not frames:
         print(f"{args.video} holds no frames", file=sys.stderr)
         return 2
+
+    fps = _resolve_fps(args, video.fps)
 
     print(config.describe())
     print(f"orientation: {orientation.describe()}   video: {args.video} ({len(frames)} frames)")
@@ -213,20 +255,36 @@ def cmd_play(args) -> int:
     if args.dry_run:
         return _dry_run(config, frame_source, orientation, eof=not args.no_eof)
 
+    # Three mutually exclusive ways to say how long, and a default of exactly
+    # one pass. Inheriting `send`'s five seconds would stop a 60-frame clip at
+    # 10 fps two thirds of the way through, which is a strange thing for a
+    # command whose argument is a whole video to do.
+    if args.forever:
+        duration, total_frames, how = None, None, "until interrupted"
+    elif args.loop is not None:
+        total = args.loop * len(frames)
+        duration, total_frames, how = None, total, f"for {args.loop} loop(s), {total} frames"
+    elif args.duration is not None:
+        duration, total_frames, how = args.duration, None, f"for {args.duration}s"
+    else:
+        total = len(frames)
+        duration, total_frames, how = None, total, f"for one pass, {total} frames"
+
     print(
-        f"sending to {args.address}:{args.port} at {args.fps} fps for {args.duration}s"
+        f"sending to {args.address}:{args.port} at {fps} fps {how}"
         + (f" from {args.local_ip}" if args.local_ip else "")
     )
     sent = run(
         config,
         frame_source,
-        duration=args.duration,
+        duration=duration,
         orientation=orientation,
-        fps=args.fps,
+        fps=fps,
         eof=not args.no_eof,
         address=args.address,
         port=args.port,
         local_ip=args.local_ip,
+        total_frames=total_frames,
     )
     print(f"sent {sent} packets")
     return 0
@@ -296,13 +354,28 @@ def build_parser() -> argparse.ArgumentParser:
     play = sub.add_parser("play", help="broadcast an uncompressed AVI to the floor")
     play.add_argument("video", help="uncompressed 24-bit AVI at the floor's exact resolution")
     _add_geometry(play)
-    play.add_argument("--duration", type=float, default=5.0, help="seconds")
+    # How long to send. Three ways to say it, one at a time; the default with
+    # none of them is a single pass of the clip. Deliberately not a magic
+    # `--loop 0` for forever — an explicit flag is harder to mistype at 2 a.m.
+    # at the floor, where the cost of getting it wrong is a session.
+    span = play.add_mutually_exclusive_group()
+    span.add_argument("--duration", type=float, help="seconds")
+    span.add_argument("--loop", type=int, metavar="N", help="play the clip N times")
+    span.add_argument(
+        "--forever", action="store_true", help="loop until interrupted with Ctrl-C"
+    )
     play.add_argument(
         "--fps",
         type=int,
-        default=DEFAULT_FPS,
-        help="playback rate. The clip's own rate is NOT read: `avih` and `strh` do "
-        "carry it, but `avi.py` skips both, so convert at this rate too",
+        help=f"send rate, default {DEFAULT_FPS}. An explicit value always wins over --clip-fps",
+    )
+    play.add_argument(
+        "--clip-fps",
+        default="warn",
+        choices=("warn", "adopt", "ignore"),
+        help="what a clip's own authored rate is worth: warn about a mismatch, "
+        "adopt it, or ignore it. Under evaluation — the choice depends on the "
+        "floor's rate ceiling",
     )
     play.add_argument("--no-eof", action="store_true", help="the floor will not latch")
     play.add_argument("--address", default="255.255.255.255")

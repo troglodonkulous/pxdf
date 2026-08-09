@@ -17,7 +17,7 @@ from pathlib import Path
 
 from mapper.avi import read_video
 from mapper.floors import FloorConfig
-from tools.make_clip import build_ffmpeg_args, main
+from tools.make_clip import build_ffmpeg_args, build_filter_chain, main
 
 ROOT = Path(__file__).resolve().parents[2]
 VIDEOS = ROOT / "test-patterns"
@@ -45,12 +45,30 @@ class FfmpegArgsTest(unittest.TestCase):
         self.assertIn("rawvideo", args)
         self.assertIn("bgr24", args)
         self.assertIn("-an", args)
+        self.assertEqual(args[args.index("-r") + 1], "10")
 
-        chain = args[args.index("-vf") + 1]
-        self.assertIn("scale=80:40:flags=neighbor", chain)
+    def test_the_default_scaler_is_area_not_neighbor(self):
+        """Real footage arrives 24x-48x larger than the floor.
+
+        `neighbor` at 48:1 keeps one pixel per 48x48 block. It is right for a
+        source authored at floor resolution and wrong for everything else, so
+        it must not be what someone gets by not choosing.
+        """
+        chain = build_filter_chain(FloorConfig.of("8x8_4P", 10, 5), "area", "letterbox")
+        self.assertIn("flags=area", chain)
+
+    def test_letterbox_fits_inside_and_pads(self):
+        chain = build_filter_chain(FloorConfig.of("8x8_4P", 10, 5), "area", "letterbox")
+        self.assertIn("scale=80:40", chain)
         self.assertIn("force_original_aspect_ratio=decrease", chain)
         self.assertIn("pad=80:40", chain)
-        self.assertEqual(args[args.index("-r") + 1], "10")
+        self.assertNotIn("crop", chain)
+
+    def test_cover_fills_and_crops(self):
+        chain = build_filter_chain(FloorConfig.of("8x8_4P", 10, 5), "area", "cover")
+        self.assertIn("force_original_aspect_ratio=increase", chain)
+        self.assertIn("crop=80:40", chain)
+        self.assertNotIn("pad", chain)
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "ffmpeg is a prerequisite of tools/make_clip.py only")

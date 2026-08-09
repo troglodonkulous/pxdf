@@ -9,9 +9,10 @@ floor, the fault is in the orientation layer, and that is the point.
 
 from __future__ import annotations
 
+import itertools
 import socket
 import time
-from typing import Callable, Iterator
+from typing import Callable, Iterable, Iterator
 
 from .floors import DEST_ADDRESS, DEST_PORT, FloorConfig
 from .frame import build_frame
@@ -41,10 +42,30 @@ def send_frame(sock: socket.socket, datagrams: list[bytes], address: str, port: 
     return len(datagrams)
 
 
+def frame_numbers(duration: float | None, fps: int, total_frames: int | None) -> Iterable[int]:
+    """The frame ordinals one `run` will send.
+
+    Three ways to say how long, in precedence order:
+
+    * `total_frames` wins outright. A loop count is an exact whole number of
+      frames, and routing it through seconds and back would make it depend on
+      float rounding at every `fps` that does not divide evenly.
+    * `duration` in seconds, as before.
+    * neither, meaning **forever** — the caller stops it with Ctrl-C.
+    """
+    if total_frames is not None:
+        if total_frames < 1:
+            raise ValueError(f"total_frames must be at least 1, got {total_frames}")
+        return range(total_frames)
+    if duration is None:
+        return itertools.count()
+    return range(max(1, int(round(duration * fps))))
+
+
 def run(
     config: FloorConfig,
     frame_source: Callable[[int], bytes | bytearray],
-    duration: float,
+    duration: float | None,
     orientation: Orientation = IDENTITY,
     fps: int = DEFAULT_FPS,
     eof: bool = True,
@@ -53,19 +74,23 @@ def run(
     port: int = DEST_PORT,
     local_ip: str | None = None,
     on_frame: Callable[[int, float], None] | None = None,
+    total_frames: int | None = None,
 ) -> int:
-    """Send `frame_source(n)` at `fps` for `duration` seconds.
+    """Send `frame_source(n)` at `fps`, for a duration, a frame count, or forever.
 
     Frames are built ahead of the send and the loop is gapless — no blank frames
     at a loop boundary, which is the vendor defect this replaces.
+
+    `KeyboardInterrupt` is caught rather than propagated: the infinite mode has
+    no other exit, and a traceback in place of a packet count is a poor way to
+    end every single send at the floor. The socket closes either way.
     """
-    total_frames = max(1, int(round(duration * fps)))
     interval = 1.0 / fps
     sock = open_socket(local_ip)
     sent = 0
     start = time.perf_counter()
     try:
-        for n in range(total_frames):
+        for n in frame_numbers(duration, fps, total_frames):
             datagrams = build_frame(
                 config, frame_source(n), orientation, eof=eof, color_order=color_order
             )
@@ -75,6 +100,8 @@ def run(
             remaining = start + (n + 1) * interval - time.perf_counter()
             if remaining > 0:
                 time.sleep(remaining)
+    except KeyboardInterrupt:
+        pass
     finally:
         sock.close()
     return sent
