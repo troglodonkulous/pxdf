@@ -8,16 +8,20 @@
                               --pattern white
     python -m mapper send     --type 8x8_4P --cols 10 --rows 5 --pattern gradient24 \\
                               --duration 5 --dry-run
+    python -m mapper play     test-patterns/09-gradient24-8x8_4P-10x5.avi \\
+                              --type 8x8_4P --cols 10 --rows 5 --duration 30
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 from pathlib import Path
 
 from . import fixtures as fixtures_module
 from . import mapper_xml
+from .avi import read_video
 from .floors import FLOOR_TYPES, FloorConfig, legal_configs
 from .frame import send_buffer_sources
 from .orientation import Orientation
@@ -25,6 +29,7 @@ from .patterns import PATTERNS, tile
 from .plan import build_plan, format_plan
 from .sender import DEFAULT_FPS, dry_run, run
 from .verify import format_diffs, verify_capture
+from .video import framebuffers
 
 
 def _add_geometry(parser: argparse.ArgumentParser) -> None:
@@ -46,6 +51,22 @@ def _framebuffer(args, config):
     if args.pattern == "tile":
         return tile(config, args.tile_col, args.tile_row)
     return PATTERNS[args.pattern](config)
+
+
+def _dry_run(config, frame_source, orientation: Orientation, eof: bool) -> int:
+    """Print the plan and a digest of frame 0. Nothing touches the network.
+
+    The digest is what makes `play` and `send` comparable at the command line.
+    On `09-gradient24-8x8_4P-10x5.avi` the two must agree exactly — that is the
+    acceptance bar for the cutover off Ledset — and a byte count alone would
+    have shown nothing, since every wrong permutation of a frame is the same
+    number of bytes as the right one.
+    """
+    datagrams = list(dry_run(config, frame_source, orientation, eof=eof))
+    print(format_plan(config, build_plan(config, eof=eof)))
+    print(f"frame 0 is {sum(len(d) for d in datagrams)} bytes, nothing sent")
+    print(f"frame 0 sha256: {hashlib.sha256(b''.join(datagrams)).hexdigest()}")
+    return 0
 
 
 def cmd_plan(args) -> int:
@@ -138,10 +159,7 @@ def cmd_send(args) -> int:
     print(f"orientation: {orientation.describe()}   pattern: {args.pattern}")
 
     if args.dry_run:
-        datagrams = list(dry_run(config, lambda n: framebuffer, orientation, eof=not args.no_eof))
-        print(format_plan(config, build_plan(config, eof=not args.no_eof)))
-        print(f"frame 0 is {sum(len(d) for d in datagrams)} bytes, nothing sent")
-        return 0
+        return _dry_run(config, lambda n: framebuffer, orientation, eof=not args.no_eof)
 
     print(
         f"sending to {args.address}:{args.port} at {args.fps} fps for {args.duration}s"
@@ -150,6 +168,58 @@ def cmd_send(args) -> int:
     sent = run(
         config,
         lambda n: framebuffer,
+        duration=args.duration,
+        orientation=orientation,
+        fps=args.fps,
+        eof=not args.no_eof,
+        address=args.address,
+        port=args.port,
+        local_ip=args.local_ip,
+    )
+    print(f"sent {sent} packets")
+    return 0
+
+
+def cmd_play(args) -> int:
+    config = _config(args)
+    orientation = Orientation.parse(args.orientation)
+
+    # Decode the whole clip before anything opens a socket. A wrong-geometry
+    # asset must fail here, not at frame 0 with the floor already being
+    # broadcast to; and at 1.28 ms to build a frame against a 100 ms interval,
+    # a per-frame decode on the send loop is the one thing that could
+    # reintroduce the gaps this command exists to remove.
+    try:
+        frames = framebuffers(read_video(args.video), config)
+    except ValueError as exc:
+        # A wrong-geometry asset and an unreadable one are both ordinary
+        # operator errors — `tools/make_clip.py` exists to fix the first — and
+        # neither deserves a traceback.
+        print(f"{args.video}: {exc}", file=sys.stderr)
+        return 2
+    if not frames:
+        print(f"{args.video} holds no frames", file=sys.stderr)
+        return 2
+
+    print(config.describe())
+    print(f"orientation: {orientation.describe()}   video: {args.video} ({len(frames)} frames)")
+
+    # The list is built once and indexed modulo its length, so a loop boundary
+    # is not a special case at all. Ledset emits three blank frames at every
+    # one of its own, measured twice at this geometry.
+    def frame_source(n: int) -> bytes:
+        return frames[n % len(frames)]
+
+    if args.dry_run:
+        return _dry_run(config, frame_source, orientation, eof=not args.no_eof)
+
+    print(
+        f"sending to {args.address}:{args.port} at {args.fps} fps for {args.duration}s"
+        + (f" from {args.local_ip}" if args.local_ip else "")
+    )
+    sent = run(
+        config,
+        frame_source,
         duration=args.duration,
         orientation=orientation,
         fps=args.fps,
@@ -222,6 +292,24 @@ def build_parser() -> argparse.ArgumentParser:
     send.add_argument("--local-ip", help="bind to a specific NIC, e.g. 10.200.50.78")
     send.add_argument("--dry-run", action="store_true", help="print the plan, send nothing")
     send.set_defaults(func=cmd_send)
+
+    play = sub.add_parser("play", help="broadcast an uncompressed AVI to the floor")
+    play.add_argument("video", help="uncompressed 24-bit AVI at the floor's exact resolution")
+    _add_geometry(play)
+    play.add_argument("--duration", type=float, default=5.0, help="seconds")
+    play.add_argument(
+        "--fps",
+        type=int,
+        default=DEFAULT_FPS,
+        help="playback rate. The clip's own rate is NOT read: `avih` and `strh` do "
+        "carry it, but `avi.py` skips both, so convert at this rate too",
+    )
+    play.add_argument("--no-eof", action="store_true", help="the floor will not latch")
+    play.add_argument("--address", default="255.255.255.255")
+    play.add_argument("--port", type=int, default=60001)
+    play.add_argument("--local-ip", help="bind to a specific NIC, e.g. 10.200.50.78")
+    play.add_argument("--dry-run", action="store_true", help="print the plan, send nothing")
+    play.set_defaults(func=cmd_play)
 
     return parser
 

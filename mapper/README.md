@@ -27,10 +27,20 @@ python -m mapper xml --type 8x8_4P --cols 10 --rows 5 --out "…/Test 3.xml"
 python -m mapper verify captures/02-white.pcapng \
     --type 8x8_8P --cols 8 --rows 5 --pattern white
 
-# send. --dry-run prints the plan and touches nothing.
+# send. --dry-run prints the plan and a sha256 of frame 0, and touches nothing.
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 \
     --pattern gradient24 --duration 5 --dry-run
+
+# play a video. The clip must already be an uncompressed 24-bit AVI at the
+# floor's exact resolution — `python -m tools.make_clip` converts anything else.
+python -m mapper play test-patterns/09-gradient24-8x8_4P-10x5.avi \
+    --type 8x8_4P --cols 10 --rows 5 --duration 30
 ```
+
+`play` and `send` are the same send path with a different frame source, so on a
+clip that holds `gradient24` the two print the same frame-0 digest. That is the
+acceptance bar for the cutover off Ledset, and it is checkable from disk with no
+hardware.
 
 ```bash
 python -m unittest discover -t . -s mapper/tests    # ~19 s
@@ -47,6 +57,7 @@ python -m unittest discover -t . -s mapper/tests    # ~19 s
 | `patterns.py` | Framebuffer sources, including the per-pixel-unique `gradient24`. |
 | `pcapng.py` | Dependency-free capture reader, Ethernet/IPv4/UDP only. |
 | `avi.py` | Dependency-free AVI reader, uncompressed 24-bit only. Exists so the oracle's tile-walk sequence is read from the video Ledset played rather than transcribed. |
+| `video.py` | The seam `play` is built on: DIB scanlines → RGB framebuffers, decoded once up front so nothing sits on the send loop. |
 | `verify.py` | Capture-versus-expected diff, reported as a table. |
 | `fixtures.py` | Conformance fixture generation. |
 | `mapper_xml.py` | Ledset mapper XML, read and written. |
