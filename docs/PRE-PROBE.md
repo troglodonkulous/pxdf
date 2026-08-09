@@ -339,13 +339,16 @@ Struck through where gate 2 settled them.
 
 - ~~**`max_tolerated` re-measurement**~~ — done. Measured 4 tolerated frames in
   each of two captures; budget tightened 9 → 8.
-- **The hardware floor session** per `docs/RUNSHEET-10x5-4P.md`, and
-  arrangement #2 in the same session (decision 20). Gate 4. Every prediction in
-  that run-sheet is untested; two critic rounds hardened it, no hardware has
-  touched it. **This is now the first action**, and mode 2 above is what it
-  exists to settle.
-- **Arrangement #2's capture row** — the controllers have to move first, so it
-  belongs to that session and was deliberately out of scope here.
+- ~~**The hardware floor session**~~ — done, 2026-08-08. **Gate 4 met.** Every
+  prediction in `docs/RUNSHEET-10x5-4P.md` came back with zero unexplained
+  rows for arrangement #1; findings in its §10. Arrangement #2 was attempted,
+  found the current orientation model can't represent a per-controller port
+  pair-swap, and was abandoned by explicit user override rather than fixed —
+  decisions 19/20 amended in `HANDOFF-ddf-geometry.md` accordingly. See
+  `docs/RUNSHEET-10x5-4P.md` §9's closing note for the full derivation.
+- ~~**Arrangement #2's capture row**~~ — moot. Decision 20 dropped; the
+  `configs.acceptance.json` row that depended on it was removed rather than
+  left permanently blocked.
 - **Recurrence threshold refinement.** 25 %, resting on two measurements
   (2.3 % ceiling on real captures, ~93–96 % for injected faults). The real
   multi-controller capture came in at **1 %**, at the bottom of the band and

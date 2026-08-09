@@ -1444,7 +1444,17 @@ failed and what §3–§7's diagnosis branch said to do about it.
 
 ---
 
-## 9. Arrangement #2 — delta only
+## 9. Arrangement #2 — attempted 2026-08-08, abandoned by explicit user override
+
+**Do not run this section.** Decision 20 (requiring a second cabling
+arrangement) is amended; decision 19's acceptance bar no longer needs it. The
+floor is cabled left-to-right, monotonically, always — see §10's closing
+note for what was found and why the user closed this off rather than fixing
+it in code. The rest of this section is kept as a historical record of what
+the attempt required and found; skip straight to §10 for arrangement #1's
+completed findings.
+
+---
 
 Same floor, controllers relocated to the opposite end. Everything above
 applies; this section lists only what changes.
@@ -1519,94 +1529,105 @@ can't.
 `R1`…`R5`, against PF1b's reference photo.** "Left", "the ctrl0 block" and
 "the first column" are not answers.
 
-### Reference frame — fill this in first, arrangement #1
+### Reference frame — arrangement #1
 
-**Reference sentence** (from PF1b §1, e.g. "standing at the controller end
-facing the floor, leftmost column = P1 … P10, nearest row = R1 … R5"):
+**Reference sentence:** standing at the controller end, facing the floor:
+leftmost tile column = P1, rightmost = P10; nearest row = R1, farthest = R5.
 
-> ______________________________________________________________________
+**Declared origin:** (P1, R1). `+x` toward P10, `+y` toward R5.
 
-**Photo filename:** ____________________  **Declared origin:** (P1, R1)
-
-**Block map** (PF1b §2 — by trace / by power-down fallback, circle one):
+**Block map** (PF1b §2, traced by cable, not the power-down fallback):
 
 | Chain position | Device Order (PF2) | Connectors populated | Chains each | Physical columns |
 |---|---|---|---|---|
-| 1 | | | | |
-| 2 | | | | |
-| 3 | | | | |
+| 1 (ctrl01) | `01` | 1, 2 | 2, 2 | P1–P4 |
+| 2 (ctrl02) | `02` | 1, 2 | 2, 2 | P5–P8 |
+| 3 (ctrl03) | `03` | 1 | 2 | P9–P10 |
 
-**Connector ↔ logical port** (an output; filled from M0's within-block order):
-port 0 = connector ____, port 1 = ____, port 2 = ____, port 3 = ____
+**Connector ↔ logical port** (from M0's within-block order, strictly
+ascending P1→P10 throughout): **connector 1 = ports 0, 1; connector 2 =
+ports 2, 3** — established once, per-unit, applies to all three controllers.
 
-### Blank copy — arrangement #1
+### Arrangement #1 — filled
 
 | Step | Command (key args) | Predicted | Observed | Pass? | Notes / diagnosis if not |
 |---|---|---|---|---|---|
-| PF1 | (physical trace) | 3 hops, link lights all present | | | |
-| PF2 | (unit displays) | 3 distinct orders in `01`–`03`; record which unit holds the highest | | | |
-| PF2b | (paper: PF1 chains × PF2 orders) | short unit holds `03`, its chains on ports 0–1; **column total = 10** | | | |
-| PF2b-D3 | (only if PF2b won't close) position 1 at `01`/`02`/`03`, white each time, black between | 4 / 4 / **2** columns on position 1 | | | |
-| PF1b-0 | `send --pattern black`, then `--pattern white --duration 10`, read live | floor dark, then **all 50 tiles lit / 10 columns** (= PF2b's total) | | | |
-| PF1b-1 | position 3 powered down, white | columns that go dark = **PF1's chain count for position 3** (not "2") | | | |
-| PF1b-2 | position 2 powered down, white | positions 2 + 3 both dark; **newly dark vs. PF1b-1** = PF1's chain count for position 2; still lit = position 1's chain count | | | |
-| PF3 | `dumpcap -D` | Ethernet, `10.200.50.0/8` | | | |
-| PF4 | `mapper plan` | 20 pkt, 9700 B, 3 EOF at idx 7/15/19 | | | |
-| PF5 | `Send-FloorTest.ps1 -DryRun` | matches PF4 | | | |
-| PF6 | `unittest` / `matrix` | `OK`, no failures / 1056 checked | | | |
-| V1a | `send --tile-col 0` | 1 tile, in `01`'s block per PF1b | | | |
-| V1b | `send --tile-col 4` | 1 tile, in `02`'s block per PF1b | | | |
-| V1c | `send --tile-col 8` | 1 tile, in `03`'s block per PF1b | | | |
-| V1-T | total tiles lit across V1a+V1b+V1c | **3** | | | |
-| M0-a | PS1 `-Pattern tilewalk`, trace-free criterion | 50 tiles once each, ten 5-tile single-column runs, one row direction, ten distinct columns | | | |
-| M0-b | same run, against PF1b | blocks {4, 4, 2} on PF1b's recorded columns | | | |
-| M1-0..9 | `send --tile-col 0..9`, black between | matches M0 at each column; floor dark between | | | |
-| S-col | column direction within each block | consistent across all 3 | | | |
-| S-row | `(0,0)`→`(0,1)` | one tile, R changes by 1 | | | |
-| Orient | §5 table, from M0 steps 0/1/5/49 | `identity` / `mirrorX` / `rotate180` / `rotate180+mirrorX` | | | |
-| V3 | `send --orientation <x> --tile-col 0` | lands on (P1, R1) | | | |
-| V4 | `send --pattern gradient24 --duration 30` | coherent, stable, no flash/tear | | | |
+| PF1 | physical trace | 3 hops, link lights all present | 5 connectors populated ({2,2,1}), chain counts {4,4,2} total 10 | ✅ | |
+| PF2 | unit displays | 3 distinct orders in `01`–`03` | `01`/`02`/`03`, distinct | ✅ | Ctrl1 found in **Auto** mode mid-session (user test) — reverted to **IR**, its working mode, before any transmit. Auto/Sound/DMX render nothing; not the same bug class as a Device Order fault. |
+| PF2b | paper: PF1 chains × PF2 orders | short unit (`03`) on ports 0–1; column total = 10 | ctrl03/`03` has 2 chains, `min(2,2)`=2; ctrl01/02 `min(4,4)`=4 each; sum = 10 | ✅ | |
+| PF1b-0 | black, then white 10s, read live | floor dark, then all 50 tiles lit | dark, then all 50 lit for the full 10 s | ✅ | **New hardware fact:** ctrl1 (Master/IR unit) times out ~5 s after packets stop and reverts to local content (black in IR mode, an SD-card preset in Auto); ctrl2/ctrl3 hold their last frame indefinitely. Read any post-send state within ~2 s or ctrl1 misreads as dark. |
+| PF3 | `dumpcap -D` | Ethernet, `10.200.50.0/8` | Ethernet, `10.200.50.78/8`, interface 8 | ✅ | |
+| PF4 | `mapper plan` | 20 pkt, 9700 B, 3 EOF at idx 7/15/19 | exact match | ✅ | |
+| PF5 | `Send-FloorTest.ps1 -DryRun -PortsPerController 4` | matches PF4 | row-for-row identical | ✅ | |
+| PF6 | `unittest` / `matrix` | `OK` / 1056 checked | `OK`, 38 tests; 1056 configs, 10,779,648 px | ✅ | |
+| V1a | `send --tile-col 0` | 1 tile, in `01`'s block | P1, R1 | ✅ | |
+| V1b | `send --tile-col 4` | 1 tile, in `02`'s block | P5, R1 | ✅ | |
+| V1c | `send --tile-col 8` | 1 tile, in `03`'s block | P9, R1 | ✅ | |
+| V1-T | total across the triple | 3 | 3, shape 1/1/1, all match PF2 | ✅ | Confirms `0k ⇒ byte1=k−1` directly on hardware. |
+| M0-a | PS1 tilewalk, trace-free | 50 once each, ten 5-tile runs, one row direction, ten distinct columns | exact — strictly P1→P10, each R1→R5 ascending | ✅ | |
+| M0-b | same run, against PF1b | blocks {4,4,2} on PF1b's columns | exact match | ✅ | |
+| M1-0..9 | `send --tile-col 0..9`, black between | matches M0; dark between each | all 10 matched, dark between each (final tile held — no trailing black in the loop, expected) | ✅ | |
+| S-col | column direction within each block | consistent across all 3 | ascending in all 3, no reversal at either block join | ✅ | |
+| S-row | `(0,0)`→`(0,1)` | one tile, R changes by 1 | R1→R2 | ✅ | |
+| Orient | §5 table, from M0 steps 0/1/5/49 | one of the four | `+x` increasing, `+y` increasing → `identity` | ✅ | |
+| V3 | `send --orientation identity --tile-col 0` | lands on (P1, R1) | P1, R1 | ✅ | |
+| V4 | `send --pattern gradient24 --duration 30` | coherent, stable, no flash/tear | coherent, stable 30 s; one apparent anomaly explained below | ✅ | A patch read as an odd blue block at R4/P8–P10. **Not a fault** — `gradient24`'s red channel is `(tile_row*10+tile_col)*7+1 mod 256`, which wraps exactly once across the floor, at tile index 37 = row R4, column P8 (253→4). Confirmed by location match. Pattern artifact, not a mapping defect; left as-is since the pattern's job is byte-uniqueness for verification, not visual smoothness. |
 
-**Derived orientation, arrangement #1:** `rotate180 = ___`  `mirrorX = ___`
-`reverseColumnsPerController = ___`  → `--orientation ______________`
+**Derived orientation, arrangement #1:** `rotate180 = false`  `mirrorX =
+false`  `reverseColumnsPerController = false`  → `--orientation identity`
 
-### Blank copy — arrangement #2 delta
+### Arrangement #2 — attempted, abandoned (see §9)
 
-Same reference frame and the same `P`/`R` labels as arrangement #1 — the floor
-did not move. Re-photograph and re-trace the block map anyway; the controllers
-did.
+Physical relocation completed; PF1 (block map), PF2 (orders/modes
+unchanged), PF2b (sum=10, passes), PF1b-0 (all 50 lit) and §3's V1a–c triple
+(P9/R1, P5/R1, P1/R1 — all match PF2) **all passed** under the new cabling.
+§4's M0 walk surfaced the reason the session stopped there:
 
 **Block map, post-move:**
 
 | Chain position | Device Order | Connectors populated | Chains each | Physical columns |
 |---|---|---|---|---|
-| 1 | | | | |
-| 2 | | | | |
-| 3 | | | | |
+| 1 (ctrl01) | `01` | 1, 2 | 2, 2 | P7–P10 |
+| 2 (ctrl02) | `02` | 1, 2 | 2, 2 | P3–P6 |
+| 3 (ctrl03) | `03` | 1 | 2 | P1–P2 |
 
-| Step | Command (key args) | Predicted | Observed | Pass? | Notes / diagnosis if not |
-|---|---|---|---|---|---|
-| A2-PF1 | (physical trace, post-move) | 3 hops, link lights all present | | | |
-| A2-PF1b | white, then the two power-downs | block map, post-move | | | |
-| A2-PF2 | (unit displays, post-move) | `01`/`02`/`03`, distinct | | | |
-| A2-V1a | `send --tile-col 0` | 1 tile, in `01`'s block per A2-PF1b | | | |
-| A2-V1b | `send --tile-col 4` | 1 tile, in `02`'s block per A2-PF1b | | | |
-| A2-V1c | `send --tile-col 8` | 1 tile, in `03`'s block per A2-PF1b | | | |
-| A2-V1-T | total tiles lit across the triple | **3** | | | |
-| A2-M0-a | PS1 `-Pattern tilewalk`, trace-free criterion | as M0-a | | | |
-| A2-M0-b | same run, against A2-PF1b | blocks {4, 4, 2} on A2-PF1b's columns | | | |
-| A2-M1-0..9 | `send --tile-col 0..9`, black between | matches A2-M0 at each column | | | |
-| A2-Orient | §5 table, from A2-M0 steps 0/1/5/49 | one of the four | | | |
-| A2-V3 | orientation confirm | lands on (P1, R1) | | | |
-| A2-V4 | (optional) full pattern | coherent, stable | | | |
+M0's within-block walk order: `P9,P10,P7,P8` (ctrl01), `P5,P6,P3,P4`
+(ctrl02), `P1,P2` (ctrl03). Each connector's own pair is still ascending
+(same per-unit hardware convention as arrangement #1 — connector 1 = ports
+0,1, connector 2 = ports 2,3, reconfirmed), but **block-level, connector 1's
+pair now sits above connector 2's pair** — inverted from arrangement #1,
+where connector 1's pair sat below connector 2's. That is a pair-swap
+(rotate-by-2), not a reversal, and it is consistent across both full
+controllers (ctrl01 and ctrl02 agree; ctrl03 has only one pair and is
+uninformative either way).
 
-**Derived orientation, arrangement #2:** `rotate180 = ___`  `mirrorX = ___`
-`reverseColumnsPerController = ___`  → `--orientation ______________`
+**Finding:** none of `identity` / `mirrorX` / `rotate180` /
+`rotate180+mirrorX` / `reverseColumnsPerController` can express a
+per-controller pair-swap — the flag only reverses a block's port order, it
+cannot rotate it. §5's orientation derivation was not completed for
+arrangement #2 for this reason, not because of a code bug: PF1b's trace
+makes this unambiguously a cabling fact (connector 1's chain happened to
+reach the nearer sub-pair to the controller's new position, which is the
+*farther* pair from the origin corner after the move), matching the
+"port permutation inside one controller" row of §4's M0 decision table and
+the "current orientation model cannot represent this rig" row of §5's
+reverse-columns-risk table.
 
-**Session-level result:** orientation was verified in ______ (1 / 2) cabling
-arrangements, and the mapping was independently confirmed in ______ (1 / 2)
-arrangements. Acceptance decision 19's "more than one cabling arrangement"
-clause is met only if both blocks above are filled in and both passed.
+**Resolution — explicit user override, 2026-08-08, on the floor:** rather
+than either recable (swap connector 1↔2 on both full controllers) or extend
+`orientation.py` to support an arbitrary per-controller port permutation,
+the user closed the question directly: **the floor is always cabled
+left-to-right, monotonically, matching arrangement #1's convention.** Any
+future content-orientation need (a flipped video, a mirrored show) is
+handled at the media-authoring step, not in the floor mapper. Arrangement #2
+testing is abandoned; decisions 19 and 20 in `HANDOFF-ddf-geometry.md` are
+amended accordingly. The floor was powered down and reconfigured back to
+arrangement #1's layout before the session ended.
+
+**Session-level result:** orientation was verified in **1** cabling
+arrangement (the only one the amended decision 19 now requires), and the
+mapping was independently confirmed in that same arrangement across every
+column, both senders, zero unexplained rows. **Gate 4 is met.**
 
 ---
 

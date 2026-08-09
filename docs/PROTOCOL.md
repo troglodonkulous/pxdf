@@ -67,12 +67,26 @@ Derived, per §3.2:
 Multiple controllers *and* a partial last controller in one layout. **Neither
 has ever been exercised on hardware.** This is the acceptance geometry.
 
-> ⚠️ **Broadcast propagation through the daisy chain is unproven.** The protocol
-> is pure broadcast with no addressing beyond byte 1 — every controller must
-> receive every packet and keep only its own. If `OUTPUT` → `INPUT` does not
-> forward broadcast, controllers 2 and 3 never see a frame. A mis-set Device
-> Order has a similar signature: duplicated content rather than an error. Verify
-> this first at the floor, before concluding anything about the mapping.
+> ✅ **Broadcast propagation through the daisy chain — confirmed, gate 4,
+> 2026-08-08.** `PF1b-0`'s white baseline lit all 50 tiles for the full send
+> window on this exact three-controller daisy chain: `OUTPUT` → `INPUT`
+> forwards broadcast. Full findings in `docs/RUNSHEET-10x5-4P.md` §10.
+
+**Connector ↔ logical port, for a `_4P` unit — settled ✅, gate 4,
+2026-08-08.** Connector 1 drives ports 0 and 1; connector 2 drives ports 2
+and 3, each connector's pair internally ascending. Established once, per-unit
+(confirmed twice, once per cabling arrangement — see
+`docs/RUNSHEET-10x5-4P.md` §10). Which physical column each port lands on is
+then a cabling choice, made at load-in — this rig's arrangement #1 convention
+is connector 1 = the lower pair of a controller's block, connector 2 = the
+higher pair, giving a strictly monotonic P1→P10 walk. That specific
+left-to-right convention is now **fixed**, per decision 19/20's amendment in
+`HANDOFF-ddf-geometry.md` — see there for why.
+
+**Device Order `0k` ⇒ byte 1 = `k−1` — confirmed ✅, gate 4, 2026-08-08.**
+§3's V1a/b/c triple landed each byte-1 value on exactly the physical block
+its unit's own Device Order predicted, in both cabling arrangements tried.
+This was the project's most likely wrong assumption; it held.
 
 ### The 2026-08-06 capture rig — historical
 
@@ -491,7 +505,7 @@ All blocking questions are closed. Evidence: `docs/CAPTURE_RESULTS.md`.
 
 | # | Question | Answer |
 |---|---|---|
-| Q1 | Which physical tile is logical `(0,0)`? Rotation / mirroring? | ✅ Bottom-right at the cable end. **180° rotation**, no mirror, no transpose — see §4.4. Rig-specific; keep it a parameter. |
+| Q1 | Which physical tile is logical `(0,0)`? Rotation / mirroring? | ✅ Bottom-right at the cable end. **180° rotation**, no mirror, no transpose — see §4.4. Rig-specific; keep it a parameter. **Current rig (10×5 `8x8_4P`), confirmed gate 4, 2026-08-08:** logical `(0,0)` = physical `(P1, R1)`, **`identity`** — no rotation, no mirror. Derived from `docs/RUNSHEET-10x5-4P.md` §5's method against M0's full walk, confirmed by V3. This rig's cabling convention is now fixed left-to-right always (decision 19/20 amendment, `HANDOFF-ddf-geometry.md`), so `identity` is not just this session's finding but the standing answer for this rig going forward. |
 | Q2 | Is the end-of-frame flag required to latch a frame? | ✅ **Required.** Without it the floor never latches; it shows only sporadic partial flickers with byte-level tearing. Set `0x80` once per controller per frame. |
 | Q3 | What emits the 966-byte packet? | ✅ **Nothing in this system.** Absent across 7,725 captured packets covering all five patterns; only 512 and 458 appeared. Ignore it. |
 | Q4 | Is the per-tile scan really non-serpentine on real LEDs? | ✅ **Closed 2026-08-08.** The old ⚠️ stood because every capture was tile-uniform and could not corroborate the table. `captures/oracle/acceptance-gradient24-identity.pcapng` is per-pixel-unique and matched `_identity_scan` on 68 of 72 frames byte for byte — a serpentine, or any other permutation of the 64 entries, mismatches inside every tile of every frame. The wire now pins the whole table, not 2 of 64. |

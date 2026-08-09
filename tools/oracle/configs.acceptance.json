@@ -1,5 +1,5 @@
 {
-  "_comment": "The list for the attended Player-page session (`--live`). Gate 2 was run 2026-08-08: rows 1 and 2 are captured and both PASS; row 3 still needs the controllers physically moved (decision 20) and is captured in the gate-4 hardware session. See docs/ORACLE_HARNESS.md 'Blocked on the attended session' for the ordered list this JSON encodes.",
+  "_comment": "The list for the attended Player-page session (`--live`). Gate 2 (2026-08-08) captured both rows below, both PASS. A third row for a rotate180/arrangement-2 capture existed here under decision 20; decision 20 was dropped during gate 4 (2026-08-08, explicit user override) after arrangement #2's cabling produced a per-controller port permutation the orientation model can't express -- the floor is cabled left-to-right, monotonically, always, so orientation is identity-only and a second wire-level oracle for it was never needed. See HANDOFF-ddf-geometry.md decisions 19-20 and docs/RUNSHEET-10x5-4P.md Section 9's closing note.",
   "_max_tolerated_derivation": "MEASURED 2026-08-08 against the two real captures at this exact geometry and window, replacing the derivation that preceded them. Observed, identically in both: one loop boundary of 3 consecutive blank frames, plus 1 torn frame = 4 tolerated, out of 72 complete frames (gradient24) and 74 (white). The budget must cover the worst case the window admits, not the case observed: media/09-gradient24-8x8_4P-10x5.avi is a 6.0 s loop and the window is 8 s, so it can straddle 2 boundaries even though both captures caught 1. Blank frames per boundary: 3, measured twice here and 2/3/3 across the five 2026-08-06 captures -- budget 3 per boundary, so 2*3 = 6. Torn frames: 1 here in each of 72 and 74 frames, and at most 2 in any of the five older (44-50 frame) captures -- budget 2, the measured ceiling across all seven real captures. 6 + 2 = 8, against 4 observed. This tightens the previous DERIVED 9, which had assumed 3 torn frames on arithmetic rather than the 2 that has ever been seen. Re-derive if the window length or the clip length changes -- a budget carried over from a different capture is exactly the unbounded tolerance this field was added to remove.",
   "configs": [
     {
@@ -23,17 +23,6 @@
       "capture": "captures/oracle/acceptance-white-identity.pcapng",
       "max_tolerated": 8,
       "notes": "CAPTURED 2026-08-08, attended, gate 2, immediately after the gradient24 row at the same geometry. PASS: 74 complete frames, 70 matched exactly, 4 tolerated (3 loop-boundary blanks from frame 16, 1 torn frame at 33), 0 unexplained, worst recurrence 1/74 = 1%. Coarse sanity check only: it confirms packet count, headers and controller placement, and cannot detect a port swap at all because solid colour carries no positional information -- the gradient24 row is what does that. Its value here is that it agrees with the gradient24 row on the vendor-defect rate at this geometry, which is what makes max_tolerated a measurement of two captures rather than one. Measured max_tolerated: see _max_tolerated_derivation above."
-    },
-    {
-      "name": "acceptance-gradient24-rotate180",
-      "type": "8x8_4P",
-      "cols": 10,
-      "rows": 5,
-      "pattern": "gradient24",
-      "orientation": "rotate180",
-      "capture": null,
-      "max_tolerated": 8,
-      "notes": "Decision 20, arrangement #2 -- same floor, controllers moved to the opposite end. Wire-level bytes will match the identity-orientation capture exactly (orientation is a framebuffer-read-side transform in mapper/orientation.py, never a packet reorder) -- this row exists to confirm the *physical* corner checks, not to add a second wire-level oracle. Run in the same attended session as arrangement #1 per decision 20 -- NOT done in the 2026-08-08 gate-2 session, which deliberately scoped out the physical move; it belongs to the gate-4 hardware session. max_tolerated measured above, same geometry, window and clip as the two captured rows."
     }
   ]
 }
