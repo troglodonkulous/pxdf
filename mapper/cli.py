@@ -189,7 +189,14 @@ def cmd_play(args) -> int:
     # broadcast to; and at 1.28 ms to build a frame against a 100 ms interval,
     # a per-frame decode on the send loop is the one thing that could
     # reintroduce the gaps this command exists to remove.
-    frames = framebuffers(read_video(args.video), config)
+    try:
+        frames = framebuffers(read_video(args.video), config)
+    except ValueError as exc:
+        # A wrong-geometry asset and an unreadable one are both ordinary
+        # operator errors — `tools/make_clip.py` exists to fix the first — and
+        # neither deserves a traceback.
+        print(f"{args.video}: {exc}", file=sys.stderr)
+        return 2
     if not frames:
         print(f"{args.video} holds no frames", file=sys.stderr)
         return 2
@@ -294,7 +301,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--fps",
         type=int,
         default=DEFAULT_FPS,
-        help="the clip's own rate is not read — AVI headers we parse do not carry it",
+        help="playback rate. The clip's own rate is NOT read: `avih` and `strh` do "
+        "carry it, but `avi.py` skips both, so convert at this rate too",
     )
     play.add_argument("--no-eof", action="store_true", help="the floor will not latch")
     play.add_argument("--address", default="255.255.255.255")

@@ -34,7 +34,7 @@ def framebuffers(video: Video, config: FloorConfig) -> list[bytes]:
     if (video.width, video.height) != (config.width_px, config.height_px):
         raise ValueError(
             f"video is {video.width}x{video.height}, but the floor is "
-            f"{config.width_px}x{config.height_px} — wrong asset for "
+            f"{config.width_px}x{config.height_px} -- wrong asset for "
             f"{config.describe()}"
         )
 

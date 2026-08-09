@@ -24,7 +24,9 @@ import shutil
 import subprocess
 import sys
 
+from mapper.avi import read_video
 from mapper.floors import FLOOR_TYPES, FloorConfig
+from mapper.sender import DEFAULT_FPS
 
 
 def build_ffmpeg_args(input_path: str, output_path: str, config: FloorConfig, fps: int) -> list[str]:
@@ -32,6 +34,10 @@ def build_ffmpeg_args(input_path: str, output_path: str, config: FloorConfig, fp
     return [
         "ffmpeg", "-y", "-loglevel", "error",
         "-i", str(input_path),
+        # No audio. `read_video` ignores an `01wb` stream rather than rejecting
+        # it, so a muxed audio track would sit in the file undetected and make
+        # the container something other than what this script promises.
+        "-an",
         "-vf",
         f"scale={w}:{h}:flags=neighbor:force_original_aspect_ratio=decrease,"
         f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2",
@@ -50,7 +56,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--type", required=True, choices=sorted(FLOOR_TYPES))
     parser.add_argument("--cols", required=True, type=int, help="tile columns")
     parser.add_argument("--rows", required=True, type=int, help="tile rows")
-    parser.add_argument("--fps", type=int, default=10)
+    # Shared with the sender rather than restated, so a clip cannot be written
+    # at one rate and played back at another by default. `play` does not read a
+    # clip's own rate -- `avi.py` skips `avih` and `strh` -- so converting at a
+    # rate `play` is not told about plays the whole clip at the wrong speed,
+    # and nothing in the wire bytes would show it.
+    parser.add_argument("--fps", type=int, default=DEFAULT_FPS)
     return parser
 
 
@@ -69,7 +80,29 @@ def main(argv: list[str] | None = None) -> int:
 
     config = FloorConfig.of(args.type, args.cols, args.rows)
     ffmpeg_args = build_ffmpeg_args(args.input, args.output, config, args.fps)
-    subprocess.run(ffmpeg_args, check=True)
+    try:
+        subprocess.run(ffmpeg_args, check=True)
+    except subprocess.CalledProcessError as exc:
+        print(f"error: ffmpeg exited {exc.returncode}", file=sys.stderr)
+        return 2
+
+    # This script's one promise is an output `mapper` accepts. Check it here
+    # rather than leaving it to a test that skips wherever ffmpeg is absent --
+    # a clip that fails at the floor is the expensive place to find out.
+    try:
+        video = read_video(args.output)
+    except ValueError as exc:
+        print(f"error: ffmpeg wrote something mapper cannot read: {exc}", file=sys.stderr)
+        return 2
+    if (video.width, video.height) != (config.width_px, config.height_px):
+        print(
+            f"error: output is {video.width}x{video.height}, expected "
+            f"{config.width_px}x{config.height_px}",
+            file=sys.stderr,
+        )
+        return 2
+
+    print(f"wrote {args.output}: {video.width}x{video.height}, {len(video.frames)} frames")
     return 0
 
 
