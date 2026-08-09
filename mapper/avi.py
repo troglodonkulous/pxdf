@@ -34,9 +34,9 @@ class Video:
     top_down: bool
     frames: list[bytes]
     #: The clip's authored frame rate from the video stream's `strh`, or `None`
-    #: if the file did not carry one. **Nothing plays at this rate on its own.**
-    #: It exists so a mismatch between how a clip was authored and how it is
-    #: being sent can be *noticed*; `sender.DEFAULT_FPS` still decides.
+    #: if the file did not carry one. This is what `play` sends at by default,
+    #: capped at `sender.MAX_ADOPTED_FPS`; `sender.DEFAULT_FPS` covers only the
+    #: `None` case. Decided at the floor on 2026-08-08 — see `cli._resolve_fps`.
     fps: float | None = None
 
     @property
@@ -78,11 +78,18 @@ def _is_frame(fourcc: bytes) -> bool:
 def _stream_fps(data: bytes, offset: int) -> float | None:
     """`dwRate / dwScale` from an AVISTREAMHEADER, for video streams only.
 
-    Read but never obeyed. A clip authored at 25 or 30 fps and sent at
-    `DEFAULT_FPS` plays at the wrong speed, and no byte comparison anywhere in
-    this project can see it: every individual frame is correct and only the
-    spacing between them is wrong. This is the one thing that can notice, which
-    is why it is parsed even though `sender` ignores it.
+    This is what `play` obeys. A clip authored at 25 fps and sent at some other
+    rate plays at the wrong speed, and no byte comparison anywhere in this
+    project can see it: every individual frame is correct and only the spacing
+    between them is wrong. Reading the rate is the only thing that can notice,
+    and since 2026-08-08 it is also what decides.
+
+    The offset is the AVISTREAMHEADER layout, not a guess: `fccType` at 0,
+    `fccHandler` 4, `dwFlags` 8, `wPriority` 12, `wLanguage` 14,
+    `dwInitialFrames` 16, then `dwScale` at 20 and `dwRate` at 24. Verified
+    against `ffprobe` on every AVI in this repo, including files at 25 and 30
+    fps — a fixture set that was all 10 fps could not have caught a wrong offset
+    that happened to land on a 10.
 
     Rates are genuinely fractional in the wild — 30000/1001 for NTSC — so this
     returns a float and lets the caller decide what an integer `--fps` should

@@ -27,7 +27,7 @@ from .frame import send_buffer_sources
 from .orientation import Orientation
 from .patterns import PATTERNS, tile
 from .plan import build_plan, format_plan
-from .sender import DEFAULT_FPS, dry_run, run
+from .sender import DEFAULT_FPS, MAX_ADOPTED_FPS, dry_run, run
 from .verify import format_diffs, verify_capture
 from .video import framebuffers
 
@@ -181,42 +181,44 @@ def cmd_send(args) -> int:
 
 
 def _resolve_fps(args, clip_fps: float | None) -> int:
-    """Decide the send rate, and say so when the clip disagrees.
+    """Decide the send rate: the clip's own, capped, unless `--fps` says otherwise.
 
-    An explicit `--fps` always wins. Otherwise `--clip-fps` decides what a
-    clip's own authored rate is worth:
+    Settled at the floor on 2026-08-08 rather than argued about here. Both
+    behaviours were built and played back to back on the same file one flag
+    apart, and adopting the clip's own rate won: a clip authored at 25 and sent
+    at the project default plays at the wrong speed, and no byte comparison
+    anywhere in this project can see it — every individual frame is correct and
+    only the spacing between them is wrong.
 
-    * `warn` — send at `DEFAULT_FPS` and say the clip was authored differently.
-    * `adopt` — send at the clip's own rate, rounded, since `run` takes an int.
-    * `ignore` — the Phase 3 behaviour, silent.
-
-    Which of these ships is an open question, deliberately settled at the floor
-    rather than here: it depends on a rate ceiling nobody has measured yet.
+    The cap is the other half of the same session. The floor drops no frames up
+    to 60 fps, but 60 judders on fast hard-edged motion for no gain over 30, so
+    an automatic path must not walk a 60 fps source into it. `--fps` is checked
+    first and is never capped: this protects the default, not the operator.
     """
     if args.fps is not None:
         return args.fps
-    if clip_fps is None or args.clip_fps == "ignore":
+    if clip_fps is None:
         return DEFAULT_FPS
 
-    if args.clip_fps == "adopt":
-        rate = int(round(clip_fps))
-        if abs(clip_fps - rate) > 0.001:
-            print(
-                f"note: clip is {clip_fps:.3f} fps; sending at {rate} -- the sender "
-                f"takes a whole number of frames per second",
-                file=sys.stderr,
-            )
-        return rate
-
-    if abs(clip_fps - DEFAULT_FPS) > 0.001:
+    rate = int(round(clip_fps))
+    if abs(clip_fps - rate) > 0.001:
+        # 30000/1001 and friends. `run` takes a whole number of frames per
+        # second, and a fractional rate only reaches here from a file this
+        # repo did not write — `make_clip` normalises it on the way through.
         print(
-            f"warning: clip is authored at {clip_fps:.3f} fps but is being sent at "
-            f"{DEFAULT_FPS} -- it will play at {DEFAULT_FPS / clip_fps:.2f}x speed "
-            f"and take {clip_fps / DEFAULT_FPS:.2f}x as long. "
-            f"Pass --fps {int(round(clip_fps))} to match it.",
+            f"note: clip is {clip_fps:.3f} fps; sending at {rate} -- the sender "
+            f"takes a whole number of frames per second",
             file=sys.stderr,
         )
-    return DEFAULT_FPS
+    if rate > MAX_ADOPTED_FPS:
+        print(
+            f"note: clip is authored at {rate} fps; sending at {MAX_ADOPTED_FPS} -- "
+            f"measured at the floor, above {MAX_ADOPTED_FPS} judders on fast motion "
+            f"for no gain. Pass --fps {rate} to override.",
+            file=sys.stderr,
+        )
+        return MAX_ADOPTED_FPS
+    return rate
 
 
 def cmd_play(args) -> int:
@@ -367,15 +369,9 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument(
         "--fps",
         type=int,
-        help=f"send rate, default {DEFAULT_FPS}. An explicit value always wins over --clip-fps",
-    )
-    play.add_argument(
-        "--clip-fps",
-        default="warn",
-        choices=("warn", "adopt", "ignore"),
-        help="what a clip's own authored rate is worth: warn about a mismatch, "
-        "adopt it, or ignore it. Under evaluation — the choice depends on the "
-        "floor's rate ceiling",
+        help=f"send rate. Default is the clip's own authored rate, capped at "
+        f"{MAX_ADOPTED_FPS}, or {DEFAULT_FPS} if the file carries no rate. An "
+        f"explicit value always wins and is never capped",
     )
     play.add_argument("--no-eof", action="store_true", help="the floor will not latch")
     play.add_argument("--address", default="255.255.255.255")

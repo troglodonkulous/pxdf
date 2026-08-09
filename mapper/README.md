@@ -33,14 +33,50 @@ python -m mapper send --type 8x8_4P --cols 10 --rows 5 \
 
 # play a video. The clip must already be an uncompressed 24-bit AVI at the
 # floor's exact resolution — `python -m tools.make_clip` converts anything else.
+# With no time flag this plays the clip exactly once.
 python -m mapper play test-patterns/09-gradient24-8x8_4P-10x5.avi \
-    --type 8x8_4P --cols 10 --rows 5 --duration 30
+    --type 8x8_4P --cols 10 --rows 5
+
+# how long to send: three mutually exclusive ways, and one full pass by default.
+#   --loop N       exactly N passes, an exact frame count, no float rounding
+#   --forever      until Ctrl-C, which prints a packet count, not a traceback
+#   --duration S   seconds, as `send` does
+python -m mapper play <clip> --type 8x8_4P --cols 10 --rows 5 --forever
+
+# convert real media. Defaults are `--scaler area --fit cover --fps 30`, all
+# three settled on the floor — see "Frame rate, scaler and fit" below.
+python -m tools.make_clip "input.mp4" out.avi --type 8x8_4P --cols 10 --rows 5
 ```
 
 `play` and `send` are the same send path with a different frame source, so on a
 clip that holds `gradient24` the two print the same frame-0 digest. That is the
 acceptance bar for the cutover off Ledset, and it is checkable from disk with no
 hardware.
+
+### Frame rate, scaler and fit
+
+All three were decided at the floor on 2026-08-08, attended, not by reasoning
+here. The rate ceiling probe played a sweep at 10 / 15 / 24 / 30 / 60 fps and
+**the floor dropped no frames at any of them** — 10 fps was never a ceiling,
+only the vendor's habit. Real content is dramatically better above 10 and
+essentially identical from 15 to 30; 60 renders every frame and still judders on
+fast hard-edged motion, for no gain over 30.
+
+- **`DEFAULT_FPS = 30`**, and `tools/make_clip.py` inherits it so the two cannot
+  drift.
+- **`play` sends at the clip's own authored rate by default**, read from the
+  video stream's `strh`, capped at `MAX_ADOPTED_FPS = 30`. A clip sent at a rate
+  it was not authored for plays at the wrong speed, and **no byte comparison in
+  this project can see that** — every individual frame is correct and only the
+  spacing between them is wrong. An explicit `--fps` wins and is never capped.
+- **`--scaler area`** for real footage. A 1080p source is 24× the floor's width
+  and 4K is 48×; `neighbor` at 48:1 keeps one pixel per 48×48 block and reads as
+  crawling noise. Use `neighbor` only for a source already at floor resolution,
+  such as `tools/make_test_patterns.py` output.
+- **`--fit cover`**. `letterbox` leaves exactly 9 of the floor's 80 columns
+  permanently black (columns 0–3 and 75–79, measured); on a surface people stand
+  on that reads as the floor being broken, while `cover`'s 5-row crop goes
+  unnoticed. `letterbox` remains for full-bleed content whose edges carry meaning.
 
 ```bash
 python -m unittest discover -t . -s mapper/tests    # ~19 s

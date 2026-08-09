@@ -21,10 +21,15 @@ anything with motion that reads as crawling noise. `area` -- box averaging over
 the whole block -- is the correct filter for a downscale that large, and is the
 default here. Choose `neighbor` only for a source already at floor resolution.
 
-**`--fit` is a content decision, not a technical one.** The floor is 2:1 and
-most footage is 16:9. `letterbox` preserves the whole frame and leaves 9 of the
-floor's 80 columns permanently black; `cover` fills the floor and crops 5 rows
-of the content. Roughly 11% either way -- of the floor, or of the picture.
+**`--fit` was a content decision, and it has been made.** The floor is 2:1 and
+most footage is 16:9. `letterbox` preserves the whole frame and leaves exactly 9
+of the floor's 80 columns permanently black -- measured, columns 0-3 and 75-79;
+`cover` fills the floor and crops 5 rows of the content. Roughly 11% either way,
+of the floor or of the picture. Both were played on the floor on 2026-08-08 and
+`cover` won outright: on a surface people stand on, dead columns down the long
+edges read as the floor being broken, while the crop is not noticed at all.
+`cover` is the default. `letterbox` stays for full-bleed content whose edges
+carry meaning.
 """
 
 import argparse
@@ -68,7 +73,7 @@ def build_ffmpeg_args(
     config: FloorConfig,
     fps: int,
     scaler: str = "area",
-    fit: str = "letterbox",
+    fit: str = "cover",
 ) -> list[str]:
     return [
         "ffmpeg", "-y", "-loglevel", "error",
@@ -108,10 +113,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--fit",
-        default="letterbox",
+        default="cover",
         choices=FITS,
-        help="`letterbox` keeps the whole frame and blacks out the rest of the "
-        "floor; `cover` fills the floor and crops the overhang",
+        help="`cover` fills the floor and crops the overhang; `letterbox` keeps "
+        "the whole frame and leaves 9 of the floor's 80 columns black",
     )
     return parser
 

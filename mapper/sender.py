@@ -18,8 +18,19 @@ from .floors import DEST_ADDRESS, DEST_PORT, FloorConfig
 from .frame import build_frame
 from .orientation import IDENTITY, Orientation
 
-#: What the vendor uses, and what the user has confirmed as optimal.
-DEFAULT_FPS = 10
+#: MEASURED at the floor, 2026-08-08, attended. The vendor uses 10 and Phase 3
+#: inherited it; a rate ceiling probe at 10/15/24/30/60 fps showed the floor
+#: drops **no** frames at any of them, so 10 was never the ceiling — only the
+#: vendor's habit. Real content is dramatically better above 10 and essentially
+#: identical across 15–30. 60 renders faithfully but judders on fast hard-edged
+#: motion, with no smoothness gain over 30. 30 is the top of the useful range.
+DEFAULT_FPS = 30
+
+#: The most `play` will adopt from a clip's own authored rate. A 60 fps source
+#: is legal, plays every frame, and looks worse than the same content at 30 —
+#: see `DEFAULT_FPS`. An explicit `--fps` is not capped: the cap protects the
+#: automatic path, it does not overrule the operator.
+MAX_ADOPTED_FPS = 30
 
 
 def open_socket(local_ip: str | None = None) -> socket.socket:

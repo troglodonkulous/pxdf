@@ -1631,6 +1631,61 @@ column, both senders, zero unexplained rows. **Gate 4 is met.**
 
 ---
 
+## 11. Phase 4 — the media session, 2026-08-08, attended
+
+Real media on the floor: frame rate, scaler and fit. All three are judged by
+eye, which is why they got a session rather than a test suite. Ledset fully
+closed throughout; every send below came from `python -m mapper`.
+
+**The instrument.** `08-sweep.avi` and every other Ledset-era pattern is
+**64×40** — authored for the old 8×5 rig, and `play` rejects them on this floor.
+`test-patterns/10-sweep-8x8_4P-10x5.avi` was generated for this session: 80×40,
+an 8 px white bar at 1 px/frame, 80 frames, seamless wrap, and **one red pixel at
+(0,0) on frame 0 only**. That marker is the frame-drop detector — it is a single
+frame, so if the controllers drop frames it goes intermittent or vanishes. A
+second set, `sweep-const-{10,15,24,30,60}.avi`, holds the bar at a constant
+10 px/s at every rate (sub-pixel, box-filtered) so smoothness can be compared
+without speed as a confound.
+
+### Findings
+
+| # | Question | Result | Consequence |
+|---|---|---|---|
+| P4-1 | Rate ceiling — what does this floor do above 10 fps? | **No dropped frames at 10, 15, 24, 30 or 60.** Red flash present and correctly counted at every rate (8 at 30, 15 at 60). | 10 fps was never a ceiling, only the vendor's habit. `DEFAULT_FPS` 10 → **30**. |
+| P4-2 | Is a higher rate actually better? | At constant bar speed, **60 is much smoother than 10**. 15 / 24 / 30 are near-identical to each other. | The whole win is 10 → anything above. |
+| P4-3 | Is 60 usable? | Renders every frame, but **judders on fast hard-edged motion**, subjectively ~2× worse than 30, with no smoothness gain. | 30 is the top of the useful range. `MAX_ADOPTED_FPS = 30`. |
+| P4-4 | fps behaviour A/B — warn about a clip-rate mismatch, or adopt the clip's rate? | **Adopt**, capped at 30. Played back to back on `adobe-25fps.avi`, one flag apart. | `--clip-fps` A/B harness deleted. `play` reads `strh` and obeys it; `--fps` still wins and is never capped. |
+| P4-5 | Scaler — `area` or `neighbor`? | **`area`, decisively.** Confirmed on both the 48:1 4K downscale and the busy stage clip; `neighbor` was rejected on sight at both. | `--scaler area` stays the default. `neighbor` is for sources already at floor resolution. |
+| P4-6 | Fit — `letterbox` or `cover`? | **`cover`.** `letterbox`'s dead columns read as the floor being broken; the crop goes unnoticed. Structurally confirmed: letterbox leaves exactly 9 always-black columns (0–3, 75–79) of 80, `cover` leaves none. | `make_clip --fit` default letterbox → **cover**. |
+| P4-7 | §3.4 hardware appendix — `play` vs Ledset on the wire, same content, same geometry. | **PASS, 80/80 frames matched exactly, 0 tolerated of a budget of 2, 0 unexplained, 0 % worst recurrence.** Ledset on the same window: 72 complete frames, 68 exact, 4 tolerated (3 loop-boundary blanks from frame 32, 1 tear at 55). | **Ledset is reference-only from this point.** The gapless loop is confirmed on hardware, and `play` delivers the 8 frames per window Ledset was dropping. Capture: `captures/oracle/appendix-play-gradient24-identity.pcapng`, config `tools/oracle/configs.appendix.json`. |
+
+### Two defects found during the session
+
+- **`oracle.harness --live` silently graded a stored capture.** `--live` only
+  opens a capture window for a row whose `capture` is `null`; on a row that
+  already had one it fell through and re-graded that file, printing an ordinary
+  PASS. It did exactly this mid-session with `mapper play` on the wire, and
+  reported Ledset's gate-2 numbers down to the loop-boundary blank at frame 32.
+  It now refuses with exit 2 and names the fix. **This is the fifth
+  self-consistent-but-wrong result this project has produced; the pattern is
+  live and the only defence is checking provenance, not plausibility.**
+- **Sender pacing is clean in absolute terms but not as a share of a frame.**
+  Measured off-hardware: mean interval dead on ideal at every rate, stdev
+  ~0.4 ms, `build_frame` 0.8 ms against a 16.67 ms budget at 60 fps. But the
+  ~1.3 ms worst-case deviation is 1.2 % of a frame at 10 fps and **7.8 % at 60**,
+  which matches the observed "2× more jittery at 60 than 30". Not fixed, not
+  blocking at 30 fps. A beat against the panel's own refresh is an untested
+  alternative explanation and the two were not separated.
+
+### Carried forward, unchanged
+
+Controller 1 (Master/IR) still times out ~5 s after packets stop and reverts to
+local content while controllers 2 and 3 hold their last frame — seen repeatedly
+tonight as the left seven columns of a wrapped final frame going dark while the
+rightmost column stayed lit. Expected, already recorded in §10.
+
+---
+
 ## Appendix — brightness/gamma (low priority, Q6)
 
 Not blocking, not part of the acceptance bar. `PROTOCOL.md` Q6 is open:
