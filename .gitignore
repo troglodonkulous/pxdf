@@ -12,11 +12,15 @@ test-patterns*/thn/
 test-patterns*/09-gradient24-8x8_4P-10x5.avi
 
 # --- Source media, not authored here ------------------------------------------
-# Licensed stock footage dropped in for the real-media trials: ~188 MB of h264,
-# none of it produced by this repo, and `tools/make_clip.py` output beside it is
-# equally derived. The tracked corpus is `test-patterns/*.avi` -- generated,
-# small, and reproducible from `tools/make_test_patterns.py`.
-test-patterns/Test Clips/
+# Licensed stock footage dropped in for the real-media trials: hundreds of MB of
+# h264, none of it produced by this repo, and `tools/make_clip.py` output beside
+# it is equally derived. The tracked corpus is `test-patterns/*.avi` --
+# generated, small, and reproducible from `tools/make_test_patterns.py`.
+#
+# Glob, not a literal path: the second drop arrived as "Test Clips 2" and was
+# briefly one `git add -A` away from committing 192 MB. Any future "Test Clips
+# <whatever>" is covered without anyone having to remember this file exists.
+test-patterns/Test Clips*/
 
 # --- Python -------------------------------------------------------------------
 __pycache__/
