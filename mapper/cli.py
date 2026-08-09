@@ -27,7 +27,7 @@ from .frame import send_buffer_sources
 from .orientation import Orientation
 from .patterns import PATTERNS, tile
 from .plan import build_plan, format_plan
-from .sender import DEFAULT_FPS, dry_run, run
+from .sender import DEFAULT_FPS, MAX_ADOPTED_FPS, dry_run, run
 from .verify import format_diffs, verify_capture
 from .video import framebuffers
 
@@ -180,6 +180,47 @@ def cmd_send(args) -> int:
     return 0
 
 
+def _resolve_fps(args, clip_fps: float | None) -> int:
+    """Decide the send rate: the clip's own, capped, unless `--fps` says otherwise.
+
+    Settled at the floor on 2026-08-08 rather than argued about here. Both
+    behaviours were built and played back to back on the same file one flag
+    apart, and adopting the clip's own rate won: a clip authored at 25 and sent
+    at the project default plays at the wrong speed, and no byte comparison
+    anywhere in this project can see it — every individual frame is correct and
+    only the spacing between them is wrong.
+
+    The cap is the other half of the same session. The floor drops no frames up
+    to 60 fps, but 60 judders on fast hard-edged motion for no gain over 30, so
+    an automatic path must not walk a 60 fps source into it. `--fps` is checked
+    first and is never capped: this protects the default, not the operator.
+    """
+    if args.fps is not None:
+        return args.fps
+    if clip_fps is None:
+        return DEFAULT_FPS
+
+    rate = int(round(clip_fps))
+    if abs(clip_fps - rate) > 0.001:
+        # 30000/1001 and friends. `run` takes a whole number of frames per
+        # second, and a fractional rate only reaches here from a file this
+        # repo did not write — `make_clip` normalises it on the way through.
+        print(
+            f"note: clip is {clip_fps:.3f} fps; sending at {rate} -- the sender "
+            f"takes a whole number of frames per second",
+            file=sys.stderr,
+        )
+    if rate > MAX_ADOPTED_FPS:
+        print(
+            f"note: clip is authored at {rate} fps; sending at {MAX_ADOPTED_FPS} -- "
+            f"measured at the floor, above {MAX_ADOPTED_FPS} judders on fast motion "
+            f"for no gain. Pass --fps {rate} to override.",
+            file=sys.stderr,
+        )
+        return MAX_ADOPTED_FPS
+    return rate
+
+
 def cmd_play(args) -> int:
     config = _config(args)
     orientation = Orientation.parse(args.orientation)
@@ -190,7 +231,8 @@ def cmd_play(args) -> int:
     # a per-frame decode on the send loop is the one thing that could
     # reintroduce the gaps this command exists to remove.
     try:
-        frames = framebuffers(read_video(args.video), config)
+        video = read_video(args.video)
+        frames = framebuffers(video, config)
     except ValueError as exc:
         # A wrong-geometry asset and an unreadable one are both ordinary
         # operator errors — `tools/make_clip.py` exists to fix the first — and
@@ -200,6 +242,8 @@ def cmd_play(args) -> int:
     if not frames:
         print(f"{args.video} holds no frames", file=sys.stderr)
         return 2
+
+    fps = _resolve_fps(args, video.fps)
 
     print(config.describe())
     print(f"orientation: {orientation.describe()}   video: {args.video} ({len(frames)} frames)")
@@ -213,20 +257,36 @@ def cmd_play(args) -> int:
     if args.dry_run:
         return _dry_run(config, frame_source, orientation, eof=not args.no_eof)
 
+    # Three mutually exclusive ways to say how long, and a default of exactly
+    # one pass. Inheriting `send`'s five seconds would stop a 60-frame clip at
+    # 10 fps two thirds of the way through, which is a strange thing for a
+    # command whose argument is a whole video to do.
+    if args.forever:
+        duration, total_frames, how = None, None, "until interrupted"
+    elif args.loop is not None:
+        total = args.loop * len(frames)
+        duration, total_frames, how = None, total, f"for {args.loop} loop(s), {total} frames"
+    elif args.duration is not None:
+        duration, total_frames, how = args.duration, None, f"for {args.duration}s"
+    else:
+        total = len(frames)
+        duration, total_frames, how = None, total, f"for one pass, {total} frames"
+
     print(
-        f"sending to {args.address}:{args.port} at {args.fps} fps for {args.duration}s"
+        f"sending to {args.address}:{args.port} at {fps} fps {how}"
         + (f" from {args.local_ip}" if args.local_ip else "")
     )
     sent = run(
         config,
         frame_source,
-        duration=args.duration,
+        duration=duration,
         orientation=orientation,
-        fps=args.fps,
+        fps=fps,
         eof=not args.no_eof,
         address=args.address,
         port=args.port,
         local_ip=args.local_ip,
+        total_frames=total_frames,
     )
     print(f"sent {sent} packets")
     return 0
@@ -296,13 +356,22 @@ def build_parser() -> argparse.ArgumentParser:
     play = sub.add_parser("play", help="broadcast an uncompressed AVI to the floor")
     play.add_argument("video", help="uncompressed 24-bit AVI at the floor's exact resolution")
     _add_geometry(play)
-    play.add_argument("--duration", type=float, default=5.0, help="seconds")
+    # How long to send. Three ways to say it, one at a time; the default with
+    # none of them is a single pass of the clip. Deliberately not a magic
+    # `--loop 0` for forever — an explicit flag is harder to mistype at 2 a.m.
+    # at the floor, where the cost of getting it wrong is a session.
+    span = play.add_mutually_exclusive_group()
+    span.add_argument("--duration", type=float, help="seconds")
+    span.add_argument("--loop", type=int, metavar="N", help="play the clip N times")
+    span.add_argument(
+        "--forever", action="store_true", help="loop until interrupted with Ctrl-C"
+    )
     play.add_argument(
         "--fps",
         type=int,
-        default=DEFAULT_FPS,
-        help="playback rate. The clip's own rate is NOT read: `avih` and `strh` do "
-        "carry it, but `avi.py` skips both, so convert at this rate too",
+        help=f"send rate. Default is the clip's own authored rate, capped at "
+        f"{MAX_ADOPTED_FPS}, or {DEFAULT_FPS} if the file carries no rate. An "
+        f"explicit value always wins and is never capped",
     )
     play.add_argument("--no-eof", action="store_true", help="the floor will not latch")
     play.add_argument("--address", default="255.255.255.255")

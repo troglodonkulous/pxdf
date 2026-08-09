@@ -89,21 +89,41 @@ def cmd_run(args) -> int:
         )
         return 2
 
+    # `--live` on a row that already has a capture used to fall through to that
+    # capture and grade it, printing an ordinary PASS. At the floor, mid-window,
+    # that reads as a fresh green result for whatever you just sent -- when it is
+    # in fact a re-grade of an old file, from a different sender, possibly from a
+    # different session. Observed doing exactly that on 2026-08-08 during the
+    # Section 3.4 appendix: `mapper play` was on the wire and the table reported
+    # Ledset's gate-2 numbers, down to the loop-boundary blank at frame 32.
+    # Refusing is the only safe behaviour: this harness exists to stop the
+    # project producing self-consistent conclusions about nothing.
+    if args.live:
+        already = [oc.name for oc in configs if oc.capture]
+        if already:
+            print(
+                f"--live cannot capture for {already}: "
+                f"{'it already points' if len(already) == 1 else 'they already point'} "
+                f"at a stored capture, and grading that while you send would "
+                f"report on the wrong file. Add a new row, with a new name and "
+                f"\"capture\": null, for the sender you want to measure -- or drop --live "
+                f"to re-grade the stored capture deliberately.",
+                file=sys.stderr,
+            )
+            return 2
+
     results = []
     for oc in configs:
-        if args.live:
-            if not oc.capture:
-                out = _unused_path(Path(args.out_dir) / f"{oc.name}.pcapng")
-                print(
-                    f"[{oc.name}] capturing on interface {args.interface} for {args.seconds}s "
-                    f"-> {out}"
-                    f" -- start playback on the floor now (this call does not touch Ledset)",
-                    file=sys.stderr,
-                )
-                capture_mod.capture_for(args.interface, out, args.seconds)
-                capture_path = out
-            else:
-                capture_path = ROOT / oc.capture if oc.capture else None
+        if args.live and not oc.capture:
+            out = _unused_path(Path(args.out_dir) / f"{oc.name}.pcapng")
+            print(
+                f"[{oc.name}] capturing on interface {args.interface} for {args.seconds}s "
+                f"-> {out}"
+                f" -- start playback on the floor now (this call does not touch Ledset)",
+                file=sys.stderr,
+            )
+            capture_mod.capture_for(args.interface, out, args.seconds)
+            capture_path = out
         else:
             capture_path = ROOT / oc.capture if oc.capture else None
         results.append(verify_config(oc, capture_path))

@@ -1,0 +1,17 @@
+{
+  "_comment": "Phase 4 section 3.4, the hardware appendix: the formal moment Ledset becomes reference-only. Identical geometry, pattern and orientation to the gate-2 acceptance row, but the frames on the wire come from `python -m mapper play` instead of from Ledset playing the same media. The row's `capture` is deliberately null -- `--live` only opens a capture window for a null-capture row, and reusing the gate-2 pcapng here would grade Ledset a second time while appearing to grade `mapper play` (observed 2026-08-08 doing exactly that).",
+  "_max_tolerated_derivation": "SET FOR A DIFFERENT SENDER, not carried over from the acceptance list. The acceptance budget of 8 is 6 loop-boundary blanks + 2 torn frames, and both terms are vendor defects of Ledset's player. `mapper.sender.run` builds every frame ahead of the send and loops gaplessly, so the loop-boundary term is expected to be exactly 0 and any blank frame at all is a finding rather than a tolerance. The torn-frame term is kept at 2 -- the measured ceiling across all seven real captures at this rig -- because tearing can arise on the wire or in the controller and is not specific to who is sending. Budget 2, and a result of 0 is the outcome this appendix is looking for. Re-derive if the window length or the clip length changes.",
+  "configs": [
+    {
+      "name": "appendix-play-gradient24-identity",
+      "type": "8x8_4P",
+      "cols": 10,
+      "rows": 5,
+      "pattern": "gradient24",
+      "orientation": "identity",
+      "capture": "captures/oracle/appendix-play-gradient24-identity.pcapng",
+      "max_tolerated": 2,
+      "notes": "CAPTURED 2026-08-08, attended, Phase 4 section 3.4. PASS: 80 complete frames, 80 matched exactly, 0 tolerated of a budget of 2, 0 unexplained, worst recurrence 0%, no divergence anywhere. One trailing partial group at the window edge. The 8 s window was taken inside a 30 s `python -m mapper play test-patterns/09-gradient24-8x8_4P-10x5.avi --fps 10 --loop 5`, at the run-sheet Section 6 V4 rate so the result is directly comparable with the Ledset-era reference. That reference, captures/oracle/acceptance-gradient24-identity.pcapng -- same content, same geometry, sent by Ledset -- managed 72 complete frames, 68 exact, 4 tolerated (3 loop-boundary blanks from frame 32, 1 torn frame at 55). So `mapper play` is not merely as good as the vendor on the wire: it is exact where Ledset was not, and it delivers the 8 frames per window Ledset was dropping. This row was captured with `capture` set to null, which is what makes --live open a window; it now points at the resulting file so the verdict is re-gradable from disk with no hardware. To capture a fresh take, add a new row with a new name and a null capture rather than blanking this one."
+    }
+  ]
+}
