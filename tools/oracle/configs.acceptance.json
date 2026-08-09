@@ -1,0 +1,28 @@
+{
+  "_comment": "The list for the attended Player-page session (`--live`). Gate 2 (2026-08-08) captured both rows below, both PASS. A third row for a rotate180/arrangement-2 capture existed here under decision 20; decision 20 was dropped during gate 4 (2026-08-08, explicit user override) after arrangement #2's cabling produced a per-controller port permutation the orientation model can't express -- the floor is cabled left-to-right, monotonically, always, so orientation is identity-only and a second wire-level oracle for it was never needed. See HANDOFF-ddf-geometry.md decisions 19-20 and docs/RUNSHEET-10x5-4P.md Section 9's closing note.",
+  "_max_tolerated_derivation": "MEASURED 2026-08-08 against the two real captures at this exact geometry and window, replacing the derivation that preceded them. Observed, identically in both: one loop boundary of 3 consecutive blank frames, plus 1 torn frame = 4 tolerated, out of 72 complete frames (gradient24) and 74 (white). The budget must cover the worst case the window admits, not the case observed: media/09-gradient24-8x8_4P-10x5.avi is a 6.0 s loop and the window is 8 s, so it can straddle 2 boundaries even though both captures caught 1. Blank frames per boundary: 3, measured twice here and 2/3/3 across the five 2026-08-06 captures -- budget 3 per boundary, so 2*3 = 6. Torn frames: 1 here in each of 72 and 74 frames, and at most 2 in any of the five older (44-50 frame) captures -- budget 2, the measured ceiling across all seven real captures. 6 + 2 = 8, against 4 observed. This tightens the previous DERIVED 9, which had assumed 3 torn frames on arithmetic rather than the 2 that has ever been seen. Re-derive if the window length or the clip length changes -- a budget carried over from a different capture is exactly the unbounded tolerance this field was added to remove.",
+  "configs": [
+    {
+      "name": "acceptance-gradient24-identity",
+      "type": "8x8_4P",
+      "cols": 10,
+      "rows": 5,
+      "pattern": "gradient24",
+      "orientation": "identity",
+      "capture": "captures/oracle/acceptance-gradient24-identity.pcapng",
+      "max_tolerated": 8,
+      "notes": "CAPTURED 2026-08-08, attended, gate 2. PASS: 72 complete frames, 68 matched exactly, 4 tolerated (3 loop-boundary blanks from frame 32, 1 torn frame at 55), 0 unexplained, worst recurrence 1/72 = 1% at ctrl0/port0/pkt0. One trailing partial group of 13 packets at the window edge. This is the project's first multi-controller oracle and the first capture whose content is per-pixel-unique, so it is the first evidence of any kind that tile_col -> (controller, port) is correct above one controller's worth of columns, that mapper/floors.py::_identity_scan is the real intra-tile order rather than a decompilation guess, and -- because 68 frames of almost entirely intermediate pixel values matched byte-for-byte -- that Ledset applies no brightness or gamma transform on the video->wire path (docs/PROTOCOL.md Q6). Media: tools/oracle/media/09-gradient24-8x8_4P-10x5.avi. Measured max_tolerated: see _max_tolerated_derivation above."
+    },
+    {
+      "name": "acceptance-white-identity",
+      "type": "8x8_4P",
+      "cols": 10,
+      "rows": 5,
+      "pattern": "white",
+      "orientation": "identity",
+      "capture": "captures/oracle/acceptance-white-identity.pcapng",
+      "max_tolerated": 8,
+      "notes": "CAPTURED 2026-08-08, attended, gate 2, immediately after the gradient24 row at the same geometry. PASS: 74 complete frames, 70 matched exactly, 4 tolerated (3 loop-boundary blanks from frame 16, 1 torn frame at 33), 0 unexplained, worst recurrence 1/74 = 1%. Coarse sanity check only: it confirms packet count, headers and controller placement, and cannot detect a port swap at all because solid colour carries no positional information -- the gradient24 row is what does that. Its value here is that it agrees with the gradient24 row on the vendor-defect rate at this geometry, which is what makes max_tolerated a measurement of two captures rather than one. Measured max_tolerated: see _max_tolerated_derivation above."
+    }
+  ]
+}

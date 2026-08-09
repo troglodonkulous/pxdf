@@ -37,15 +37,68 @@ protocol, as used by the vendor's `Ledset` / `Player.exe` Windows software.
 | Device type profile | `Floor Mir64` | ✅ |
 | Multi-controller | `Device Order` 01/02/03…, first = Master, rest = Slave | ✅ |
 
-### Reference rig
+### Current rig — 10 × 5, `8x8_4P`, three controllers
 
-Physically verified by the user, 2026-08-05:
+Re-patched by the user on 2026-08-07. **This replaces the 8 × 5 rig below; that
+layout no longer exists.**
 
-- 8 tiles × 5 tiles = **40 tiles**, 16 ft × 10 ft. ✅
+- 10 tiles × 5 tiles = **50 tiles**, 5.0 m × 2.5 m. ✅
+- Logical resolution **80 × 40 = 3200 pixels**. ✅
+- Ledset floor type **`8x8_4P`** (`TypeIndex 2`) — 8 × 8 px tiles, **4 ports**. ✅
+- **Three controllers**, Device Order set on each, daisy-chained via the
+  controllers' Ethernet `OUTPUT` → `INPUT`. ✅
+- The last controller is **partial**: `10 % 4 = 2`, so it drives ports 0–1 only.
+
+Derived, per §3.2:
+
+| | |
+|---|---|
+| `PORT_COUNT_A_CONTROLLER` | 4 |
+| `controllerCount` | `ceil(10/4)` = **3** |
+| `lastControlPortCount` | `10 % 4` = **2** |
+| tile columns per controller | ctrl 0 → 0–3, ctrl 1 → 4–7, ctrl 2 → 8–9 |
+| `portDataSize` | 192 × 5 = 960 |
+| packets per port | 2 (512 B then 458 B) |
+| packets per frame | (4 + 4 + 2) × 2 = **20** |
+| byte 1 values | `0x00`, `0x01`, `0x02` |
+| EOF flags per frame | **3** — ctrl0/port3, ctrl1/port3, ctrl2/port1 |
+| bytes per frame | 9,700 |
+
+Multiple controllers *and* a partial last controller in one layout. **Neither
+has ever been exercised on hardware.** This is the acceptance geometry.
+
+> ✅ **Broadcast propagation through the daisy chain — confirmed, gate 4,
+> 2026-08-08.** `PF1b-0`'s white baseline lit all 50 tiles for the full send
+> window on this exact three-controller daisy chain: `OUTPUT` → `INPUT`
+> forwards broadcast. Full findings in `docs/RUNSHEET-10x5-4P.md` §10.
+
+**Connector ↔ logical port, for a `_4P` unit — settled ✅, gate 4,
+2026-08-08.** Connector 1 drives ports 0 and 1; connector 2 drives ports 2
+and 3, each connector's pair internally ascending. Established once, per-unit
+(confirmed twice, once per cabling arrangement — see
+`docs/RUNSHEET-10x5-4P.md` §10). Which physical column each port lands on is
+then a cabling choice, made at load-in — this rig's arrangement #1 convention
+is connector 1 = the lower pair of a controller's block, connector 2 = the
+higher pair, giving a strictly monotonic P1→P10 walk. That specific
+left-to-right convention is now **fixed**, per decision 19/20's amendment in
+`HANDOFF-ddf-geometry.md` — see there for why.
+
+**Device Order `0k` ⇒ byte 1 = `k−1` — confirmed ✅, gate 4, 2026-08-08.**
+§3's V1a/b/c triple landed each byte-1 value on exactly the physical block
+its unit's own Device Order predicted, in both cabling arrangements tried.
+This was the project's most likely wrong assumption; it held.
+
+### The 2026-08-06 capture rig — historical
+
+Everything marked ✅ from live capture in this document was observed on **this**
+rig, which has since been dismantled. Kept because `captures/` is still the
+oracle for the 8-port path.
+
+- 8 tiles × 5 tiles = **40 tiles**. ✅
 - Logical resolution **64 × 40 = 2560 pixels**. ✅
 - **1 controller, all 4 connectors active**, each running **2 chains of 5
   panels** → 8 chains × 5 tiles. ✅
-- A second controller is attached by Ethernet with **no panels connected**. ✅
+- A second controller was attached by Ethernet with **no panels connected**. ✅
 - Ledset floor type **`8x8_8P`** (`TypeIndex 3`) ✅ — 8 × 8 px tiles, 8 ports.
 
 ### Port terminology — settled ✅
@@ -61,20 +114,47 @@ The `_8P` floor-type suffix is the **port count**, and the code confirms it:
 must treat it as configuration.
 
 **One port carries one tile column of the logical framebuffer** — `floorsOfRow`
-tiles, so 5 tiles = 320 px = **960 bytes** on this rig. ✅
+tiles, so 5 tiles of an 8 × 8 type = 320 px = **960 bytes**. ✅
 
 > ⚠️ "Column" here means a column of the **logical** tile grid that Ledset
 > renders. Whether that runs vertically or horizontally *on the physical floor*
 > is a cabling question — see §4.4.
 
+### Legal envelope
+
+Any `(floor type, tile columns, tile rows)` the mapper UI accepts. Read from
+`FloorTypeSet` and confirmed by sweeping the UI:
+
+| Floor type | `TypeIndex` | Tile px | Ports/controller | Max tile columns | Max tile rows |
+|---|---|---|---|---|---|
+| `6x6_4P` | 0 | 6 × 6 | 4 | 32 | 25 |
+| `6x6_8P` | 1 | 6 × 6 | 8 | 32 | 17 |
+| `8x8_4P` | 2 | 8 × 8 | 4 | 32 | 22 |
+| `8x8_8P` | 3 | 8 × 8 | 8 | 32 | 11 |
+
+2,400 combinations in total. **Only the two 8 × 8 types are in scope** — the
+6 × 6 scan table is carried as data so it can drop in later, but there is no
+6 × 6 hardware and no claim is made about it.
+
+**Controller count is derived, never chosen:**
+`controllerCount = ceil(tileColumns / portsPerController)`. Independent
+controller assignment is out of scope; the vendor offers no such control, so
+there would be no oracle for it.
+
 ### Target rig
 
 - Up to **14 × 10 tiles = 140 tiles** (112 × 80 = 8960 px).
-- **2 controllers**, master + slave. Sometimes only 1.
 - Arbitrary smaller layouts must also work.
 
-> Note the ceiling: floor type `8x8_8P` permits at most **11 tile rows** and 32
-> tile columns. A 14 × 10 layout fits; 14 × 12 would not.
+> Note the ceiling: floor type `8x8_8P` permits at most **11 tile rows**. A
+> 14 × 10 layout fits; 14 × 12 would not. `8x8_4P` permits 22 rows.
+
+### Units
+
+**Tiles are the unit.** A tile is **500 mm** (19.685 in). Ledset's "feet"
+dropdowns treat a tile as 2 ft, which drifts ~2.4% per tile — they are used
+only as dropdown *indices*, never as a length. Feet and inches are derived
+display values, if wanted at all.
 
 ---
 
@@ -140,17 +220,42 @@ offset  size     field
   memory) and are copied to the wire with no swap anywhere in the pipeline.
   There is no colour-order setting in this software generation.
 
-### 3.2 Reference rig — one frame ✅
+### 3.2 One frame, at any geometry ✅
 
-| | |
-|---|---|
-| `portDataSize` | 192 × 5 = **960** bytes |
-| packets per port | `ceil(960 / 507)` = **2** |
-| **packets per frame** | 8 ports × 2 = **16** |
-| packet 0 of each port | 512 bytes, `byte4 = 0x00` |
-| packet 1 of each port | 458 bytes, `byte4 = 0x01` |
-| final packet of frame | `byte4 = 0x81` |
-| bytes per frame | **7,760** |
+For `C` tile columns × `R` tile rows on a floor type with `P` ports per
+controller and `T × T` pixel tiles:
+
+```
+bytesPerTile    = T * T * 3
+portDataSize    = bytesPerTile * R
+packetsPerPort  = ceil(portDataSize / 507)
+controllerCount = ceil(C / P)
+lastControlPortCount = C % P, or P when that is 0
+packetsPerFrame = C * packetsPerPort
+bytesPerFrame   = packetsPerFrame * 5 + C * portDataSize
+```
+
+Controller `c` drives tile columns `P*c .. P*c+P-1`, except the last, which
+drives `lastControlPortCount` of them. **One end-of-frame flag per controller**,
+on the last packet of its last active port.
+
+Two worked examples:
+
+| | 8 × 5 `8x8_8P` (capture rig) | 10 × 5 `8x8_4P` (current rig) |
+|---|---|---|
+| `portDataSize` | 192 × 5 = 960 | 192 × 5 = 960 |
+| packets per port | `ceil(960/507)` = 2 | 2 |
+| `controllerCount` | `ceil(8/8)` = 1 | `ceil(10/4)` = **3** |
+| `lastControlPortCount` | 8 | **2** |
+| packets per frame | 8 × 2 = **16** | 10 × 2 = **20** |
+| packet 0 of each port | 512 bytes, `byte4 = 0x00` | same |
+| packet 1 of each port | 458 bytes, `byte4 = 0x01` | same |
+| byte 1 values | `0x00` | `0x00`, `0x01`, `0x02` |
+| EOF packets | 1, `byte4 = 0x81` | **3**, each `byte4 = 0x81` |
+| bytes per frame | **7,760** | **9,700** |
+
+`mapper/` computes all of this, and its invariant suite checks it across every
+one of the 2,400 legal configurations.
 
 ### 3.3 There is no beacon ✅
 
@@ -186,14 +291,14 @@ source MAC in a capture. If it is not required, ignoring it costs nothing.
 ## 4. Mapping — ✅ **RESOLVED**
 
 Logical pixel `(x, y)`, top-left origin, on a floor of `C` tile columns × `R`
-tile rows, 8×8 floor type.
+tile rows, with `T × T` pixel tiles.
 
 ```
-tileCol = x / 8      xIn = x % 8
-tileRow = y / 8      yIn = y % 8
+tileCol = x / T      xIn = x % T
+tileRow = y / T      yIn = y % T
 
-slot         = yIn * 8 + xIn            # identity scan table for 8x8 types
-offsetInPort = tileRow * 192 + slot * 3
+slot         = slotOfSource[yIn * T + xIn]   # identity for 8x8; see §4.2
+offsetInPort = tileRow * (T*T*3) + slot * 3
 
 controller  = tileCol / PORT_COUNT
 port        = tileCol % PORT_COUNT
@@ -201,57 +306,100 @@ packetIndex = offsetInPort / 507
 bodyOffset  = offsetInPort % 507
 ```
 
+For the 8 × 8 types `T = 8`, `slotOfSource` is the identity and
+`offsetInPort = tileRow * 192 + (yIn * 8 + xIn) * 3`.
+
 The three bytes at `bodyOffset` are **B, G, R**.
 
 ### 4.1 Buffer layout ✅
 
 Tiles are **column-major**: tile `(col, row)` sits at
-`(R * col + row) * 192`. Consequently one port's payload is one contiguous tile
-column, and controller `c` owns tile columns `8c .. 8c+7`.
+`(R * col + row) * bytesPerTile`, which is also
+`col * portDataSize + row * bytesPerTile`. Consequently one port's payload is
+one contiguous tile column, and controller `c` owns tile columns
+`Pc .. Pc+P-1`.
 
-### 4.2 Within a tile ✅
+### 4.2 Within a tile ✅ (8×8; 6×6 remains decompilation-only)
 
-A 64-entry lookup table maps output slot → source pixel. For **8×8** floor types
-it is the **identity** — plain row-major, left-to-right, top-to-bottom, **no
-serpentine**. For 6×6 types it is a transpose. This proves the table is a real
-scan remap and that other floor types differ.
+A `T*T`-entry lookup table maps output slot → source pixel. For **8×8** floor
+types it is the **identity** — plain row-major, left-to-right, top-to-bottom,
+**no serpentine**. For 6×6 types it is a transpose, `table[k + 6j] = 6k + j`,
+which happens to be its own inverse. This proves the table is a real scan remap
+and that other floor types differ.
+
+**Closed for the 8×8 types on 2026-08-08** by
+`captures/oracle/acceptance-gradient24-identity.pcapng` — a per-pixel-unique
+`gradient24` played through Ledset at `8x8_4P` 10×5 and captured, of which 68 of
+72 complete frames matched `mapper/floors.py::_identity_scan` byte for byte, the
+other 4 being the vendor's own documented loop-boundary blanks and one torn
+frame. Per-pixel-unique content is what makes this evidence: it is the property
+the two-lit-pixel and fully-lit-square observations lacked. See §8 Q4 and
+`PRE-PROBE.md`'s gate-2 Result.
+
+Its earlier support — `InitFloor` in the decompiled source, plus a two-lit-pixel
+floor observation (`CAPTURE_RESULTS.md` Q4) pinning 2 of the 64 entries — is now
+corroboration rather than the load-bearing argument.
+
+**The 6×6 transpose is still decompilation-only** and no capture constrains it.
+There is no 6×6 hardware, so it is unownable — see §7.
+
+An earlier version of this section also cited `captures/07-tilewalk.pcapng` —
+"every frame decodes to exactly one fully lit, tile-aligned square". **That is
+not evidence for this table and the claim has been withdrawn.** A fully lit
+square is uniform, so any permutation *within* the tile decodes to the same
+square. Confirmed by mutation on 2026-08-07: row-reverse, column-reverse and
+serpentine each leave every capture-derived assertion bit-identical to the
+control. The tilewalk capture constrains which *tile* lights, which is §4.1, not
+which pixel within it.
+
+The capture named above is exactly the test that paragraph asked for, and the
+table survived it. Kept here because the withdrawal is the more useful half of
+the record: the failure mode it warns about — a scrambled tile rather than an
+obviously dead floor — is why solid colours were never going to close this.
 
 ### 4.3 Packet boundaries straddle tiles ⚠️
 
-507 = 3 × 169, so pixels are never split across packets. But 507 is **not** a
-multiple of 192, so **tile boundaries are**: 507 bytes = 2 tiles + 123 bytes, and
-a port's second packet begins 41 pixels into its third tile. A packet body is not
-a standalone 169-pixel run — it is only meaningful with its port and packet
-index.
+507 = 3 × 169, so pixels are never split across packets. But on the 8 × 8 types
+507 is **not** a multiple of 192, so **tile boundaries are**: 507 bytes = 2 tiles
++ 123 bytes, and a port's second packet begins 41 pixels into its third tile. A
+packet body is not a standalone 169-pixel run — it is only meaningful with its
+port and packet index.
 
-### 4.4 Physical orientation — ✅ **RESOLVED at the floor**
+This gets worse, not better, at larger geometries: a tall floor has more packets
+per port, each landing at a different phase within a tile. `packetsPerPort`
+reaches 5 at the `8x8_8P` maximum and 9 at the `8x8_4P` maximum.
+
+### 4.4 Physical orientation — a **parameter**, observed once
 
 The above is the **logical** mapping — pixel to wire, exactly as the vendor
 sends it. It does not by itself say which physical tile is logical `(0,0)`. That
-depends on how the chains are cabled, and was settled by observation
-(`docs/CAPTURE_RESULTS.md`, Part B / Q1).
+depends on how the chains are cabled.
 
-**On the reference rig, logical `(0,0)` is the bottom-right tile at the cable
-end. Logical +X runs right-to-left, +Y bottom-to-top — a pure 180° rotation, no
-mirror and no transpose.**
+On the **2026-08-06 rig**, logical `(0,0)` was the bottom-right tile at the
+cable end: +X right-to-left, +Y bottom-to-top, a pure 180° rotation with no
+mirror and no transpose (`CAPTURE_RESULTS.md`, Part B / Q1).
 
-```
-x_wire = (C * 8 - 1) - x_logical
-y_wire = (R * 8 - 1) - y_logical
-```
+> ⚠️ **That rig no longer exists**, and the tool that observed it —
+> `tools/Send-FloorTest.ps1` — implements no orientation transform at all. So
+> 180° is a *historical observation about one cabling*, not a default. It has
+> never been exercised as a code path.
 
-Apply this at the framebuffer read step, **before** packing. Never reorder
-packets to achieve it: `packetIndex` and `bodyOffset` are defined in port-payload
-space and must stay untouched.
+The full parameter, implemented in `mapper/orientation.py`:
 
-> ⚠️ **This is a property of one rig's cabling, not of the hardware.** A floor
-> re-cabled at load-in can land in any of the four rotations. The sender must
-> keep orientation a **runtime parameter**; 180° is the correct *default* for the
-> reference rig only. On multi-controller layouts the same caution applies to
-> which physical end is tile column 0.
+| Flag | Meaning |
+|---|---|
+| `rotate180` | `x → W-1-x`, `y → H-1-y`. The floor is entered from the opposite corner. |
+| `mirrorX` | `x → W-1-x`. The grid is handed the other way. |
+| `reverseColumnsPerController` | One controller's ports are cabled from its far end, so its tile columns run backwards. Permutes whole tile columns **within one controller's group**; never across a boundary, and never inside a tile. |
 
-Note `tileCol` is forced onto the port axis by `port = tileCol % PORT_COUNT` —
-that part was never free. Only the origin corner and handedness were open.
+**90° and 270° are rejected as physically impossible.** `port = tileCol %
+PORT_COUNT` binds tile columns to the port axis, so a quarter turn would require
+one port to carry part of every column. `tileCol` was never free — only the
+origin corner and handedness were.
+
+Apply the transform at the **framebuffer read step, before packing**. Never
+reorder packets to achieve it: `packetIndex` and `bodyOffset` are defined in
+port-payload space and must stay untouched.
 
 ### 4.5 Hypotheses, closed
 
@@ -308,11 +456,18 @@ generates pixels directly avoids all of it.
 </Mapper>
 ```
 
-- `Width`/`Height` = logical pixels.
+- `Width`/`Height` = logical pixels, and are redundant — derivable from the rest.
 - `FeetOf*Index` are dropdown indices: `feet = (index + 1) × 2`, then
-  `tiles = feet / 2`. So 7 → 16 ft → 8 tiles; 4 → 10 ft → 5 tiles.
+  `tiles = feet / 2`, so **`index = tiles - 1`**. 7 → 8 tiles; 4 → 5 tiles.
+  Ledset's feet are wrong (a tile is 500 mm, not 2 ft); only the index matters.
 - Contains **no per-pixel wiring table** — physical wiring order is configured in
   the controller itself.
+
+**Writing this file is a control path, not just a read.** Setting it and
+restarting Ledset makes `ReadParam` / `OpenFile` load the geometry with no UI
+automation at all — more reliable than driving the mapper page's ComboBoxes.
+`mapper/mapper_xml.py` does both directions, byte-identical to the vendor's own
+output; `python -m mapper xml --type 8x8_4P --cols 10 --rows 5` emits one.
 
 ---
 
@@ -350,12 +505,12 @@ All blocking questions are closed. Evidence: `docs/CAPTURE_RESULTS.md`.
 
 | # | Question | Answer |
 |---|---|---|
-| Q1 | Which physical tile is logical `(0,0)`? Rotation / mirroring? | ✅ Bottom-right at the cable end. **180° rotation**, no mirror, no transpose — see §4.4. Rig-specific; keep it a parameter. |
+| Q1 | Which physical tile is logical `(0,0)`? Rotation / mirroring? | ✅ Bottom-right at the cable end. **180° rotation**, no mirror, no transpose — see §4.4. Rig-specific; keep it a parameter. **Current rig (10×5 `8x8_4P`), confirmed gate 4, 2026-08-08:** logical `(0,0)` = physical `(P1, R1)`, **`identity`** — no rotation, no mirror. Derived from `docs/RUNSHEET-10x5-4P.md` §5's method against M0's full walk, confirmed by V3. This rig's cabling convention is now fixed left-to-right always (decision 19/20 amendment, `HANDOFF-ddf-geometry.md`), so `identity` is not just this session's finding but the standing answer for this rig going forward. |
 | Q2 | Is the end-of-frame flag required to latch a frame? | ✅ **Required.** Without it the floor never latches; it shows only sporadic partial flickers with byte-level tearing. Set `0x80` once per controller per frame. |
 | Q3 | What emits the 966-byte packet? | ✅ **Nothing in this system.** Absent across 7,725 captured packets covering all five patterns; only 512 and 458 appeared. Ignore it. |
-| Q4 | Is the per-tile scan really non-serpentine on real LEDs? | ✅ **Identity confirmed.** `PixelX 0→7` moved a full tile width along one row. (`PixelY 7` not yet run; tile-level corner check already excludes a rotated panel.) |
-| Q5 | Does the controller accept faster than 10 fps? | ❓ Not tested. Vendor measured at ~9.35 fps actual; our sender held a clean 10.0. Non-blocking. |
-| Q6 | Brightness / gamma — is there any control? | ❓ Nothing in the send path touches pixel values; controller-side or absent. Non-blocking. |
+| Q4 | Is the per-tile scan really non-serpentine on real LEDs? | ✅ **Closed 2026-08-08.** The old ⚠️ stood because every capture was tile-uniform and could not corroborate the table. `captures/oracle/acceptance-gradient24-identity.pcapng` is per-pixel-unique and matched `_identity_scan` on 68 of 72 frames byte for byte — a serpentine, or any other permutation of the 64 entries, mismatches inside every tile of every frame. The wire now pins the whole table, not 2 of 64. |
+| Q5 | Does the controller accept faster than 10 fps? | ✅ **Closed — not pursued.** 10 fps is settled as the operating rate. Ledset measures ~9.2 fps actual (mean 108.7–109.3 ms between frame starts); ours averages 10.24 fps but with more jitter. See `CAPTURE_RESULTS.md`. Do not spend floor time on it. |
+| Q6 | Brightness / gamma — is there any control? | ✅ **Closed 2026-08-08 for the playback path.** Every earlier capture was saturated-only (black/white/red/halves), and `0x00`/`0xFF` are fixed points of any brightness scale or gamma LUT, so nothing before this constrained intermediate values *at all*. `acceptance-gradient24-identity` is almost entirely intermediate values and matched byte for byte: **Ledset applies no transform on the video→wire path.** Whether the controller applies one downstream is unobservable from the wire and would show as a floor-brightness question, not a protocol one. |
 
 Colour order was additionally confirmed on real LEDs — `-Pattern red` renders
 red, matching the BGR wire finding. No `-ColorOrder RGB` correction is needed.
@@ -379,8 +534,14 @@ bugs in Ledset's *player*, and the replacement must not reproduce them:
 
 - **`docs/DECOMP_FINDINGS.md`** — full decompilation of `screenSend.dll` and
   `LedSet.exe` (ILSpy). Primary source for §3, §4, §5.
-- `tools/Send-FloorTest.ps1` — independent implementation of this spec, used to
-  verify it against hardware.
+- **`mapper/`** — the geometry-independent implementation of this spec, in
+  Python. Invariants green across all 2,400 legal configurations; byte-identical
+  to Ledset's captured frames. Emits the conformance fixtures in `fixtures/`
+  that the Swift engine will be graded against.
+- `tools/Send-FloorTest.ps1` — independent implementation, used to verify the
+  spec against hardware at 8 × 5 `8x8_8P`. Kept deliberately dumb — raw
+  protocol, no orientation transform — as the control for isolating whether a
+  fault at the floor is in the mapping or in the orientation layer.
 - Live Wireshark/`pktmon` captures, prior session.
 - `LPlayer-sub-window-rev1436/ReleaseNote.txt` (Kingstar attribution).
 - `TOP DANCE PIXEL LED DANCE FLOOR MANUAL-878.pdf` (via prior session).

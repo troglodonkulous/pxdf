@@ -1,0 +1,177 @@
+{
+  "schema": "ddf-mapper-fixture/1",
+  "name": "8x8_4P_10x5",
+  "why": "the current rig \u2014 three controllers, partial last controller",
+  "config": {
+    "floorType": "8x8_4P",
+    "typeIndex": 2,
+    "tileCols": 10,
+    "tileRows": 5
+  },
+  "derived": {
+    "widthPx": 80,
+    "heightPx": 40,
+    "pixelCount": 3200,
+    "portsPerController": 4,
+    "portDataSize": 960,
+    "packetsPerPort": 2,
+    "controllerCount": 3,
+    "lastControllerPortCount": 2,
+    "packetsPerFrame": 20,
+    "bytesPerFrame": 9700,
+    "widthMm": 5000.0,
+    "heightMm": 2500.0
+  },
+  "orientation": {
+    "rotate180": false,
+    "mirrorX": false,
+    "reverseColumnsPerController": false
+  },
+  "pattern": "gradient24",
+  "colorOrder": "BGR",
+  "hardwareVerified": false,
+  "packets": [
+    [
+      0,
+      0,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      2,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      2,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      3,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      3,
+      1,
+      129,
+      458
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      512
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      458
+    ],
+    [
+      1,
+      1,
+      0,
+      0,
+      512
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      458
+    ],
+    [
+      1,
+      2,
+      0,
+      0,
+      512
+    ],
+    [
+      1,
+      2,
+      1,
+      1,
+      458
+    ],
+    [
+      1,
+      3,
+      0,
+      0,
+      512
+    ],
+    [
+      1,
+      3,
+      1,
+      129,
+      458
+    ],
+    [
+      2,
+      0,
+      0,
+      0,
+      512
+    ],
+    [
+      2,
+      0,
+      1,
+      1,
+      458
+    ],
+    [
+      2,
+      1,
+      0,
+      0,
+      512
+    ],
+    [
+      2,
+      1,
+      1,
+      129,
+      458
+    ]
+  ],
+  "payloadSha256": "dc002c06ad79eaf22c58b5b3cae539787949a0e487de617fbfa638b7c04b22a9",
+  "frameSha256": "10cfd968b0b3436c6b50717f4c6cf69459b545b5c665c5d8003b268a561f8057"
+}

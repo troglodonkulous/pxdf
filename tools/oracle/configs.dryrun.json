@@ -1,0 +1,65 @@
+{
+  "_comment": "Default dry-run config list. Every entry with a `capture` runs entirely against captures/*.pcapng already in the repo -- no hardware, no Ledset, no transmission. This is `python -m tools.oracle.harness run`'s default input. Every `max_tolerated` here is a MEASUREMENT of the named file, not an allowance: the files are fixed on disk, so the exact count is reproducible, and any drift is worth failing on. See docs/ORACLE_HARNESS.md S8.",
+  "configs": [
+    {
+      "name": "01-black",
+      "type": "8x8_8P",
+      "cols": 8,
+      "rows": 5,
+      "pattern": "black",
+      "capture": "captures/01-black.pcapng",
+      "max_tolerated": 0,
+      "notes": "2026-08-06 capture rig, one controller. Baseline: all-zero body. Measured: 46 complete frames, 46 exact matches, 0 tolerated, worst packet recurrence 0/46 = 0%."
+    },
+    {
+      "name": "02-white",
+      "type": "8x8_8P",
+      "cols": 8,
+      "rows": 5,
+      "pattern": "white",
+      "capture": "captures/02-white.pcapng",
+      "max_tolerated": 3,
+      "notes": "Measured: 46 complete frames, 43 exact, 3 tolerated = 1 torn frame (frame 4, 8 of 16 packets) + a 2-frame loop-boundary blank run (frames 37-38). Worst packet recurrence 1/46 = 2.2%."
+    },
+    {
+      "name": "03-red",
+      "type": "8x8_8P",
+      "cols": 8,
+      "rows": 5,
+      "pattern": "red",
+      "capture": "captures/03-red.pcapng",
+      "max_tolerated": 4,
+      "notes": "Colour-order check -- a wrong BGR/RGB assumption fails every frame, not just a few. Measured: 44 complete frames, 40 exact, 4 tolerated = a 3-frame loop-boundary blank run (frames 11-13) + 1 torn frame (frame 19). Worst packet recurrence 1/44 = 2.3%, the highest of any real capture."
+    },
+    {
+      "name": "06-halves",
+      "type": "8x8_8P",
+      "cols": 8,
+      "rows": 5,
+      "pattern": "halves",
+      "capture": "captures/06-halves.pcapng",
+      "max_tolerated": 5,
+      "notes": "Left half white, right half black. The first spatial check -- a solid colour cannot detect a permutation, this can (coarsely: at port granularity). Measured: 46 complete frames, 41 exact, 5 tolerated = 2 torn frames (6, 7 -- 4 of 16 packets each) + a 3-frame blank run (31-33, which differ in only 8 of 16 packets because the right half is black in the source too). Worst packet recurrence 1/46 = 2.2%. This is the capture an injected port swap fails on: see docs/ORACLE_HARNESS.md S8."
+    },
+    {
+      "name": "20-ours-white",
+      "type": "8x8_8P",
+      "cols": 8,
+      "rows": 5,
+      "pattern": "white",
+      "capture": "captures/20-ours-white.pcapng",
+      "max_tolerated": 0,
+      "notes": "Our own Python sender's capture, not Ledset's -- the harness validates both a vendor and our own transmission the same way. Measured: 50 complete frames, 50 exact, 0 tolerated, 0 partial frames (our sender stops on a frame boundary; Ledset's captures each end mid-frame). Worst packet recurrence 0/50 = 0%."
+    },
+    {
+      "name": "8x8_4P_10x5-acceptance-gradient24",
+      "type": "8x8_4P",
+      "cols": 10,
+      "rows": 5,
+      "pattern": "gradient24",
+      "capture": null,
+      "max_tolerated": 9,
+      "notes": "The acceptance geometry: three controllers, partial last controller. No capture exists yet -- blocked on the attended Player-page session. See docs/ORACLE_HARNESS.md 'Blocked on the attended session', item 1. Included here (with capture=null) so the report shows this gap as a row, not a silent absence. max_tolerated is DERIVED, not measured -- see the acceptance list for the arithmetic; re-measure it against the real capture the moment one exists."
+    }
+  ]
+}

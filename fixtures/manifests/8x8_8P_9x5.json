@@ -1,0 +1,163 @@
+{
+  "schema": "ddf-mapper-fixture/1",
+  "name": "8x8_8P_9x5",
+  "why": "partial last controller on an 8P floor",
+  "config": {
+    "floorType": "8x8_8P",
+    "typeIndex": 3,
+    "tileCols": 9,
+    "tileRows": 5
+  },
+  "derived": {
+    "widthPx": 72,
+    "heightPx": 40,
+    "pixelCount": 2880,
+    "portsPerController": 8,
+    "portDataSize": 960,
+    "packetsPerPort": 2,
+    "controllerCount": 2,
+    "lastControllerPortCount": 1,
+    "packetsPerFrame": 18,
+    "bytesPerFrame": 8730,
+    "widthMm": 4500.0,
+    "heightMm": 2500.0
+  },
+  "orientation": {
+    "rotate180": false,
+    "mirrorX": false,
+    "reverseColumnsPerController": false
+  },
+  "pattern": "gradient24",
+  "colorOrder": "BGR",
+  "hardwareVerified": true,
+  "packets": [
+    [
+      0,
+      0,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      2,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      2,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      3,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      3,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      4,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      4,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      5,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      5,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      6,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      6,
+      1,
+      1,
+      458
+    ],
+    [
+      0,
+      7,
+      0,
+      0,
+      512
+    ],
+    [
+      0,
+      7,
+      1,
+      129,
+      458
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      512
+    ],
+    [
+      1,
+      0,
+      1,
+      129,
+      458
+    ]
+  ],
+  "payloadSha256": "eca93de0cfd4d6c3b142bcf46bbfa56c7bbc311731f2a676dc21c61aa6607fbe",
+  "frameSha256": "b0b261168f3e548b8c6a31ff0234a44b8439ca852d19f2af3ecf1b6f19c505c7"
+}

@@ -156,6 +156,19 @@ For each: start capture → display the pattern → hold ~3 s → Ctrl+C.
 
 Tests 3 and 5 are the ones that matter. If time is short, do those.
 
+> ⚠️ **Test 5 was truncated on 2026-08-06 and the shortfall is still open.** The
+> committed `07-tilewalk.pcapng` stops at video t ≈ 16.7 s, having captured only
+> rows 1–8 of `test-patterns/tilewalk_timing.md`. Rows 9–11 — `(7,0)`, `(7,4)`,
+> `(4,2)` — never reached the wire, so **no capture resolves tile columns 4–7
+> individually**. Let the clip run past 24 s and confirm 11 distinct positions
+> decode before stopping the capture. See `CAPTURE_RESULTS.md` § "What remains".
+>
+> ⚠️ **`08-sweep.avi` is worth more than it looks.** Every capture we hold is
+> tile-*uniform*, which leaves the intra-tile scan table unconstrained by all of
+> them (PROTOCOL.md §4.2). A per-pixel-unique source — `08-sweep.avi`, or better
+> the mapper's `gradient24` — is the only thing that would close it. Promote it
+> from "useful extra" if there is any time at all.
+
 `04-green.avi`, `05-blue.avi` and `08-sweep.avi` are also in the folder. They are
 not required for Part A; `08-sweep.avi` (a one-pixel white column stepping
 `x = 0..63`, then a one-pixel white row stepping `y = 0..39`, one frame each at
