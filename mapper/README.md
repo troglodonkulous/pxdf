@@ -46,6 +46,21 @@ python -m mapper play <clip> --type 8x8_4P --cols 10 --rows 5 --forever
 # convert real media. Defaults are `--scaler area --fit cover --fps 30`, all
 # three settled on the floor — see "Frame rate, scaler and fit" below.
 python -m tools.make_clip "input.mp4" out.avi --type 8x8_4P --cols 10 --rows 5
+
+# diagnostic patterns. `--pattern` takes a plain name (black, white, red, green,
+# blue, gradient24) or a parameterised spec:
+#   level:N        solid grey — level:128 separates a proportional gain error
+#                  from one that only appears near full scale
+#   solid:R,G,B    arbitrary solid
+#   steps          grey bands 32…255, the whole ramp in one glance
+#   tile:col,row   one lit tile
+python -m mapper send --type 8x8_4P --cols 10 --rows 5 --pattern steps --duration 20
+
+# apply a colour calibration. Opt-in only: with no flag the wire is unchanged,
+# byte for byte. See `docs/CALIBRATION.md`, and `tools/calibrate.py` to author
+# the file at the floor.
+python -m mapper play <clip> --type 8x8_4P --cols 10 --rows 5 \
+    --calibration calibration.json
 ```
 
 `play` and `send` are the same send path with a different frame source, so on a
@@ -98,6 +113,7 @@ python -m unittest discover -t . -s mapper/tests    # ~19 s
 | `fixtures.py` | Conformance fixture generation. |
 | `mapper_xml.py` | Ledset mapper XML, read and written. |
 | `sender.py` | UDP broadcast, set up as `screenSend.dll` does. |
+| `calibration.py` | Per-region RGB gain applied to the framebuffer before packing, to mask a per-tile hardware colour defect. Opt-in, never automatic — `docs/CALIBRATION.md`. |
 
 ## What is checked, and against what
 
