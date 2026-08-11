@@ -22,26 +22,14 @@ from pathlib import Path
 from . import fixtures as fixtures_module
 from . import mapper_xml
 from .avi import read_video
-from .calibration import load as load_calibration
 from .floors import FLOOR_TYPES, FloorConfig, legal_configs
 from .frame import send_buffer_sources
 from .orientation import Orientation
-from .patterns import PATTERNS, resolve as resolve_pattern
+from .patterns import PATTERNS, tile
 from .plan import build_plan, format_plan
 from .sender import DEFAULT_FPS, MAX_ADOPTED_FPS, dry_run, run
 from .verify import format_diffs, verify_capture
 from .video import framebuffers
-
-
-#: Shared help text for the free-text `--pattern` argument on `send`/`verify`.
-#: `tile` (bare) plus `--tile-col`/`--tile-row` is kept as its own legal form
-#: for anything already scripted against it; `tile:col,row` is the equivalent
-#: one-shot spec `patterns.resolve` understands directly.
-_PATTERN_HELP = (
-    "pattern to send: a name (" + ", ".join(sorted(PATTERNS)) + "), 'level:N' "
-    "(solid grey, 0-255), 'solid:R,G,B', 'steps' (grey band ladder), 'tile' "
-    "(use with --tile-col/--tile-row), or 'tile:col,row'"
-)
 
 
 def _add_geometry(parser: argparse.ArgumentParser) -> None:
@@ -60,37 +48,9 @@ def _config(args) -> FloorConfig:
 
 
 def _framebuffer(args, config):
-    """Resolve `--pattern` (and, for the legacy `tile` name, `--tile-col`/`--tile-row`).
-
-    `--pattern tile` alone is ambiguous without a col/row, so it is translated
-    to the `tile:col,row` spec `patterns.resolve` understands -- this keeps
-    `--tile-col`/`--tile-row` working exactly as before for anything already
-    scripted against them. Everything else goes through `resolve` unchanged.
-    """
     if args.pattern == "tile":
-        return resolve_pattern(f"tile:{args.tile_col},{args.tile_row}")(config)
-    return resolve_pattern(args.pattern)(config)
-
-
-def _load_calibration(args, config):
-    """Load and validate `--calibration`, and print the provenance line.
-
-    A session log must record what was actually on the wire -- printing the
-    file, region count and each region's rect/gain here is the only place that
-    happens, so it must run whether or not `--dry-run` is set.
-    """
-    if not args.calibration:
-        return None
-    cal = load_calibration(args.calibration)
-    cal.validate(config)
-    print(f"calibration: {args.calibration} ({len(cal.regions)} region(s))")
-    for region in cal.regions:
-        note = f" {region.note!r}" if region.note else ""
-        print(
-            f"  ({region.x},{region.y}) {region.w}x{region.h} "
-            f"gain={region.gain}{note}"
-        )
-    return cal
+        return tile(config, args.tile_col, args.tile_row)
+    return PATTERNS[args.pattern](config)
 
 
 def _dry_run(config, frame_source, orientation: Orientation, eof: bool) -> int:
@@ -162,18 +122,10 @@ def cmd_xml(args) -> int:
 
 def cmd_verify(args) -> int:
     config = _config(args)
-    try:
-        framebuffer = _framebuffer(args, config)
-    except ValueError as exc:
-        # A bad --pattern is an ordinary operator error -- see the identical
-        # treatment of a wrong-geometry asset in cmd_play -- and does not
-        # deserve a traceback.
-        print(str(exc), file=sys.stderr)
-        return 2
     diffs = verify_capture(
         args.capture,
         config,
-        framebuffer,
+        _framebuffer(args, config),
         Orientation.parse(args.orientation),
         eof=not args.no_eof,
     )
@@ -201,31 +153,13 @@ def cmd_verify(args) -> int:
 def cmd_send(args) -> int:
     config = _config(args)
     orientation = Orientation.parse(args.orientation)
-    try:
-        framebuffer = _framebuffer(args, config)
-        cal = _load_calibration(args, config)
-    except ValueError as exc:
-        # A bad --pattern or --calibration is an ordinary operator error, the
-        # same treatment cmd_play gives a wrong-geometry asset, and neither
-        # deserves a traceback. Loading/validating the calibration here, ahead
-        # of everything else, is also what makes it fail before a socket
-        # opens rather than mid-broadcast.
-        print(str(exc), file=sys.stderr)
-        return 2
+    framebuffer = _framebuffer(args, config)
 
     print(config.describe())
     print(f"orientation: {orientation.describe()}   pattern: {args.pattern}")
 
-    base_source = lambda n: framebuffer
-    # The calibration wrap happens before the --dry-run branch below, so a
-    # dry run with --calibration prints the digest of what would actually go
-    # on the wire, not of the unadjusted pattern. Grading something other than
-    # what the socket would carry is the exact failure this project has
-    # already been burned by twice (CLAUDE.md, `oracle.harness --live`).
-    frame_source = (lambda n: cal.apply(config, base_source(n))) if cal else base_source
-
     if args.dry_run:
-        return _dry_run(config, frame_source, orientation, eof=not args.no_eof)
+        return _dry_run(config, lambda n: framebuffer, orientation, eof=not args.no_eof)
 
     print(
         f"sending to {args.address}:{args.port} at {args.fps} fps for {args.duration}s"
@@ -233,7 +167,7 @@ def cmd_send(args) -> int:
     )
     sent = run(
         config,
-        frame_source,
+        lambda n: framebuffer,
         duration=args.duration,
         orientation=orientation,
         fps=args.fps,
@@ -309,14 +243,6 @@ def cmd_play(args) -> int:
         print(f"{args.video} holds no frames", file=sys.stderr)
         return 2
 
-    try:
-        cal = _load_calibration(args, config)
-    except ValueError as exc:
-        # Same treatment as the wrong-geometry case above: fail before a
-        # socket opens, no traceback.
-        print(str(exc), file=sys.stderr)
-        return 2
-
     fps = _resolve_fps(args, video.fps)
 
     print(config.describe())
@@ -325,12 +251,8 @@ def cmd_play(args) -> int:
     # The list is built once and indexed modulo its length, so a loop boundary
     # is not a special case at all. Ledset emits three blank frames at every
     # one of its own, measured twice at this geometry.
-    def _clip_source(n: int) -> bytes:
+    def frame_source(n: int) -> bytes:
         return frames[n % len(frames)]
-
-    # The calibration wrap happens before the --dry-run branch below -- see
-    # the identical comment in cmd_send for why that ordering is load-bearing.
-    frame_source = (lambda n: cal.apply(config, _clip_source(n))) if cal else _clip_source
 
     if args.dry_run:
         return _dry_run(config, frame_source, orientation, eof=not args.no_eof)
@@ -403,7 +325,7 @@ def build_parser() -> argparse.ArgumentParser:
     verify = sub.add_parser("verify", help="diff a capture against what we would send")
     verify.add_argument("capture")
     _add_geometry(verify)
-    verify.add_argument("--pattern", default="white", help=_PATTERN_HELP)
+    verify.add_argument("--pattern", default="white", choices=sorted(PATTERNS) + ["tile"])
     verify.add_argument("--tile-col", type=int, default=0)
     verify.add_argument("--tile-row", type=int, default=0)
     verify.add_argument("--no-eof", action="store_true")
@@ -419,7 +341,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     send = sub.add_parser("send", help="broadcast a pattern to the floor")
     _add_geometry(send)
-    send.add_argument("--pattern", default="gradient24", help=_PATTERN_HELP)
+    send.add_argument("--pattern", default="gradient24", choices=sorted(PATTERNS) + ["tile"])
     send.add_argument("--tile-col", type=int, default=0)
     send.add_argument("--tile-row", type=int, default=0)
     send.add_argument("--duration", type=float, default=5.0, help="seconds")
@@ -429,11 +351,6 @@ def build_parser() -> argparse.ArgumentParser:
     send.add_argument("--port", type=int, default=60001)
     send.add_argument("--local-ip", help="bind to a specific NIC, e.g. 10.200.50.78")
     send.add_argument("--dry-run", action="store_true", help="print the plan, send nothing")
-    send.add_argument(
-        "--calibration",
-        metavar="PATH",
-        help="apply a per-region gain calibration before sending or dry-running",
-    )
     send.set_defaults(func=cmd_send)
 
     play = sub.add_parser("play", help="broadcast an uncompressed AVI to the floor")
@@ -461,11 +378,6 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--port", type=int, default=60001)
     play.add_argument("--local-ip", help="bind to a specific NIC, e.g. 10.200.50.78")
     play.add_argument("--dry-run", action="store_true", help="print the plan, send nothing")
-    play.add_argument(
-        "--calibration",
-        metavar="PATH",
-        help="apply a per-region gain calibration before sending or dry-running",
-    )
     play.set_defaults(func=cmd_play)
 
     return parser

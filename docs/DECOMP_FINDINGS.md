@@ -354,7 +354,7 @@ places. Listed worst-first.
   controller answers RDM on its DMX XLR port at all is untested**. It is
   unpursued, not ruled out. Even if it answers, every parameter it exposes is
   per-device global, so it could not address one tile. Evidence table in
-  `docs/CALIBRATION.md` §3.
+  `docs/HARDWARE-TILE-DEFECT.md` §3.
 - ❓ **What the second controller does with no panels attached.** Out of scope
   for the sender, but it may appear in captures.
 
