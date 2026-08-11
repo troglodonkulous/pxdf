@@ -40,7 +40,7 @@ rationalise.
 All of it runs off-hardware. Run all of it before claiming anything is done.
 
 ```bash
-python -m unittest discover -t . -s mapper/tests        # 155 tests, ~20 s
+python -m unittest discover -t . -s mapper/tests        # 63 tests, ~20 s
 python -m unittest discover -t . -s tools/oracle/tests  # 39 tests
 python -m mapper matrix                                 # 2400 configs
 python -m tools.oracle.harness run --configs tools/oracle/configs.acceptance.json
@@ -102,12 +102,6 @@ number is **not stable across reboots** — re-derive with
 - **A clip sent at a rate it was not authored for plays at the wrong speed and
   no byte comparison in this project can see it** — every individual frame is
   correct and only the spacing between them is wrong.
-- **Colour calibration is opt-in and off by default.** `--calibration FILE` on
-  `play`/`send`; with no flag the wire is unchanged byte for byte. Region
-  coordinates are **pre-orientation** logical framebuffer pixels, and a saved
-  file is tied to a physical arrangement — move a tile and it is silently wrong,
-  visible only on near-white content. It masks a tile hardware defect and
-  measures nothing. `docs/CALIBRATION.md`.
 - `max_tolerated` budgets are **measured per capture window and clip length**.
   Re-derive if either changes; a budget carried over from a different capture is
   exactly the unbounded tolerance the field exists to remove.

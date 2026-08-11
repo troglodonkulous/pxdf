@@ -341,20 +341,9 @@ places. Listed worst-first.
   continuously as data arrives. Code cannot answer this; only the hardware can.
 - ❓ **Whether the controller validates byte 2 (`0x01`)**, or ignores it. It is
   written unconditionally and never read back.
-- ✅ **Brightness, gamma and colour correction are absent from the send path, and
-  from every vendor tool that addresses this controller.** Bytes go from
-  `GetDIBits` to the wire untransformed. Extended 2026-08-10 by a string sweep
-  (ASCII + UTF-16, with offsets) over everything the manufacturer shipped:
-  `LedSet.exe`, `screenSend.dll` and `Player.exe` carry **zero** brightness /
-  gamma / gain / colour-correction strings.
-  ❓ **One thing this does not close.** `MultifunctionController.exe`, in the
-  `IPADE安装` install kit, *does* carry `RDM_SCREENBRIGHTNESS`,
-  `RDM_MAXBRIGHTNESS`, `RDM_DIMMERCURVE` and `ColCorrect` — but it drives RDM
-  over DMX/ArtNet through an FTDI serial adapter, and **whether a TP-878
-  controller answers RDM on its DMX XLR port at all is untested**. It is
-  unpursued, not ruled out. Even if it answers, every parameter it exposes is
-  per-device global, so it could not address one tile. Evidence table in
-  `docs/CALIBRATION.md` §3.
+- ❓ **Brightness, gamma, and colour correction.** Nothing in the send path
+  touches pixel values — bytes go from `GetDIBits` to the wire untransformed. Any
+  such control lives in the controller or is absent.
 - ❓ **What the second controller does with no panels attached.** Out of scope
   for the sender, but it may appear in captures.
 
