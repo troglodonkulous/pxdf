@@ -117,11 +117,16 @@ number is **not stable across reboots** — re-derive with
 Work lands via **pull request**, from 2026-08-08. The four merges already in
 history predate that decision — do not copy their direct-merge style.
 
+**Stop at the open PR. Merging is the user's call, every time**, from
+2026-08-10. Open the PR, report its URL, and wait. An approved plan that lists
+a merge step is not the approval — only the user saying so, for that PR, is.
+This applies to agents and subagents alike; no subagent merges anything.
+
 ```bash
 git checkout -b <branch>          # never commit on main
 git push -u origin <branch>
 gh pr create --fill
-gh pr merge --merge --delete-branch
+# then stop. `gh pr merge --merge --delete-branch` only after the user says so.
 ```
 
 **Merge, never squash, never rebase.** This project's commit messages are the
