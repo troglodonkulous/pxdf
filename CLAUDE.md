@@ -88,6 +88,12 @@ number is **not stable across reboots** — re-derive with
 - The remaining `.ps1` files stay. Speculative ports were explicitly declined.
 - `gradient24`'s red channel wraps once at tile index 37 and looks like a floor
   anomaly on hardware. It is not — `docs/RUNSHEET-10x5-4P.md` §10, V4 row.
+- **Colour calibration was built, merged, and reverted in full on 2026-08-11.**
+  Four tiles read orange at high white; the cause is a sagging 5 V rail on each
+  tile's own buck converter, so the correction a gain would need is
+  load-dependent and no per-region constant can track it. Do not re-add
+  `mapper/calibration.py` or `tools/calibrate.py`. The defect, the exclusions
+  and the fix ladder are in `docs/HARDWARE-TILE-DEFECT.md`.
 
 ## Traps
 
@@ -134,6 +140,7 @@ purpose — they are evidence.
 | `docs/RUNSHEET-10x5-4P.md` | Floor-verified findings. §10 is the gate-4 tables, §11 the Phase 4 media session. Authoritative. |
 | `mapper/README.md` | Module layout, how to run the suites, and the frame-rate/scaler/fit rationale. |
 | `docs/PRE-PROBE.md` | §6 documents an instance of the failure mode above. |
+| `docs/HARDWARE-TILE-DEFECT.md` | The orange-at-white tile defect: symptom, exclusions, vendor-stack sweep, the rail-droop hypothesis and its falsifying test, and why calibration was abandoned. §1–§3 are findings; §4 onward is unverified. |
 
 Do not re-read the decompiled Ledset source under `decompiled/` unless something
 specifically requires it; it is archaeology and it has misled this project before.
