@@ -173,7 +173,45 @@ interface number is **not stable across reboots** — re-derive with
   `npm ls` is the cheap unconditional check and is **not** sufficient alone:
   `npm install` can report success while a large binary payload never arrives,
   and `npm ls` calls that healthy. Where the deliverable is a *process*, make
-  something launch it.
+  something launch it. See **Delegating to Codex** below for the sandbox
+  mechanism this happened through and the mitigations now in place.
+
+## Delegating to Codex
+
+Codex builder/critic pairs run through the `codex` plugin's
+`codex-companion.mjs`, which starts every `--write` task in the Codex CLI's
+`workspace-write` sandbox. That sandbox's network access is controlled
+**only** by `[sandbox_workspace_write]` `network_access` in a
+`.codex/config.toml` — never by anything in the task prompt, because the
+sandbox is a process boundary the Codex CLI enforces, not something Codex is
+told about. PR 1's `npm install` silently no-op'd for exactly this reason: the
+sandbox had no network and nothing in the acceptance chain could see the gap.
+The Traps entry above is the fix *around* that; this is the mechanism it was
+never a fix *of*.
+
+- **`network_access = true` is set in this repo's `.codex/config.toml`,
+  scoped to `ddf` only** — not in `~/.codex/config.toml`, which would widen it
+  to every trusted project on this machine. Decided 2026-08-12. It lets
+  `npm install` run inside the sandbox, but it also means any future
+  `--write` Codex run in this repo can reach the network for anything, not
+  just installs. That is an accepted, scoped risk, not a non-issue — do not
+  copy the setting into the global config without deciding that tradeoff
+  again.
+- **Network access does not remove the need to verify.** It fixes "can the
+  sandbox reach npm," not "did the install actually finish." After every
+  Codex builder run that touches dependencies, check `ls node_modules/<pkg>`
+  (or run `npm ls`) yourself before trusting its acceptance report, and if the
+  deliverable is a process, launch it. A green report is not proof.
+- **Forbid `@ts-ignore` / `@ts-expect-error` on an import that will not
+  resolve**, explicitly, in every builder prompt. That is the specific move
+  that blinded `tsc` in PR 1, and it reads as a reasonable local workaround
+  every time it happens.
+- **The stop-time review gate is enabled** (`codex:setup
+  --enable-review-gate`, toggled 2026-08-12). It reviews the *orchestrator's*
+  own turn at Stop, not Codex's sandboxed run — it exists to catch the
+  orchestrator accepting a Codex report too readily, not to catch Codex
+  itself. `--disable-review-gate` turns it back off; its state is local to
+  this machine's checkout path, not part of the repo.
 
 ## Git
 
