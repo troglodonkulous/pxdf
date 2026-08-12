@@ -10,9 +10,10 @@
 > - "a macOS (**SwiftUI**) app" and "GUI is step 5 of the repo plan" — the stack
 >   decision was superseded on 2026-08-11. The app is Electron + TypeScript +
 >   React driving `mapper/` as a sidecar. See `docs/APP-PLAN.md`.
-> - The referenced `uploads/`, `assets/`, `guidelines/`, `components/` and
->   `ui_kits/` paths belong to the design tool, not this repo. What was
->   exported lives in `../` — see `design/README.md`.
+> - Every path it references — `uploads/`, `assets/`, `guidelines/`,
+>   `components/`, `ui_kits/`, `templates/`, `SKILL.md` — belongs to the design
+>   tool, not this repo, including the ones in the Index at the bottom. What was
+>   actually exported lives in `../` — see `design/README.md`.
 
 Design system for **Distinctive Dance Floor (DDF)**, a macOS (SwiftUI) app by Distinctive Event Solutions that controls a TOP Dance TP-878 pixel-LED dance floor over its native UDP protocol. The vendor software (Ledset/LPlayer) was reverse-engineered and replaced with a verified Python backend (`mapper/`); this system defines the UI that wraps it.
 

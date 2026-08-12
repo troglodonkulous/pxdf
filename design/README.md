@@ -22,9 +22,22 @@ scrapped. `docs/REQUIREMENTS-v1.pdf` wins where the two disagree, and
 
 ## Opening `mockups.html`
 
-Open it from disk; it needs `support.js` beside it, which is why that file is
-tracked. Icons come from a CDN (`unpkg.com/lucide`), so offline the layout is
-correct and the glyphs are missing. Nothing else is fetched.
+Open it from disk. It loads eleven local files — `support.js`, the eight token
+stylesheets, `design-system/styles.css`, and `design-system/components.js` — all
+of which are tracked here. The only remote fetch is the Lucide icon CDN
+(`unpkg.com/lucide`), so offline the layout is correct and the glyphs are
+missing.
+
+**One deliberate modification.** The export referenced its design system as
+`_ds/ddf-design-system-fee2c806-87cc-485d-b1c8-5cde8d2c6639/…` and its bundle as
+`_ds_bundle.js`. Those ten references were rewritten to `design-system/…` and
+`components.js` to match this layout; an HTML comment at the top of the file
+says the same thing. Nothing else in it is changed. Verified rendering after the
+rewrite — full styling, all fourteen design-system components resolved.
+
+Without that fix the file was inert: `components.js` holds the sole definition
+of `window.DistinctiveDanceFloorDesignSystem_fee2c8`, which `mockups.html`
+references 230 times and `support.js` does not provide.
 
 ## What was deliberately not vendored
 

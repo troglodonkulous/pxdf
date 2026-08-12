@@ -30,7 +30,7 @@ this plan shelves.
 3. **Composite at 8× floor resolution, downsample once at the end.** This is the
    architectural centre. Rotation, mirror, master brightness and the resolution
    finding all live in that one pass.
-4. **Electron is not a dead end.** Syphon and NDI arrive later as a
+4. **Electron is not a dead end.** Syphon and NDI (§8) arrive later as a
    sidecar-protocol helper — 2–4 days — not a rewrite.
 
 ## Two rigs
@@ -85,7 +85,9 @@ framebuffer, parameterised by `(rotation, mirrorX, mirrorY, S, master)`.
 ```
 layers ──▶ work canvas ──▶ THE ONE PASS ──────▶ wire framebuffer
 video·gen   640 × 768      rotate · mirror      80 × 96 RGB
-            S = 8          master · ÷8 box      23,040 B
+            S = 8          master · ÷8 box      23,040 B payload
+                                                (23,290 on the wire,
+                                                 headers included)
                                                      │ IPC → stdin
                                                      ▼
 sender.run() ◀── build_frame() ◀── latest-frame slot
@@ -107,8 +109,11 @@ not. Cost scales as S²: at S = 8 the job rig's work canvas is 640 × 768 and th
 downsample is ~492k reads/frame, comfortable in plain JS; at S = 16 it is ~2M
 and wants a WebGL pass.
 
-Generators inherit this free — `tools/dancefloor-loops.html`'s `renderFrame` is
-already a pure function of normalised `(bx, by, phase01)`.
+Generators inherit this free — `tools/dancefloor-loops.html`'s per-pixel kernel
+is already written against normalised `(bx, by)` and a `phase01`, so it renders
+at whatever the work canvas is. (`renderFrame` itself is not pure — it reads
+module-level globals and writes a canvas — but the kernel inside it is the
+load-bearing part, and that ports unchanged.)
 
 ## Rotation is not orientation
 
@@ -125,7 +130,7 @@ row-major RGB framebuffer at every rotation.
 ## The integration seam
 
 One new subcommand, `mapper stream`. Nothing existing is edited. `run()` already
-takes a `Callable[[int], bytes]`, and `pack_send_buffer` already expects a
+takes a `Callable[[int], bytes | bytearray]`, and `pack_send_buffer` expects a
 row-major RGB framebuffer of `pixel_count × 3` bytes — exactly what the final
 pass produces.
 
@@ -135,7 +140,8 @@ it on its own metronome. A stalled writer re-sends, never gaps.
 ### Gates, all off-hardware
 
 - `gradient24` through the app's compositor via `putImageData`, shop geometry,
-  rotation 0, no mirror, S = 1, master 100% →
+  rotation 0, no mirror, master 100%, and **S = 1** — a test-only value that
+  bypasses supersampling so the digest is comparable byte for byte →
   `10cfd968b0b3436c6b50717f4c6cf69459b545b5c665c5d8003b268a561f8057`
   — the same digest that grades the `play`/`send` cutover.
 - rotate 90° four times → identity.
@@ -154,8 +160,8 @@ One PR per gate. Branch from `main` each time, after the previous merges.
 |---|---|---|---|
 | B | `mapper-stream` | `mapper stream`, `--emit-digest`, its test | stream digest == `send --dry-run` digest |
 | 1 | `app-shell` | Electron + Vite + React, sidecar supervision, **the one pass complete**, Player window | gradient24 digest · rotate ×4 · mirror ×2 |
-| 2 | `app-compositor` | layer stack, normalised transforms, timeline, S setting | 4-layer cue identical preview vs wire at S = 4/8/16 |
-| 3 | `app-generators-setup` | generators, **text generator**, Setup + Rotation, auto-fit, cue rotate/mirror, **project files + crash recovery** | 10 × 5 show re-fits to 10 × 12 · kill the app mid-edit and lose nothing |
+| 2 | `app-compositor` | layer stack, normalised transforms, **colour adjustment (§4)**, timeline with start/end trim, per-cue speed and Loop N/∞ (§2), S setting | 4-layer cue identical preview vs wire at S = 4/8/16 |
+| 3 | `app-generators-setup` | generators (§6), **text generator (§5)**, Setup + Rotation, auto-fit, cue rotate/mirror, **project files + crash recovery** | 10 × 5 show re-fits to 10 × 12 · kill the app mid-edit and lose nothing |
 | 4 | `app-hardening` | packaging, codesign, notarize, failure drills | every drill survived |
 
 The floor session produces no PR. It produces a runsheet section, as §11 did.
@@ -172,6 +178,10 @@ Two rules keep the renderer replaceable, and cost nothing today:
 
 ## Requirements notes
 
+- **Colour adjustment (§4) is `ctx.filter`, and nearly free.** Hue, saturation,
+  contrast and brightness are one CSS filter string on the layer's draw; opacity
+  is `globalAlpha`; tint is one composite pass. All per layer, in PR 2. Scale and
+  rotation are the Xform panel, stored normalised like every other transform.
 - **Text is a scrolling marquee, not a static title.** At 80 px wide the floor
   fits about ten 8-px glyphs. Requirements §5's four scroll directions are the
   feature, not a garnish.
@@ -186,8 +196,10 @@ Two rules keep the renderer replaceable, and cost nothing today:
   this controller.
 - **Import normalises, it does not downscale.** Transcode at *source*
   resolution — the Xform panel and the supersampled work canvas both need real
-  pixels. Every clip in `test-patterns/Test Clips*` and `ddf-loop-res-test`
-  probes as H.264 yuv420p, 25/30/50 fps.
+  pixels. Every clip in `test-patterns/Test Clips*` probes as H.264 yuv420p,
+  25/30/50 fps. (Both that folder and the `ddf-loop-res-test` probe set the
+  supersampling finding came from are gitignored source media — the finding is
+  reproducible from `tools/dancefloor-loops.html`, not from this repo's tree.)
 
 ## Shelved
 
@@ -195,7 +207,8 @@ Named so they do not creep back in.
 
 - **Custom / L-shaped layouts.** `frame.py` derives `tile_col = x // tile_px`
   then `divmod(tile_col, ports_per_controller)` — a strict rectangle, every port
-  payload the same length. The vendor's own mapper XML is three integers, so
+  payload the same length. The vendor's own mapper XML carries a type index,
+  two tile-count indices and a redundant pixel Width/Height — rectangle-only, so
   Ledset cannot describe an L-shaped floor either. No reference implementation,
   no capture that constrains it. Struck through in Requirements §1 independently.
 - **Reverse and Bounce playback.** Requirements §2 and the Play mockup both
@@ -206,6 +219,15 @@ Named so they do not creep back in.
   forward-only, Direction control visible and disabled.
 - **Masking.** Requirements §3 lists shape and layer masks; nothing in the
   mockups designs a control. A decision, not an oversight.
+- **Effects processing (§7) — the FX tab ships present and empty.** §7 asks for
+  per-source and per-layer effects over a parameter set
+  (speed/intensity/colour/scale/rotation/direction/opacity) plus an architecture
+  that accepts more later. The Edit inspector's FX tab is in the mockups, so it
+  ships as a tab; **what is behind it is deferred**, because PR 3 already carries
+  text, generators, Setup, auto-fit and crash recovery, and an effects system on
+  top of that is not credible in the time. The colour half of §7's parameter set
+  lands anyway as §4 above; the compositing half — per-layer post effects — is
+  the deferred part. Promote it into PR 2 if the schedule turns out to have room.
 - **Sound-reactive.** Space held in the Play page's cue panel per §12.
 - **Syphon / NDI.** Deferred, not blocked — 2–4 days as a helper, whenever
   wanted.
@@ -235,7 +257,7 @@ Named so they do not creep back in.
 | | |
 |---|---|
 | `docs/REQUIREMENTS-v1.pdf` | Feature scope, with the operator's inline annotations. Wins over the mockups. |
-| `design/mockups.html` | The three MVP surfaces, rendered. Needs `design/support.js`; icons come from a CDN, so they are absent offline. |
+| `design/mockups.html` | The three MVP surfaces, rendered. Loads `support.js` and `design-system/` from this repo; only the Lucide icon CDN is remote, so offline the layout is right and the glyphs are missing. |
 | `design/design-system/` | Tokens, the design-system spec, and 20 components as readable `React.createElement` source. |
 | `tools/dancefloor-loops.html` | The generator the app's eleven patterns port. |
 | `docs/RUNSHEET-10x5-4P.md` §11 | Frame rate, scaler, fit — and the `--scaler area` finding this plan generalises. |

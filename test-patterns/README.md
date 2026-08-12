@@ -26,6 +26,12 @@ appears in the list — with no error and nothing in the UI to say why.
 own. An H.264-in-AVI file passes the extension filter, appears in the list, and
 then produces neither a thumbnail nor playback.
 
+> **`01`–`08` are 64 × 40 and are retired.** They were authored for the 8 × 5
+> rig; `mapper play` rejects them on the 10 × 5 floor and on the 10 × 12 job
+> rig. Only `09-gradient24-8x8_4P-10x5.avi` and `10-sweep-8x8_4P-10x5.avi`
+> are 80 × 40. The 10 fps below is likewise the Ledset-era rate —
+> `DEFAULT_FPS` is 30, see `docs/RUNSHEET-10x5-4P.md` §11.
+
 So the patterns here are **uncompressed 24-bit BI_RGB AVI, 64x40, 10 fps** —
 the same container as `07-tilewalk.avi`, which is the file confirmed working on
 this rig.

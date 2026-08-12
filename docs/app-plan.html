@@ -508,10 +508,10 @@ hr{border:none;border-top:1px solid var(--border-hairline);margin:44px 0}
 
   <div class="finding ok">
     <div class="finding-head">
-      <h4>README's plan still says "Swift package ← current"</h4>
-      <span class="chip ok">30-second fix</span>
+      <h4>README's plan said "Swift package ← current" — fixed</h4>
+      <span class="chip ok">done · PR #7</span>
     </div>
-    <p>Steps 4 and 5 of <code>README.md</code> commit the project to a Swift engine graded against <code>fixtures/</code>. That predates <code>mapper play</code> beating Ledset on the wire. Left as-is it is a standing instruction to a future session — human or agent — to start exactly the rewrite this review argues against.</p>
+    <p>Steps 4 and 5 of <code>README.md</code> committed the project to a Swift engine graded against <code>fixtures/</code> — a standing instruction to a future session to start exactly the rewrite this review argues against. Retired in PR #7 along with three other "eventual Swift engine" references and a <code>PROTOCOL.md</code> Q5 that still called 10 fps the operating rate.</p>
     <p class="ev">README.md:105–119 · docs/RUNSHEET-10x5-4P.md §11 P4-7</p>
   </div>
 </section>
@@ -552,6 +552,7 @@ hr{border:none;border-top:1px solid var(--border-hairline);margin:44px 0}
   <p>Render <code>gradient24</code> in the app's own compositor with <code>putImageData</code> — exact values, no filtering — at the shop geometry, rotation 0, no mirror, and push it through the pipeline. Frame 0's digest must be:</p>
 <pre><code><span class="st">10cfd968b0b3436c6b50717f4c6cf69459b545b5c665c5d8003b268a561f8057</span></code></pre>
   <p>Same digest that already grades the <code>play</code>/<code>send</code> cutover. It runs off-hardware in seconds, and it catches the failure mode this project is prone to: a compositor that produces a plausible picture through a wrong mapping. Derive the 10 × 12 equivalent the same way — <code>mapper send --type 8x8_4P --cols 10 --rows 12 --pattern gradient24 --dry-run</code> — and pin it before load-in.</p>
+  <p>The same bar at the job geometry is <code>12df0afcfb2c05be3b967822ae965dc251578b27f4813d372447c3d09d59352d</code>, derived 2026-08-11. The app is graded against both.</p>
   <p>The final pass gets three more that cost nothing:</p>
   <ul>
     <li>rotate 90° four times → identity</li>
@@ -617,7 +618,7 @@ hr{border:none;border-top:1px solid var(--border-hairline);margin:44px 0}
   <p>If you later want native for <em>feel</em> rather than capability, that decision gets made with a working product and real usage behind it — the best possible time to make it, and a UI rewrite rather than a product rewrite.</p>
 
   <h3>The cue editor splits in two</h3>
-  <p><strong>The compositor — don't build it, and you won't have to.</strong> Canvas2D's <code>globalCompositeOperation</code> covers Normal / Add / Multiply / Screen exactly as the inspector lists them; <code>ctx.filter</code> covers hue, saturation, contrast and brightness; <code>drawImage</code> with a transform covers the Xform panel. The eleven generators are a plain loop over a typed array, and the work canvas at S = 8 is 492k pixels — WebGL only becomes necessary at S = 16.</p>
+  <p><strong>The compositor — don't build it, and you won't have to.</strong> Canvas2D's <code>globalCompositeOperation</code> covers Normal / Add / Multiply / Screen exactly as the inspector lists them; <code>ctx.filter</code> covers hue, saturation, contrast and brightness, <code>globalAlpha</code> covers opacity and one composite pass covers tint — that is the whole of Requirements §4, per layer, for almost nothing; <code>drawImage</code> with a transform covers the Xform panel. The eleven generators are a plain loop over a typed array, and the work canvas at S = 8 is 492k pixels — WebGL only becomes necessary at S = 16.</p>
   <p>The text generator is the same story: <code>fillText</code> and <code>strokeText</code> at work resolution, plus a scroll offset. One design consequence is worth building around rather than discovering — at 80 px wide the floor fits about ten 8-px glyphs, so <strong>text here is a scrolling marquee, not a static title</strong>. The four scroll directions in Requirements §5 are the feature, not a garnish on it.</p>
   <p><strong>The timeline widget — build it, it's smaller than the libraries.</strong> Four lanes, one clip each, drag-to-trim, reorder, playhead, collapse. That is After Effects' layer panel, not an NLE — roughly 400 lines of React over absolutely-positioned divs. Every candidate is heavier and none matches the DDF tokens:</p>
   <ul>
@@ -685,6 +686,7 @@ hr{border:none;border-top:1px solid var(--border-hairline);margin:44px 0}
       <li><strong>Custom / L-shaped layouts — shelved.</strong> Unproven on the wire, inexpressible in the vendor format. Needs a floor session before it is even a feature. Struck through in Requirements §1 independently.</li>
       <li><strong>Reverse and Bounce playback — shelved.</strong> Requirements §2 and the Play mockup both carry it, but Chromium refuses a negative <code>playbackRate</code> and a frame cache is ~1.7 GB for a 30 s clip at work resolution. The cheap path when it comes back is an ffmpeg <code>-vf reverse</code> pass at import, so direction becomes a different file rather than a different decoder; WebCodecs is the upgrade beyond that. Ships forward-only, with the Direction control visible and disabled.</li>
       <li><strong>Masking — shelved.</strong> Requirements §3 lists shape and layer masks; nothing in the mockups designs a control for it. Called out so it is a decision rather than an oversight.</li>
+      <li><strong>Effects processing — the FX tab ships present and empty.</strong> Requirements §7 wants per-source and per-layer effects over a parameter set, plus an architecture that accepts more later. The tab is in the mockups so it ships as a tab; what sits behind it is deferred, because the same PR already carries text, generators, Setup, auto-fit and crash recovery. The colour half of §7's parameters lands anyway as §4 — see below.</li>
       <li><strong>Sound-reactive — shelved.</strong> Audio capture plus a mapping to brightness, intensity and speed is a feature of its own. Space is held in the Play page's cue panel, per Requirements §12.</li>
       <li><strong>Colour calibration — scrapped, not shelved.</strong> Built, merged and reverted with cause on 2026-08-11; the defect is a load-dependent 5 V rail droop that no per-region constant can track. A Calibrate… button in a mockup is not permission to reopen it.</li>
       <li><strong>Syphon / NDI — deferred, not blocked.</strong> Arrives as a sidecar-protocol helper, 2–4 days, whenever it is wanted.</li>

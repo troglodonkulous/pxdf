@@ -184,9 +184,9 @@ purpose — they are evidence.
 
 | Read | For |
 |---|---|
-| `docs/APP-PLAN.md` | **The app.** Stack, render pipeline, geometry rules, gates, build order, cut list. Canonical; `docs/app-plan.html` is the same thing rendered. |
+| `docs/APP-PLAN.md` | **The app, and the canonical copy.** Stack, render pipeline, geometry rules, gates, build order, cut list. `docs/app-plan.html` is a dated snapshot of the same material and can lag it — where they differ, the `.md` wins. |
 | `docs/REQUIREMENTS-v1.pdf` | Feature scope with the operator's annotations. Wins over the mockups. |
-| `design/` | `mockups.html` is the visual spec (needs `support.js`); `design-system/` holds the tokens, the spec and 20 components as readable source. |
+| `design/` | `mockups.html` is the visual spec — open it from disk, it loads `support.js` and `design-system/` from this repo. `design-system/` holds the tokens, the spec and 20 components as readable source. |
 | `docs/PROTOCOL.md` | Wire format and mapping. §3–§4 are closed. |
 | `docs/RUNSHEET-10x5-4P.md` | Floor-verified findings. §10 is the gate-4 tables, §11 the Phase 4 media session. Authoritative. |
 | `mapper/README.md` | Module layout, how to run the suites, and the frame-rate/scaler/fit rationale. |

@@ -93,7 +93,7 @@ sender-side bugs rather than protocol limits:
 | `tools/New-PatternAvi.ps1` | Generates Ledset-loadable uncompressed AVI patterns (Windows). |
 | `tools/Test-LedsetCanLoad.ps1` | Checks a pattern against Ledset's own two load gates without launching it. |
 | `tools/make_test_patterns.py` | Generates test media for any tile layout (macOS/Python). |
-| `test-patterns/` | Pre-rendered media at 64 × 40. **AVI only for Ledset** — it has no image code path. |
+| `test-patterns/` | Pre-rendered media. `01`–`08` are **64 × 40**, for the retired 8 × 5 rig, and `play` rejects them on this floor; only `09` and `10` are 80 × 40. **AVI only for Ledset** — it has no image code path. |
 | `decompiled/` | Vendor decompiler output. Reference only — never a source for our code. |
 | `captures/` | Packet captures from hardware sessions. Tracked for cross-machine development. |
 | `reference/ledset-diagrams/` | Ledset's rendered wiring diagrams across floor types. Reference for a future generator. |
