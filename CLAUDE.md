@@ -47,7 +47,7 @@ rationalise.
 All of it runs off-hardware. Run all of it before claiming anything is done.
 
 ```bash
-python -m unittest discover -t . -s mapper/tests        # 63 tests, ~20 s
+python -m unittest discover -t . -s mapper/tests        # 70 tests, ~20 s
 python -m unittest discover -t . -s tools/oracle/tests  # 39 tests
 python -m mapper matrix                                 # 2400 configs
 python -m tools.oracle.harness run --configs tools/oracle/configs.acceptance.json
