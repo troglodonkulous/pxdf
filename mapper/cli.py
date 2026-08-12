@@ -10,6 +10,7 @@
                               --duration 5 --dry-run
     python -m mapper play     test-patterns/09-gradient24-8x8_4P-10x5.avi \\
                               --type 8x8_4P --cols 10 --rows 5 --duration 30
+    python -m mapper stream   --type 8x8_4P --cols 10 --rows 12 < frames.rgb
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import sys
+import threading
 from pathlib import Path
 
 from . import fixtures as fixtures_module
@@ -292,6 +294,183 @@ def cmd_play(args) -> int:
     return 0
 
 
+class LatestFrame:
+    """A one-slot mailbox between a stdin reader and the send loop.
+
+    The renderer and the sender run on different clocks and neither may wait for
+    the other: the sender's metronome is the thing the floor was graded against,
+    and a renderer that misses a deadline must cost a repeated frame, never a
+    gap. So the reader only ever overwrites this slot and the sender only ever
+    reads the newest thing in it. That is the whole of the double-buffering
+    requirement, satisfied by construction rather than by a second code path —
+    a stalled writer re-sends the previous frame automatically, because the
+    previous frame is what is still sitting here.
+
+    The slot starts black rather than empty. A stream that has not produced its
+    first frame yet must hold the floor dark; if it instead held off sending,
+    controller 1 would time out ~5 s after packets stop and revert to the
+    vendor's local content, which looks exactly like a working floor showing
+    the wrong show.
+    """
+
+    def __init__(self, frame_bytes: int) -> None:
+        self._lock = threading.Lock()
+        self._size = frame_bytes
+        self._frame = bytes(frame_bytes)
+        self._written = 0
+        self._handed_out = 0
+        self._eof = False
+
+    def write(self, frame: bytes) -> None:
+        with self._lock:
+            self._frame = frame
+            self._written += 1
+
+    def read(self) -> bytes:
+        """Hand the newest frame to the sender, recording that we did."""
+        with self._lock:
+            self._handed_out = self._written
+            return self._frame
+
+    def close(self) -> None:
+        with self._lock:
+            self._eof = True
+
+    def drained(self) -> bool:
+        """True once the input has ended and its last frame has been sent."""
+        with self._lock:
+            return self._eof and self._handed_out >= self._written
+
+    def pump(self, stream) -> None:
+        """Read whole frames off `stream` until it ends. Runs on the reader thread.
+
+        A short read is end of stream, and a trailing partial frame is dropped:
+        half a framebuffer mapped onto the floor is not a degraded picture, it
+        is a wrong one.
+        """
+        while True:
+            frame = read_frame(stream, self._size)
+            if frame is None:
+                break
+            self.write(frame)
+        self.close()
+
+
+def read_frame(stream, size: int) -> bytes | None:
+    """Read exactly `size` bytes, or None if the stream ends first.
+
+    A pipe hands over whatever it has, so one `read` is not one frame; the loop
+    is what makes the byte contract below true regardless of how the renderer
+    happens to flush.
+    """
+    chunks: list[bytes] = []
+    remaining = size
+    while remaining:
+        chunk = stream.read(remaining)
+        if not chunk:
+            return None
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def _frame_digest(config, framebuffer: bytes, orientation: Orientation, eof: bool) -> str:
+    """sha256 over the datagrams one framebuffer becomes on the wire.
+
+    This rebuilds the frame a second time, off the send path. It is a gating
+    aid — it is how a `stream` frame is compared against the `send` digest in
+    the verification bar — and not something the show runs through.
+    """
+    datagrams = dry_run(config, lambda n: framebuffer, orientation, eof=eof)
+    return hashlib.sha256(b"".join(datagrams)).hexdigest()
+
+
+def cmd_stream(args) -> int:
+    """Send raw framebuffers arriving on stdin, on the sender's own clock.
+
+    This is the seam between the macOS app and the only hardware-graded code in
+    the repo. The app renders and composites; `mapper` owns the wire, unchanged.
+
+    The byte contract, which is the documented renderer-to-sidecar protocol:
+    stdin is a raw byte stream of back-to-back frames, each exactly
+    `config.pixel_count * 3` bytes, row-major RGB, top-left origin, with no
+    header, no length prefix and no delimiter between frames. A short read is
+    end of stream, and a trailing partial frame is discarded.
+    """
+    config = _config(args)
+    orientation = Orientation.parse(args.orientation)
+    frame_bytes = config.pixel_count * 3
+
+    print(config.describe())
+    print(f"orientation: {orientation.describe()}   source: stdin ({frame_bytes} bytes/frame)")
+
+    if args.dry_run:
+        # No thread, no socket and no metronome: read the frames straight
+        # through and report what each one would have become. Timing is the
+        # only thing this path cannot tell you about, and timing is the one
+        # thing a digest was never going to show.
+        n = 0
+        while True:
+            framebuffer = read_frame(sys.stdin.buffer, frame_bytes)
+            if framebuffer is None:
+                break
+            digest = _frame_digest(config, framebuffer, orientation, eof=not args.no_eof)
+            print(f"frame {n} sha256: {digest}")
+            n += 1
+        print(f"{n} frame(s) read, nothing sent")
+        return 0
+
+    latest = LatestFrame(frame_bytes)
+    # Daemon, because the reader blocks on stdin and there is no way to
+    # interrupt that read from here. Once the send loop is done the process
+    # should go, not sit waiting on a pipe nobody is writing to.
+    reader = threading.Thread(target=latest.pump, args=(sys.stdin.buffer,), daemon=True)
+    reader.start()
+
+    print(
+        f"sending to {args.address}:{args.port} at {args.fps} fps until stdin ends"
+        + (f" from {args.local_ip}" if args.local_ip else "")
+    )
+
+    sent_frame: dict[str, bytes] = {}
+
+    def frame_source(n: int) -> bytes:
+        framebuffer = latest.read()
+        sent_frame["latest"] = framebuffer
+        return framebuffer
+
+    def on_frame(n: int, elapsed: float) -> None:
+        if args.emit_digest:
+            digest = _frame_digest(config, sent_frame["latest"], orientation, eof=not args.no_eof)
+            print(f"frame {n} sha256: {digest}", flush=True)
+        # Stop once the input has ended *and* its newest frame has been on the
+        # wire at least once. Exiting on the bare end-of-input flag would drop
+        # the final frame, which on a floor that holds its last picture is the
+        # frame the audience is left looking at.
+        #
+        # It is raised rather than returned because nothing in `mapper/` may
+        # change to accommodate the app: `run` has no stop predicate, and
+        # KeyboardInterrupt is its documented exit from the endless mode — it
+        # catches it, closes the socket and returns the packet count.
+        if latest.drained():
+            raise KeyboardInterrupt
+
+    sent = run(
+        config,
+        frame_source,
+        duration=None,
+        orientation=orientation,
+        fps=args.fps,
+        eof=not args.no_eof,
+        address=args.address,
+        port=args.port,
+        local_ip=args.local_ip,
+        on_frame=on_frame,
+    )
+    print(f"sent {sent} packets")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mapper", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -379,6 +558,22 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--local-ip", help="bind to a specific NIC, e.g. 10.200.50.78")
     play.add_argument("--dry-run", action="store_true", help="print the plan, send nothing")
     play.set_defaults(func=cmd_play)
+
+    stream = sub.add_parser("stream", help="broadcast raw RGB framebuffers read from stdin")
+    _add_geometry(stream)
+    stream.add_argument("--fps", type=int, default=DEFAULT_FPS)
+    stream.add_argument("--no-eof", action="store_true", help="the floor will not latch")
+    stream.add_argument("--address", default="255.255.255.255")
+    stream.add_argument("--port", type=int, default=60001)
+    stream.add_argument("--local-ip", help="bind to a specific NIC, e.g. 10.200.50.78")
+    stream.add_argument(
+        "--emit-digest",
+        action="store_true",
+        help="print a sha256 per frame sent, so a live stream can be graded "
+        "against the `send` digests in the verification bar",
+    )
+    stream.add_argument("--dry-run", action="store_true", help="digest each frame, send nothing")
+    stream.set_defaults(func=cmd_stream)
 
     return parser
 
