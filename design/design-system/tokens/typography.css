@@ -1,0 +1,33 @@
+:root{
+/* SF first: this is a macOS app. Numbers are ALWAYS mono. */
+/* -apple-system resolves to SF Pro Text/Display natively on macOS — the
+   explicit family names are omitted until licensed font files are uploaded
+   (Apple system fonts ship no redistributable binaries). */
+--font-ui:-apple-system,system-ui,"Helvetica Neue",sans-serif;
+--font-display:-apple-system,system-ui,sans-serif;
+--font-mono:ui-monospace,"SF Mono",Menlo,monospace;
+
+--fs-micro:10px;
+--fs-label:11px;   /* uppercase section labels */
+--fs-caption:12px;
+--fs-body:13px;    /* macOS control text */
+--fs-body-lg:14px; /* list rows */
+--fs-title:16px;
+--fs-heading:20px;
+--fs-display:34px;
+--fs-readout:22px; /* mono stat readouts */
+
+--lh-tight:1.15; /* @kind font */
+--lh-ui:1.35; /* @kind font */
+--lh-prose:1.6; /* @kind font */
+
+--fw-regular:400; /* @kind font */
+--fw-medium:500; /* @kind font */
+--fw-semibold:600; /* @kind font */
+
+--ls-display:-0.02em;
+--ls-title:-0.01em;
+--ls-ui:0; /* @kind font */
+--ls-label:0.14em;   /* uppercase micro-labels */
+--ls-badge:0.10em;
+}

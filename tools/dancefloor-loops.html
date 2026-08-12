@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dancefloor Loop Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --bg:#0B0B10; --panel:#14141C; --panel-2:#191922; --border:#2A2A38;
+    --text:#E8E8F0; --muted:#8A8A9E;
+    --magenta:#FF2FE0; --cyan:#00E5FF; --amber:#FFB300;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;}
+  .wrap{max-width:1240px;margin:0 auto;padding:28px 20px 60px;}
+  h1{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:28px;letter-spacing:0.04em;margin:0 0 2px;}
+  h1 span{color:var(--cyan);}
+  .sub{color:var(--muted);font-size:12.5px;margin:0 0 10px;letter-spacing:0.02em;line-height:1.5;}
+  .notice{background:#1A1A26;border:1px solid #33334A;border-left:3px solid var(--amber);border-radius:6px;padding:10px 12px;font-size:11.5px;color:var(--muted);line-height:1.6;margin-bottom:20px;}
+  .notice b{color:var(--amber);}
+  .layout{display:grid;grid-template-columns:1fr 320px;gap:18px;}
+  @media (max-width:920px){.layout{grid-template-columns:1fr;}}
+
+  .stage-panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;}
+  .stage-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .eyebrow{font-size:10.5px;letter-spacing:0.14em;color:var(--muted);text-transform:uppercase;}
+  .canvas-frame{position:relative;background:#000;border:1px solid var(--border);border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  canvas{display:block;width:100%;height:auto;image-rendering:pixelated;}
+
+  .tile-panel{margin-top:14px;}
+  .tile-controls{display:flex;gap:6px;margin-bottom:10px;}
+  .tile-btn{flex:1;background:var(--panel-2);border:1px solid var(--border);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.05em;padding:7px 0;border-radius:5px;cursor:pointer;transition:all .15s;}
+  .tile-btn.active{color:var(--bg);background:var(--cyan);border-color:var(--cyan);font-weight:700;}
+  .tile-btn:hover:not(.active){border-color:var(--cyan);color:var(--cyan);}
+  .tile-canvas-frame{background:#000;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  #tileCanvas{width:100%;height:auto;display:block;image-rendering:pixelated;}
+  .tile-note{color:var(--muted);font-size:11px;margin-top:8px;line-height:1.5;}
+  .tile-note b{color:var(--amber);}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px;}
+  .panel:last-child{margin-bottom:0;}
+  .panel-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.06em;color:var(--cyan);text-transform:uppercase;margin:0 0 12px;}
+  .row{margin-bottom:14px;}
+  .row:last-child{margin-bottom:0;}
+  label{display:block;font-size:10.5px;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;margin-bottom:6px;}
+  .val{color:var(--cyan);float:right;}
+
+  select, input[type=number]{width:100%;background:var(--panel-2);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:8px;border-radius:5px;}
+  input[type=range]{width:100%;accent-color:var(--cyan);}
+  .dims{display:flex;gap:8px;}
+  .dims input{width:50%;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  .palettes{display:flex;gap:8px;flex-wrap:wrap;}
+  .pal{flex:1;min-width:40px;height:28px;border-radius:5px;cursor:pointer;border:2px solid transparent;}
+  .pal.active{border-color:var(--cyan);}
+
+  .compass{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;width:132px;margin:0 auto;}
+  .compass button{background:var(--panel-2);border:1px solid var(--border);color:var(--muted);border-radius:5px;height:38px;cursor:pointer;font-size:13px;}
+  .compass button.active{background:var(--cyan);color:var(--bg);border-color:var(--cyan);font-weight:700;}
+  .compass button:hover:not(.active){border-color:var(--cyan);color:var(--cyan);}
+  .compass .empty{visibility:hidden;}
+
+  .seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  .seg button{flex:1;background:var(--panel-2);border:none;color:var(--muted);padding:8px 0;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;}
+  .seg button.active{background:var(--cyan);color:var(--bg);font-weight:700;}
+  .seg button:not(:last-child){border-right:1px solid var(--border);}
+
+  .toggle-row{display:flex;gap:8px;}
+  .toggle{flex:1;background:var(--panel-2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:9px 0;text-align:center;font-size:11px;letter-spacing:0.04em;cursor:pointer;}
+  .toggle.active{background:var(--magenta);color:#1A0416;border-color:var(--magenta);font-weight:700;}
+
+  .btn-row{display:flex;gap:8px;}
+  button.main{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13.5px;letter-spacing:0.05em;padding:11px 0;border-radius:6px;border:none;cursor:pointer;transition:opacity .15s;flex:1;}
+  #playBtn{background:var(--cyan);color:#04141A;}
+  #exportZipBtn{background:var(--magenta);color:#1A0416;}
+  #exportWebmBtn{background:var(--panel-2);color:var(--text);border:1px solid var(--border);}
+  button.main:hover{opacity:0.88;}
+  button.main:disabled{opacity:0.4;cursor:default;}
+  .rec-status{font-size:11px;color:var(--amber);margin-top:8px;min-height:14px;letter-spacing:0.02em;line-height:1.5;}
+  .hint{font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>DANCEFLOOR <span>LOOP CONSOLE</span></h1>
+  <p class="sub">Generative, tileable pattern engine — pixels are computed live from a periodic formula, not decoded from a video file.</p>
+  <div class="notice">
+    <b>On seamlessness:</b> the live preview never actually "loops" — it re-evaluates the pattern from time on every frame, so there's no cut or re-buffer to see. For files, use <b>Export PNG Sequence</b> and your media server's gapless/frame-accurate loop mode — compressed video (.webm/.mp4) commonly stutters at the loop point in ordinary players.
+  </div>
+
+  <div class="layout">
+    <div>
+      <div class="stage-panel">
+        <div class="stage-head"><span class="eyebrow">Stage Preview</span><span class="eyebrow" id="dimLabel">720 × 640</span></div>
+        <div class="canvas-frame"><canvas id="stage" width="720" height="640"></canvas></div>
+      </div>
+
+      <div class="stage-panel tile-panel">
+        <div class="stage-head"><span class="eyebrow">Seam Check — tiled repeat</span></div>
+        <div class="tile-controls">
+          <button class="tile-btn" data-n="1">1×1</button>
+          <button class="tile-btn active" data-n="2">2×2</button>
+          <button class="tile-btn" data-n="3">3×3</button>
+        </div>
+        <div class="tile-canvas-frame"><canvas id="tileCanvas" width="720" height="640"></canvas></div>
+        <p class="tile-note">Checks <b>spatial</b> seams across modules. Radial patterns (Ripple, Spiral, Kaleidoscope) are centered within one tile and are near-seamless but not mathematically perfect at the tile edge — worth an eyes-on check at 2×2 before committing to those for a modular rig.</p>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <p class="panel-title">Pattern</p>
+        <div class="row"><select id="patternSel"></select></div>
+        <div class="row" id="directionRow">
+          <label>Direction</label>
+          <div class="compass" id="compass"></div>
+        </div>
+        <div class="row" id="rotationRow" style="display:none;">
+          <label>Spin</label>
+          <div class="seg" id="rotationSeg">
+            <button data-v="1" class="active">Clockwise</button>
+            <button data-v="-1">Counter</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <p class="panel-title">Shape</p>
+        <div class="row">
+          <label>Waveform (edge character)</label>
+          <div class="seg" id="waveSeg">
+            <button data-v="sine" class="active">Sine</button>
+            <button data-v="triangle">Triangle</button>
+            <button data-v="square">Square</button>
+            <button data-v="saw">Saw</button>
+          </div>
+        </div>
+        <div class="row two-col">
+          <div><label>X Frequency <span class="val" id="xfVal">4</span></label><input type="range" id="xFreq" min="1" max="12" step="1" value="4"></div>
+          <div><label>Y Frequency <span class="val" id="yfVal">3</span></label><input type="range" id="yFreq" min="1" max="12" step="1" value="3"></div>
+        </div>
+        <div class="row">
+          <label>Segments (petals / arms) <span class="val" id="segVal">6</span></label>
+          <input type="range" id="segments" min="3" max="20" step="1" value="6">
+          <p class="hint">Used by Spiral Vortex and Kaleidoscope Bloom.</p>
+        </div>
+        <div class="row">
+          <label>Edge Sharpness <span class="val" id="sharpVal">0%</span></label>
+          <input type="range" id="sharpness" min="0" max="100" step="5" value="0">
+          <p class="hint">0 = soft organic blobs. High = crisp, posterized, graphic shapes.</p>
+        </div>
+        <div class="row">
+          <label>Mirror / Symmetry</label>
+          <div class="toggle-row">
+            <div class="toggle" id="mirrorX">Mirror X</div>
+            <div class="toggle" id="mirrorY">Mirror Y</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <p class="panel-title">Color</p>
+        <div class="row">
+          <label>Color Mode</label>
+          <div class="seg" id="colorSourceSeg">
+            <button data-v="palette" class="active">Palette</button>
+            <button data-v="single">Single Color (Linear)</button>
+          </div>
+        </div>
+        <div id="paletteControls">
+          <div class="row">
+            <label>Palette</label>
+            <div class="palettes" id="palettes"></div>
+          </div>
+          <div class="row">
+            <label>Hue Shift <span class="val" id="hueVal">0°</span></label>
+            <input type="range" id="hueShift" min="0" max="360" step="1" value="0">
+          </div>
+          <div class="row">
+            <label>Color Motion</label>
+            <div class="seg" id="colorModeSeg">
+              <button data-v="cycle" class="active">Cycle</button>
+              <button data-v="static">Static</button>
+              <button data-v="pulse">Pulse</button>
+            </div>
+          </div>
+        </div>
+        <div class="row" id="singleColorRow" style="display:none;">
+          <label>Solid Color</label>
+          <input type="color" id="singleColor" value="#00E5FF" style="width:100%;height:36px;border:1px solid var(--border);border-radius:5px;background:var(--panel-2);padding:2px;">
+          <p class="hint">Output is this color scaled linearly by pattern intensity — no hue cycling, no gradient stops. Useful when the floor needs to match a single brand/venue color.</p>
+        </div>
+        <div class="row">
+          <label>Brightness <span class="val" id="brightVal">100%</span></label>
+          <input type="range" id="bright" min="30" max="150" step="5" value="100">
+        </div>
+      </div>
+
+      <div class="panel">
+        <p class="panel-title">Negative Space</p>
+        <div class="row">
+          <label>Fill Amount <span class="val" id="fillVal">100%</span></label>
+          <input type="range" id="fillAmount" min="5" max="100" step="1" value="100">
+          <p class="hint">Lower values carve away more of the pattern into dark/empty floor — shapes shrink and space between them grows, rather than just dimming.</p>
+        </div>
+        <div class="row">
+          <label>Background Glow <span class="val" id="bgGlowVal">0%</span></label>
+          <input type="range" id="bgGlow" min="0" max="30" step="1" value="0">
+          <p class="hint">Minimum brightness in the negative space — 0 is true black, higher gives a dim ambient glow instead.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <p class="panel-title">Motion</p>
+        <div class="row">
+          <label>Speed <span class="val" id="speedVal">1.0×</span></label>
+          <input type="range" id="speed" min="0.1" max="3" step="0.1" value="1">
+        </div>
+        <div class="row">
+          <label>Cycle Length <span class="val" id="loopVal">6.0s</span></label>
+          <input type="range" id="loopDur" min="2" max="20" step="0.5" value="6">
+          <p class="hint">Only affects exports (frames per cycle). Live preview is continuous regardless.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <p class="panel-title">Floor Resolution (px)</p>
+        <div class="row"><div class="dims"><input type="number" id="wIn" value="720" min="8" max="1024"><input type="number" id="hIn" value="640" min="8" max="1024"></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="btn-row"><button class="main" id="playBtn">⏸ PAUSE PREVIEW</button></div>
+        <div class="btn-row" style="margin-top:8px;"><button class="main" id="exportZipBtn">⬇ EXPORT PNG SEQUENCE (.zip)</button></div>
+        <div class="btn-row" style="margin-top:8px;"><button class="main" id="exportWebmBtn">⬇ QUICK PREVIEW VIDEO (.webm)</button></div>
+        <p class="hint">Webm export is for previewing the vibe only — use the PNG sequence for actual floor playback.</p>
+        <div class="rec-status" id="recStatus"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const stage = document.getElementById('stage');
+const ctx = stage.getContext('2d');
+const tileCanvas = document.getElementById('tileCanvas');
+const tctx = tileCanvas.getContext('2d');
+
+let W=720, H=640;
+let loopDuration=6.0, brightness=1.0, speed=1.0, hueShift=0, colorMode='cycle';
+let tileN=2, playing=true, startTime=performance.now(), pauseElapsed=0, rotationDir=1;
+let xFreq=4, yFreq=3, segments=6, sharpness=0, mirrorX=false, mirrorY=false, waveform='sine';
+let colorSource='palette', singleColor=[0,229,255], fillAmount=100, bgGlow=0;
+
+const DIRS = { NW:[-1,-1],N:[0,-1],NE:[1,-1], W:[-1,0], E:[1,0], SW:[-1,1],S:[0,1],SE:[1,1] };
+let direction='E';
+
+const PATTERNS = [
+  {id:'plasma',    name:'Plasma Drift',      dirType:'compass'},
+  {id:'chevron',   name:'Chevron Scroll',    dirType:'compass'},
+  {id:'aurora',    name:'Aurora Bands',      dirType:'compass'},
+  {id:'checyclic', name:'Checyclic Blocks',  dirType:'compass'},
+  {id:'ripple',    name:'Ripple Rings',      dirType:'none'},
+  {id:'spiral',    name:'Spiral Vortex',     dirType:'rotation'},
+  {id:'kaleido',   name:'Kaleidoscope Bloom',dirType:'rotation'},
+  {id:'checker_disco', name:'Checkerboard Disco Loop', dirType:'compass'},
+  {id:'neon_tunnel',   name:'Neon Tunnel Loop',        dirType:'rotation'},
+  {id:'pixel_ripple',  name:'Pixel Ripple Loop',       dirType:'none'},
+  {id:'gold_sparkle',  name:'Gold Sparkle Loop',       dirType:'none'},
+];
+let pattern='plasma';
+
+const PALETTES = [
+  {name:'Neon Club',   stops:[[255,0,120],[0,229,255],[130,0,255],[255,179,0]]},
+  {name:'Acid',        stops:[[10,255,90],[255,255,0],[0,80,255],[255,0,200]]},
+  {name:'Sunset Rave', stops:[[255,60,0],[255,0,140],[70,0,180],[255,200,0]]},
+  {name:'Ice',         stops:[[0,255,255],[0,80,255],[200,255,255],[100,0,255]]},
+  {name:'Mono Amber',  stops:[[40,10,0],[255,140,0],[255,220,150],[255,140,0]]},
+  {name:'Blacklight',  stops:[[10,0,30],[160,0,255],[0,255,180],[255,0,255]]},
+  {name:'Champagne Gold', stops:[[25,15,0],[255,215,0],[255,250,225],[190,130,0]]},
+];
+let paletteIdx=0;
+
+// ---------- UI builders ----------
+function buildPatternSelect(){
+  const sel=document.getElementById('patternSel');
+  sel.innerHTML = PATTERNS.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  sel.onchange=e=>{
+    pattern=e.target.value;
+    updateDirectionUI();
+    if(pattern==='gold_sparkle'){
+      const gi=PALETTES.findIndex(p=>p.name==='Champagne Gold');
+      if(gi>=0){ paletteIdx=gi; buildPalettes(); }
+    }
+  };
+}
+buildPatternSelect();
+
+function buildCompass(){
+  const wrap=document.getElementById('compass');
+  const order=['NW','N','NE','W',null,'E','SW','S','SE'];
+  wrap.innerHTML='';
+  order.forEach(d=>{
+    const b=document.createElement('button');
+    if(d===null){ b.className='empty'; wrap.appendChild(b); return; }
+    b.textContent={NW:'↖',N:'↑',NE:'↗',W:'←',E:'→',SW:'↙',S:'↓',SE:'↘'}[d];
+    b.className = d===direction?'active':'';
+    b.onclick=()=>{ direction=d; buildCompass(); };
+    wrap.appendChild(b);
+  });
+}
+buildCompass();
+
+document.querySelectorAll('#rotationSeg button').forEach(b=>{
+  b.onclick=()=>{ document.querySelectorAll('#rotationSeg button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); rotationDir=parseInt(b.dataset.v); };
+});
+
+function updateDirectionUI(){
+  const def=PATTERNS.find(p=>p.id===pattern);
+  document.getElementById('directionRow').style.display = def.dirType==='compass'?'':'none';
+  document.getElementById('rotationRow').style.display = def.dirType==='rotation'?'':'none';
+}
+updateDirectionUI();
+
+document.querySelectorAll('#waveSeg button').forEach(b=>{
+  b.onclick=()=>{ document.querySelectorAll('#waveSeg button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); waveform=b.dataset.v; };
+});
+
+document.getElementById('mirrorX').onclick=function(){ mirrorX=!mirrorX; this.classList.toggle('active',mirrorX); };
+document.getElementById('mirrorY').onclick=function(){ mirrorY=!mirrorY; this.classList.toggle('active',mirrorY); };
+
+function buildPalettes(){
+  const wrap=document.getElementById('palettes'); wrap.innerHTML='';
+  PALETTES.forEach((p,i)=>{
+    const el=document.createElement('div');
+    el.className='pal'+(i===paletteIdx?' active':'');
+    el.style.background=`linear-gradient(90deg, ${p.stops.map(s=>`rgb(${s[0]},${s[1]},${s[2]})`).join(',')})`;
+    el.title=p.name;
+    el.onclick=()=>{ paletteIdx=i; buildPalettes(); };
+    wrap.appendChild(el);
+  });
+}
+buildPalettes();
+
+document.querySelectorAll('#colorModeSeg button').forEach(b=>{
+  b.onclick=()=>{ document.querySelectorAll('#colorModeSeg button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); colorMode=b.dataset.v; };
+});
+
+document.querySelectorAll('#colorSourceSeg button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('#colorSourceSeg button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    colorSource=b.dataset.v;
+    document.getElementById('paletteControls').style.display = colorSource==='palette' ? '' : 'none';
+    document.getElementById('singleColorRow').style.display = colorSource==='single' ? '' : 'none';
+  };
+});
+function hexToRgb(hex){
+  const n = parseInt(hex.slice(1),16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+document.getElementById('singleColor').oninput = e=>{ singleColor = hexToRgb(e.target.value); };
+
+document.getElementById('fillAmount').oninput = e=>{ fillAmount=parseInt(e.target.value); document.getElementById('fillVal').textContent=fillAmount+'%'; };
+document.getElementById('bgGlow').oninput = e=>{ bgGlow=parseInt(e.target.value); document.getElementById('bgGlowVal').textContent=bgGlow+'%'; };
+
+// ---------- color ----------
+function lerpColor(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+function rgbToHsl(r,g,b){
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b);
+  let h,s,l=(max+min)/2;
+  if(max===min){h=s=0;} else{
+    const d=max-min; s=l>0.5?d/(2-max-min):d/(max+min);
+    switch(max){ case r: h=(g-b)/d+(g<b?6:0); break; case g: h=(b-r)/d+2; break; case b: h=(r-g)/d+4; break; }
+    h/=6;
+  }
+  return [h,s,l];
+}
+function hslToRgb(h,s,l){
+  let r,g,b;
+  if(s===0){ r=g=b=l; } else{
+    const hue2rgb=(p,q,t)=>{ if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
+    const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+    r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
+  }
+  return [r*255,g*255,b*255];
+}
+function paletteColor(t){
+  const stops=PALETTES[paletteIdx].stops, n=stops.length;
+  const scaled=((t%1)+1)%1*n;
+  const i0=Math.floor(scaled)%n, i1=(i0+1)%n, f=scaled-Math.floor(scaled);
+  let [r,g,b]=lerpColor(stops[i0],stops[i1],f);
+  if(hueShift!==0){ let [h,s,l]=rgbToHsl(r,g,b); h=(h+hueShift/360)%1; [r,g,b]=hslToRgb(h,s,l); }
+  return [r,g,b];
+}
+
+// ---------- shape helpers ----------
+// wave() replaces raw Math.sin so the chosen waveform (sine/triangle/square/saw)
+// still only ever consumes a periodic angle argument — periodicity, and
+// therefore seamlessness, is unaffected by which waveform is selected.
+function wave(angle, type){
+  switch(type){
+    case 'triangle': return (2/Math.PI)*Math.asin(Math.sin(angle));
+    case 'square':   return Math.sign(Math.sin(angle)) || 1;
+    case 'saw':       { const p=((angle/(2*Math.PI))%1+1)%1; return p*2-1; }
+    default:          return Math.sin(angle);
+  }
+}
+function applySharpness(v, amount){
+  // amount 0..1: blends smooth v toward a hard 0/1 threshold at 0.5 —
+  // turns soft blobs into crisp, posterized graphic shapes.
+  if(amount<=0) return v;
+  const hard = v>0.5 ? 1 : 0;
+  return v*(1-amount) + hard*amount;
+}
+function applyFill(v, fillPct){
+  // Carves negative space rather than just dimming: values below the
+  // threshold become true background (0), and the surviving range is
+  // rescaled back to 0..1 so the remaining shapes keep full contrast.
+  if(fillPct>=100) return v;
+  const threshold = (100-fillPct)/100;
+  return Math.max(0, (v-threshold) / Math.max(0.0001, 1-threshold));
+}
+function hash2(i, j){
+  // deterministic pseudo-random in [0,1), a pure function of integer cell
+  // coordinates only — no dependence on tile index, so the same cell always
+  // gets the same value in every tile: spatially seamless by construction.
+  const s = Math.sin(i*127.1 + j*311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+function foldMirror(p, mirror){
+  // folds [0,1) about its midpoint; still exactly periodic per tile, so
+  // spatial seamlessness across modules is preserved.
+  if(!mirror) return p;
+  return p<0.5 ? p*2 : (1-p)*2;
+}
+
+// ---------- pattern math ----------
+function renderFrame(targetCtx, cw, ch, phase01, tilesX, tilesY){
+  const img=targetCtx.createImageData(cw,ch);
+  const data=img.data;
+  const twoPi=Math.PI*2;
+  const tphase=phase01*twoPi;
+  const nx=xFreq, ny=yFreq;
+  const [dx,dy]=DIRS[direction];
+
+  let colorShift=0;
+  if(colorMode==='cycle') colorShift=phase01;
+  else if(colorMode==='pulse') colorShift=0.5+0.5*Math.sin(tphase*2);
+
+  for(let ty=0;ty<ch;ty++){
+    for(let tx=0;tx<cw;tx++){
+      let bx=((tx/cw)*tilesX)%1;
+      let by=((ty/ch)*tilesY)%1;
+      bx=foldMirror(bx,mirrorX);
+      by=foldMirror(by,mirrorY);
+      let v=0;
+
+      if(pattern==='plasma'){
+        v  = 0.5+0.5*wave(twoPi*nx*(bx*dx)+twoPi*ny*(by*dy)+tphase, waveform);
+        v += 0.5+0.5*wave(twoPi*(nx*bx+ny*by)-tphase*0.7, waveform);
+        v/=2;
+      } else if(pattern==='chevron'){
+        v = 0.5+0.5*wave(twoPi*nx*(dx*bx+dy*by)-tphase, waveform);
+        v = v*0.65 + (0.5+0.5*wave(twoPi*(nx*bx+ny*by)*0.5-tphase*0.6, waveform))*0.35;
+      } else if(pattern==='aurora'){
+        const along=dx*bx+dy*by, across=-dy*bx+dx*by;
+        v = 0.5+0.5*wave(twoPi*ny*across + wave(twoPi*nx*along+tphase, waveform)*1.5 + tphase, waveform);
+      } else if(pattern==='checyclic'){
+        const cellX=Math.floor(bx*nx), cellY=Math.floor(by*ny);
+        const flow=dx*cellX+dy*cellY;
+        v = ((cellX+cellY)%2)*0.4 + 0.6*(0.5+0.5*wave(tphase+flow*0.8, waveform));
+      } else if(pattern==='ripple'){
+        const centers=[[0.25,0.3],[0.75,0.7]];
+        let acc=0;
+        for(const [cx,cy] of centers){
+          let ddx=Math.abs(bx-cx); ddx=Math.min(ddx,1-ddx);
+          let ddy=Math.abs(by-cy); ddy=Math.min(ddy,1-ddy);
+          const d=Math.sqrt(ddx*ddx+ddy*ddy);
+          acc += 0.5+0.5*wave(twoPi*(d*nx*1.6)-tphase*1.5, waveform);
+        }
+        v=acc/centers.length;
+      } else if(pattern==='spiral'){
+        let ddx=bx-0.5, ddy=by-0.5;
+        let dd=Math.abs(bx-0.5); dd=Math.min(dd,1-dd);
+        let dd2=Math.abs(by-0.5); dd2=Math.min(dd2,1-dd2);
+        const d=Math.sqrt(dd*dd+dd2*dd2);
+        const ang=Math.atan2(ddy,ddx);
+        v = 0.5+0.5*wave(nx*twoPi*d*2 + ang*segments*rotationDir - tphase, waveform);
+      } else if(pattern==='kaleido'){
+        let dd=Math.abs(bx-0.5); dd=Math.min(dd,1-dd);
+        let dd2=Math.abs(by-0.5); dd2=Math.min(dd2,1-dd2);
+        const d=Math.sqrt(dd*dd+dd2*dd2);
+        const ang=Math.atan2(by-0.5,bx-0.5);
+        v = 0.5+0.5*wave(Math.cos(ang*segments+tphase*rotationDir)*4 - d*twoPi*ny + tphase, waveform);
+      } else if(pattern==='checker_disco'){
+        const cellX=Math.floor(bx*nx), cellY=Math.floor(by*ny);
+        const checker=(cellX+cellY)%2;
+        const flow=dx*cellX+dy*cellY;
+        const flash=0.5+0.5*wave(tphase*1.4+flow*0.7+checker*Math.PI, waveform);
+        v = checker*0.15 + flash*0.85;
+      } else if(pattern==='neon_tunnel'){
+        let dd=Math.abs(bx-0.5); dd=Math.min(dd,1-dd);
+        let dd2=Math.abs(by-0.5); dd2=Math.min(dd2,1-dd2);
+        const d=Math.sqrt(dd*dd+dd2*dd2);
+        const ang=Math.atan2(by-0.5,bx-0.5);
+        const ring = 0.5+0.5*wave(nx*twoPi*d*2 - tphase*rotationDir*2 + wave(ang*segments,waveform)*0.4, waveform);
+        v = ring*0.8 + (1-d)*0.2; // subtle center brightening for a depth/tunnel feel
+      } else if(pattern==='pixel_ripple'){
+        const cellX=Math.floor(bx*nx), cellY=Math.floor(by*ny);
+        const cx=(cellX+0.5)/nx, cy=(cellY+0.5)/ny; // whole blocks move together — chunky LED-style ripple
+        const centers=[[0.25,0.3],[0.75,0.7]];
+        let acc=0;
+        for(const [ccx,ccy] of centers){
+          let ddx=Math.abs(cx-ccx); ddx=Math.min(ddx,1-ddx);
+          let ddy=Math.abs(cy-ccy); ddy=Math.min(ddy,1-ddy);
+          const d=Math.sqrt(ddx*ddx+ddy*ddy);
+          acc += 0.5+0.5*wave(twoPi*(d*nx*1.6)-tphase*1.5, waveform);
+        }
+        v = acc/centers.length;
+      } else { // gold_sparkle
+        const cellX=Math.floor(bx*nx), cellY=Math.floor(by*ny);
+        const h = hash2(cellX,cellY);
+        const sparkleOn = h>0.75 ? 1:0;
+        const flicker = 0.5+0.5*wave(tphase*2 + h*twoPi*3, waveform);
+        v = Math.max(sparkleOn*flicker, sparkleOn*0.05);
+      }
+
+      v = Math.max(0,Math.min(1,v));
+      const vHue = v; // hue position stays based on the raw pattern value, so palette variety is preserved
+      let vLevel = applyFill(v, fillAmount);
+      vLevel = applySharpness(vLevel, sharpness/100);
+      const level = Math.max(vLevel, bgGlow/100); // brightness/intensity — this is what actually carves negative space
+
+      let r,g,b;
+      if(colorSource==='single'){
+        r = singleColor[0]*level; g = singleColor[1]*level; b = singleColor[2]*level;
+      } else {
+        [r,g,b] = paletteColor(vHue*0.6+colorShift*0.4);
+        r*=level; g*=level; b*=level;
+      }
+      const idx=(ty*cw+tx)*4;
+      data[idx]=Math.min(255,r*brightness);
+      data[idx+1]=Math.min(255,g*brightness);
+      data[idx+2]=Math.min(255,b*brightness);
+      data[idx+3]=255;
+    }
+  }
+  targetCtx.putImageData(img,0,0);
+}
+
+// ---------- live loop ----------
+function currentPhase01(){
+  const elapsed = playing ? (performance.now()-startTime)/1000*speed : pauseElapsed;
+  return ((elapsed%loopDuration)+loopDuration)%loopDuration/loopDuration;
+}
+function draw(){
+  const phase01=currentPhase01();
+  renderFrame(ctx,W,H,phase01,1,1);
+  renderFrame(tctx,W,H,phase01,tileN,tileN);
+  if(playing) requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+// ---------- wiring ----------
+function resize(){
+  W=parseInt(document.getElementById('wIn').value)||720;
+  H=parseInt(document.getElementById('hIn').value)||640;
+  stage.width=W; stage.height=H; tileCanvas.width=W; tileCanvas.height=H;
+  document.getElementById('dimLabel').textContent=`${W} × ${H}`;
+}
+document.getElementById('wIn').oninput=resize;
+document.getElementById('hIn').oninput=resize;
+
+document.getElementById('xFreq').oninput=e=>{ xFreq=parseInt(e.target.value); document.getElementById('xfVal').textContent=xFreq; };
+document.getElementById('yFreq').oninput=e=>{ yFreq=parseInt(e.target.value); document.getElementById('yfVal').textContent=yFreq; };
+document.getElementById('segments').oninput=e=>{ segments=parseInt(e.target.value); document.getElementById('segVal').textContent=segments; };
+document.getElementById('sharpness').oninput=e=>{ sharpness=parseInt(e.target.value); document.getElementById('sharpVal').textContent=sharpness+'%'; };
+document.getElementById('hueShift').oninput=e=>{ hueShift=parseInt(e.target.value); document.getElementById('hueVal').textContent=hueShift+'°'; };
+document.getElementById('loopDur').oninput=e=>{ loopDuration=parseFloat(e.target.value); document.getElementById('loopVal').textContent=loopDuration.toFixed(1)+'s'; };
+document.getElementById('bright').oninput=e=>{ brightness=parseInt(e.target.value)/100; document.getElementById('brightVal').textContent=e.target.value+'%'; };
+document.getElementById('speed').oninput=e=>{ speed=parseFloat(e.target.value); document.getElementById('speedVal').textContent=speed.toFixed(1)+'×'; };
+
+document.querySelectorAll('.tile-btn').forEach(btn=>{
+  btn.onclick=()=>{ document.querySelectorAll('.tile-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); tileN=parseInt(btn.dataset.n); };
+});
+
+const playBtn=document.getElementById('playBtn');
+playBtn.onclick=()=>{
+  if(playing){ pauseElapsed=(performance.now()-startTime)/1000*speed; playing=false; playBtn.textContent='▶ RESUME PREVIEW'; }
+  else{ startTime=performance.now()-pauseElapsed/speed*1000; playing=true; playBtn.textContent='⏸ PAUSE PREVIEW'; requestAnimationFrame(draw); }
+};
+
+// ---------- exports ----------
+const recStatus=document.getElementById('recStatus');
+
+document.getElementById('exportZipBtn').onclick=async ()=>{
+  const btn=document.getElementById('exportZipBtn'); btn.disabled=true;
+  const wasPlaying=playing; playing=false;
+  const fps=30, totalFrames=Math.max(2,Math.round(fps*loopDuration));
+  const zip=new JSZip();
+  const off=document.createElement('canvas'); off.width=W; off.height=H;
+  const offCtx=off.getContext('2d');
+  for(let i=0;i<totalFrames;i++){
+    renderFrame(offCtx,W,H,i/totalFrames,1,1);
+    const blob=await new Promise(res=>off.toBlob(res,'image/png'));
+    zip.file(`frame_${String(i).padStart(4,'0')}.png`, blob);
+    recStatus.textContent=`Rendering ${i+1}/${totalFrames}…`;
+  }
+  recStatus.textContent='Zipping…';
+  const content=await zip.generateAsync({type:'blob'});
+  const url=URL.createObjectURL(content);
+  const a=document.createElement('a'); a.href=url; a.download=`dancefloor-${pattern}-${W}x${H}-${fps}fps.zip`; a.click();
+  recStatus.textContent=`Saved — ${totalFrames} frames @ ${fps}fps. Import as an image sequence, gapless loop mode on your media server.`;
+  btn.disabled=false;
+  playing=wasPlaying; if(playing){ startTime=performance.now(); requestAnimationFrame(draw); }
+};
+
+document.getElementById('exportWebmBtn').onclick=async ()=>{
+  const btn=document.getElementById('exportWebmBtn'); btn.disabled=true;
+  const wasPlaying=playing; playing=false;
+  const fps=30, totalFrames=Math.max(2,Math.round(fps*loopDuration));
+  const stream=stage.captureStream(0);
+  const track=stream.getVideoTracks()[0];
+  let mime='video/webm;codecs=vp9';
+  if(!MediaRecorder.isTypeSupported(mime)) mime='video/webm';
+  const rec=new MediaRecorder(stream,{mimeType:mime, videoBitsPerSecond:8_000_000});
+  const chunks=[];
+  rec.ondataavailable=e=>{ if(e.data.size>0) chunks.push(e.data); };
+  const done=new Promise(resolve=>{
+    rec.onstop=()=>{
+      const blob=new Blob(chunks,{type:'video/webm'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=`dancefloor-preview-${pattern}.webm`; a.click();
+      resolve();
+    };
+  });
+  rec.start();
+  for(let i=0;i<totalFrames;i++){
+    renderFrame(ctx,W,H,i/totalFrames,1,1);
+    track.requestFrame();
+    recStatus.textContent=`Rendering preview ${i+1}/${totalFrames}…`;
+    await new Promise(r=>setTimeout(r,1000/fps));
+  }
+  rec.stop(); await done;
+  recStatus.textContent='Saved quick preview video — for previewing the vibe, not for driving the floor.';
+  btn.disabled=false;
+  playing=wasPlaying; if(playing){ startTime=performance.now(); requestAnimationFrame(draw); }
+};
+</script>
+</body>
+</html>

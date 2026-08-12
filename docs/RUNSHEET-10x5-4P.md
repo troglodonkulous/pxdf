@@ -19,8 +19,13 @@ doesn't match the prediction, the diagnosis branch tells you what to check
 next — do not improvise a new hypothesis on the floor if one is already
 written down here.
 
-**Do not re-litigate:** frame rate (10 fps, decision 21) or the end-of-frame
-flag requirement in general (Q2, closed — it is required). Both are settled.
+**Do not re-litigate:** the end-of-frame flag requirement in general (Q2, closed
+— it is required).
+
+> **Frame rate is no longer 10 fps.** Decision 21 set it there because the
+> vendor did; §11 P4-1 measured the floor at 10/15/24/30/60 and found no dropped
+> frames at any of them. `DEFAULT_FPS = 30`. Steps below that print or pass
+> `10 fps` are transcripts of the session as run, not instructions.
 
 **Estimated time:** 90–120 minutes for arrangement #1 (PF1b's block map adds
 10–20 minutes and is not optional), 55–75 minutes for arrangement #2's delta

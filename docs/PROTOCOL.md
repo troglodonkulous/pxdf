@@ -509,7 +509,7 @@ All blocking questions are closed. Evidence: `docs/CAPTURE_RESULTS.md`.
 | Q2 | Is the end-of-frame flag required to latch a frame? | ✅ **Required.** Without it the floor never latches; it shows only sporadic partial flickers with byte-level tearing. Set `0x80` once per controller per frame. |
 | Q3 | What emits the 966-byte packet? | ✅ **Nothing in this system.** Absent across 7,725 captured packets covering all five patterns; only 512 and 458 appeared. Ignore it. |
 | Q4 | Is the per-tile scan really non-serpentine on real LEDs? | ✅ **Closed 2026-08-08.** The old ⚠️ stood because every capture was tile-uniform and could not corroborate the table. `captures/oracle/acceptance-gradient24-identity.pcapng` is per-pixel-unique and matched `_identity_scan` on 68 of 72 frames byte for byte — a serpentine, or any other permutation of the 64 entries, mismatches inside every tile of every frame. The wire now pins the whole table, not 2 of 64. |
-| Q5 | Does the controller accept faster than 10 fps? | ✅ **Closed — not pursued.** 10 fps is settled as the operating rate. Ledset measures ~9.2 fps actual (mean 108.7–109.3 ms between frame starts); ours averages 10.24 fps but with more jitter. See `CAPTURE_RESULTS.md`. Do not spend floor time on it. |
+| Q5 | Does the controller accept faster than 10 fps? | ✅ **Closed 2026-08-08 — yes, and 10 was never a ceiling.** Superseding the earlier "not pursued" answer: a rate probe at 10/15/24/30/60 fps found the floor drops **no** frames at any of them, verified by a single-frame red marker counted at every rate. Real content is dramatically better above 10; 60 renders faithfully but judders on fast hard-edged motion for no gain. `DEFAULT_FPS = 30`, `MAX_ADOPTED_FPS = 30`. Evidence: `RUNSHEET-10x5-4P.md` §11 P4-1 → P4-3. Ledset's own ~9.2 fps (mean 108.7–109.3 ms between frame starts) was its habit, not a limit. |
 | Q6 | Brightness / gamma — is there any control? | ✅ **Closed 2026-08-08 for the playback path.** Every earlier capture was saturated-only (black/white/red/halves), and `0x00`/`0xFF` are fixed points of any brightness scale or gamma LUT, so nothing before this constrained intermediate values *at all*. `acceptance-gradient24-identity` is almost entirely intermediate values and matched byte for byte: **Ledset applies no transform on the video→wire path.** Whether the controller applies one downstream is unobservable from the wire and would show as a floor-brightness question, not a protocol one. **Extended 2026-08-10:** a full string sweep of everything the manufacturer shipped found no colour control in any tool that addresses this controller over Ethernet. One shipped tool (`MultifunctionController.exe`) does expose RDM brightness and colour-correct parameters, but over DMX/ArtNet via FTDI serial, and whether a TP-878 answers RDM on its DMX port is **untested — unpursued, not ruled out**; those parameters are per-device global regardless, so there is no vendor path to *per-tile* colour. Evidence table in `docs/HARDWARE-TILE-DEFECT.md` §3. |
 
 Colour order was additionally confirmed on real LEDs — `-Pattern red` renders
@@ -536,8 +536,9 @@ bugs in Ledset's *player*, and the replacement must not reproduce them:
   `LedSet.exe` (ILSpy). Primary source for §3, §4, §5.
 - **`mapper/`** — the geometry-independent implementation of this spec, in
   Python. Invariants green across all 2,400 legal configurations; byte-identical
-  to Ledset's captured frames. Emits the conformance fixtures in `fixtures/`
-  that the Swift engine will be graded against.
+  to Ledset's captured frames. **This is the engine** — the macOS app drives it
+  as a sidecar rather than reimplementing it (`docs/APP-PLAN.md`). It emits the
+  conformance fixtures in `fixtures/`, which grade any reimplementation.
 - `tools/Send-FloorTest.ps1` — independent implementation, used to verify the
   spec against hardware at 8 × 5 `8x8_8P`. Kept deliberately dumb — raw
   protocol, no orientation transform — as the control for isolating whether a

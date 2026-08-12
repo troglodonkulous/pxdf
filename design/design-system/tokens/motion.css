@@ -1,0 +1,9 @@
+:root{
+--dur-instant:80ms; /* @kind other */
+--dur-fast:120ms; /* @kind other */   /* hover / press */
+--dur-base:180ms; /* @kind other */   /* panel + selection */
+--dur-slow:280ms; /* @kind other */   /* view transitions */
+--ease-out:cubic-bezier(0.2,0,0,1); /* @kind other */
+--ease-inout:cubic-bezier(0.4,0,0.2,1); /* @kind other */
+--press-scale:0.97; /* @kind other */
+}

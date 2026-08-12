@@ -12,11 +12,15 @@ Our PowerShell sender's output is **byte-for-byte identical** to Ledset's across
 a full frame, and the floor responds to it correctly.
 
 ```
-UDP broadcast -> 255.255.255.255:60001, 10 fps
+UDP broadcast -> 255.255.255.255:60001
 packet = FF | controller | 01 | port | packetIndex(|0x80 on frame end) | body
 body   = BGR, 507 bytes max; each port's last packet is short
 port   = one tile column; 4 or 8 ports per controller (floor-type dependent)
 ```
+
+The vendor sends at 10 fps. **We do not** — the floor was measured at
+10/15/24/30/60 and drops frames at none of them, so `DEFAULT_FPS = 30`. See
+`docs/RUNSHEET-10x5-4P.md` §11.
 
 **The mapper is now geometry-independent.** `mapper/` is a Python
 implementation covering any legal floor type, tile-column and tile-row
@@ -42,18 +46,25 @@ Evidence: [`docs/CAPTURE_RESULTS.md`](docs/CAPTURE_RESULTS.md) and
 
 ## Goal
 
-Reliable, seamless playback from a Mac to the floor. Content authoring
-(Resolume via Syphon/NDI) comes after the transport works.
+Reliable, seamless playback from a Mac to the floor, driven by a cue-based
+macOS app. Transport is done; the app is next — see
+[`docs/APP-PLAN.md`](docs/APP-PLAN.md). Live inputs (Resolume via Syphon, NDI)
+come after that.
 
-**Current rig (since 2026-08-07):** 10 × 5 tiles, floor type `8x8_4P`, **three
+**Shop rig (since 2026-08-07):** 10 × 5 tiles, floor type `8x8_4P`, **three
 controllers** daisy-chained `OUTPUT` → `INPUT`, with Device Order set on each.
 The last controller is partial — it drives 2 of its 4 ports. This is the
 acceptance geometry; nothing before it exercised multiple controllers or a
 partial one.
 
-**Target rig:** up to 14 × 10 tiles, plus arbitrary smaller layouts. Controller
-count is not chosen — it is `ceil(tileColumns / portsPerController)`, exactly as
-the vendor derives it.
+**Job rig:** 10 × 12 tiles of `8x8_4P` = 80 × 96 px. Same controller topology —
+three units, ports 4/4/2 — but five packets per port instead of two. Every
+number for it is derived from `mapper plan`; none has been seen on hardware.
+
+**Target rig:** up to 14 × 10 tiles, plus arbitrary smaller *rectangular*
+layouts. Controller count is not chosen — it is
+`ceil(tileColumns / portsPerController)`, exactly as the vendor derives it.
+Irregular layouts are shelved; `docs/APP-PLAN.md` says why.
 
 Two hard requirements come straight from watching the vendor software fail, both
 sender-side bugs rather than protocol limits:
@@ -72,7 +83,10 @@ sender-side bugs rather than protocol limits:
 | [`docs/DECOMP_FINDINGS.md`](docs/DECOMP_FINDINGS.md) | Evidence behind the spec, cited to vendor function names. |
 | [`docs/CAPTURE_RESULTS.md`](docs/CAPTURE_RESULTS.md) | **Hardware verification, 2026-08-06.** Wire captures + floor observations; closes Q1–Q4. |
 | [`mapper/README.md`](mapper/README.md) | **The geometry-independent mapper.** Python. Packet plans, payloads, fixtures, capture diffs. |
-| `fixtures/` | Conformance fixtures the Swift engine will be graded against. Manifests for every fixture config, golden byte dumps for five. |
+| [`docs/APP-PLAN.md`](docs/APP-PLAN.md) | **The app plan.** Stack, render pipeline, build order. Supersedes plan steps 4–6 below. |
+| `docs/REQUIREMENTS-v1.pdf` | Feature scope, with the operator's annotations. Wins over the mockups where they disagree. |
+| `design/` | The mockups, the design system and its tokens. `design/mockups.html` is the visual spec. |
+| `fixtures/` | Conformance fixtures. Manifests for every fixture config, golden byte dumps for five. Any reimplementation of the mapping is graded against these. |
 | `tools/Send-FloorTest.ps1` | Fallback sender (PowerShell), 8×8 floor types. Deliberately dumb: raw protocol, no orientation transform. `-DryRun` prints the packet plan. |
 | `tools/ledset/set-config.ps1` | Drives Ledset's mapper page to one geometry via UI Automation. |
 | `tools/ledset/sweep.ps1` | Batches that across many geometries, ~1.3 s each including a screenshot. |
@@ -109,14 +123,23 @@ python -m mapper verify captures/02-white.pcapng --type 8x8_8P --cols 8 --rows 5
    our sender byte-identical to the vendor's. See `CAPTURE_RESULTS.md`.
 3. ~~Generalise the mapping to any geometry~~ ✅ **Done** — `mapper/`, invariants
    green across all 2,400 legal configurations and byte-identical to Ledset's
-   captures. Still to confirm at the floor on the 10 × 5 `8x8_4P` rig.
-4. **Engine + CLI** ← *current*. Swift package: pixel mapper, UDP sender, test
-   patterns. Build to the now-verified spec and grade it against `fixtures/`.
-   Orientation is a **parameter with no default** — the 180° result belongs to a
-   rig that has since been re-patched. End-of-frame flag always set, gapless
-   loops, double buffering.
-5. **GUI** — SwiftUI app wrapping the proven engine.
-6. **Inputs** — Syphon first (zero-copy, same-machine), NDI second (cross-machine).
+   captures.
+4. ~~Engine + CLI~~ ✅ **Done 2026-08-08** — and **not in Swift**. `mapper play`
+   beat Ledset on the wire (80/80 frames exact against 68/72), so the Python
+   mapper *is* the engine. Ledset went reference-only the same session.
+   Orientation settled as `identity`, permanently.
+5. **The app** ← *current*. Electron + TypeScript + React wrapping `mapper/` as
+   a sidecar process, built from `design/mockups.html` to
+   `docs/REQUIREMENTS-v1.pdf`. **Read [`docs/APP-PLAN.md`](docs/APP-PLAN.md)
+   before writing any of it** — it holds the render pipeline, the geometry
+   rules, the gates and the build order. Lives in `app/`.
+6. **Live inputs** — NDI and Syphon, as a helper process speaking the same
+   sidecar frame protocol. Deferred, not blocked.
+
+> **Superseded 2026-08-11.** Steps 4 and 5 previously called for a Swift package
+> graded against `fixtures/`, then a SwiftUI GUI. That predates `mapper play`
+> beating Ledset on the wire. `docs/APP-PLAN.md` records the reasoning; do not
+> restart the port.
 
 ## Show-night fallback
 

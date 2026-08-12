@@ -1,0 +1,11 @@
+:root{
+--r-cell:3px;      /* a floor pixel */
+--r-xs:5px;        /* mono chips */
+--r-sm:6px;
+--r-md:7px;        /* segmented items, small buttons */
+--r-lg:8px;        /* list rows, icon buttons */
+--r-xl:10px;       /* panels, wells */
+--r-2xl:11px;      /* primary transport button */
+--r-window:12px;
+--r-pill:999px;
+}

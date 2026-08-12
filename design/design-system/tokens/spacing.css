@@ -1,0 +1,17 @@
+:root{
+--sp-0:0px;--sp-1:2px;--sp-2:4px;--sp-3:6px;--sp-4:8px;--sp-5:10px;--sp-6:12px;
+--sp-7:14px;--sp-8:16px;--sp-9:18px;--sp-10:20px;--sp-11:22px;--sp-12:26px;
+--sp-14:32px;--sp-16:40px;--sp-20:56px;--sp-24:72px;
+
+/* fixed app chrome (measured off the Signal reference) */
+--h-titlebar:46px;
+--h-transport:82px;
+--w-sidebar:236px;
+--w-inspector:214px;
+--pad-panel:22px;
+--pad-panel-x:26px;
+--gap-stack:2px;      /* list rows sit near-flush */
+--h-row:38px;
+--h-control:28px;
+--h-control-lg:34px;
+}
