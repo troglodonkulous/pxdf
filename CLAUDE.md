@@ -26,8 +26,15 @@ rationalise.
 ## Environment
 
 - **Python 3.12, no third-party dependencies in `mapper/`.** Keep it that way.
+  The rule is scoped to `mapper/` and always was — `app/` is an Electron project
+  with an ordinary `node_modules`, and that is not a violation of it.
   ffmpeg is a prerequisite of `tools/make_clip.py` only.
 - **`python3` is the Microsoft Store stub and will fail.** Use `python` or `py`.
+  That, and the ffmpeg path below, are facts about the **Windows** machine. App
+  work happens on the Mac, where `python3` is fine and ffmpeg is on `PATH`.
+- **On macOS the oracle suite reports `(skipped=1)`** — the skip is
+  `no powershell/pwsh on PATH`, which is expected there and not a defect. The
+  `(skipped=1)` to worry about is the *mapper* suite's, below.
 - **No pytest.** stdlib `unittest`.
 - ffmpeg is installed but may not be on a shell's `PATH` if the shell predates
   the install:
@@ -51,13 +58,24 @@ python -m mapper play test-patterns/09-gradient24-8x8_4P-10x5.avi \
     --type 8x8_4P --cols 10 --rows 5 --dry-run | tail -1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --pattern gradient24 --dry-run | tail -1
 #   -> 10cfd968b0b3436c6b50717f4c6cf69459b545b5c665c5d8003b268a561f8057
+
+# the same bar at the job geometry, derived 2026-08-11. The app is graded
+# against both -- see docs/APP-PLAN.md.
+python -m mapper send --type 8x8_4P --cols 10 --rows 12 --pattern gradient24 --dry-run | tail -1
+#   -> 12df0afcfb2c05be3b967822ae965dc251578b27f4813d372447c3d09d59352d
 ```
 
 ## The rig
 
-10 × 5 tiles of `8x8_4P` = 80 × 40 px on **three** controllers. Cabled
-left-to-right, monotonically. Sender NIC is `10.200.50.78/8`; dumpcap interface
-number is **not stable across reboots** — re-derive with
+**Shop:** 10 × 5 tiles of `8x8_4P` = 80 × 40 px on **three** controllers.
+**Job:** 10 × 12 tiles of `8x8_4P` = **80 × 96 px**, same three controllers with
+ports 4/4/2, but **5 packets per port instead of 2** — 50 packets and 23,290
+bytes per frame. Every number for the job rig is derived from `mapper plan`;
+none of it has been seen on hardware, and twelve tiles deep per chain is not
+rehearsed by the shop rig. White frame and per-column walk before content.
+
+Cabled left-to-right, monotonically. Sender NIC is `10.200.50.78/8`; dumpcap
+interface number is **not stable across reboots** — re-derive with
 `python -m tools.oracle.harness list-interfaces`.
 
 - Connector 1 = ports 0, 1; connector 2 = ports 2, 3 for a `_4P` unit.
@@ -70,8 +88,25 @@ number is **not stable across reboots** — re-derive with
 ## Settled — do not reopen
 
 - **Orientation is `identity`, permanently.** The floor is cabled left-to-right.
-  Any content-side flip happens at media-authoring time. Do not add orientation
-  features.
+  `mapper/orientation.py` is *cabling compensation* — it exists to correct a
+  mis-patched floor, applied at the wire-mapping stage. Do not add orientation
+  features, and do not give `mapper/` a non-identity default.
+- **The app's Rotation is not orientation, and the two must never be merged.**
+  Setup's Rotation (0/90/180/270) is a *presentation* transform, so an operator
+  can author a physically 80 × 96 portrait floor as a 96 × 80 landscape canvas.
+  It lives in the app's final composite pass. `mapper/` still receives an
+  80 × 96 row-major RGB framebuffer at every rotation, and needs **zero**
+  changes. Conflating the two is how this becomes the seventh
+  self-consistent-but-wrong result.
+- **The macOS app is Electron + TypeScript + React driving `mapper/` as a
+  sidecar**, decided 2026-08-11. Not SwiftUI, and **the mapper is not ported** —
+  it is the only hardware-graded code in the repo. Read `docs/APP-PLAN.md`
+  before writing app code; it holds the render pipeline, the geometry rules and
+  the gates. It supersedes `README.md`'s old plan steps 4–6.
+- **Composite at `floor_px × S`, downsample once at the end.** Floor resolution
+  is an output format, never a project format, and layer transforms are stored
+  normalised 0–1 however they are displayed. `docs/APP-PLAN.md` has the
+  measurement this comes from.
 - **Ledset is reference-only** since 2026-08-08. `mapper play` beat it on the
   wire: 80/80 frames exact with 0 tolerated defects, against Ledset's 68/72 with
   4. See `docs/RUNSHEET-10x5-4P.md` §11.
@@ -111,6 +146,14 @@ number is **not stable across reboots** — re-derive with
 - `max_tolerated` budgets are **measured per capture window and clip length**.
   Re-derive if either changes; a budget carried over from a different capture is
   exactly the unbounded tolerance the field exists to remove.
+- **Stopping the send does not black the floor.** Controller 1 reverts to local
+  content ~5 s later while 2 and 3 hold their last frame, so the app's BLACKOUT,
+  cue gaps and idle must all send *black frames*. The socket opens with the show
+  file and never closes.
+- **`design/mockups.html` renders a superset of what ships.** Direction
+  (Fwd/Rev/Bounce), Custom layout and Calibrate… all appear in it and are all
+  shelved or scrapped. `docs/REQUIREMENTS-v1.pdf` wins over the mockups, and
+  `docs/APP-PLAN.md` says what is cut and why.
 
 ## Git
 
@@ -141,6 +184,9 @@ purpose — they are evidence.
 
 | Read | For |
 |---|---|
+| `docs/APP-PLAN.md` | **The app, and the canonical copy.** Stack, render pipeline, geometry rules, gates, build order, cut list. `docs/app-plan.html` is a dated snapshot of the same material and can lag it — where they differ, the `.md` wins. |
+| `docs/REQUIREMENTS-v1.pdf` | Feature scope with the operator's annotations. Wins over the mockups. |
+| `design/` | `mockups.html` is the visual spec — open it from disk, it loads `support.js` and `design-system/` from this repo. `design-system/` holds the tokens, the spec and 20 components as readable source. |
 | `docs/PROTOCOL.md` | Wire format and mapping. §3–§4 are closed. |
 | `docs/RUNSHEET-10x5-4P.md` | Floor-verified findings. §10 is the gate-4 tables, §11 the Phase 4 media session. Authoritative. |
 | `mapper/README.md` | Module layout, how to run the suites, and the frame-rate/scaler/fit rationale. |

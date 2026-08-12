@@ -28,7 +28,18 @@ __pycache__/
 *.py[cod]
 .venv/
 
+# --- The app (app/, Electron + Vite) ------------------------------------------
+# node_modules is not a violation of CLAUDE.md's "no third-party dependencies" —
+# that rule is scoped to mapper/ and always was.
+node_modules/
+app/dist/
+app/out/
+app/release/
+*.asar
+
 # --- Swift --------------------------------------------------------------------
+# The Swift engine port is retired (docs/APP-PLAN.md). These stay because the
+# NDI/Syphon sidecar helper is still expected to be a small native binary.
 .build/
 DerivedData/
 

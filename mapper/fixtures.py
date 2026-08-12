@@ -1,4 +1,10 @@
-"""Conformance fixtures — the contract the eventual Swift engine is graded on.
+"""Conformance fixtures — the contract any reimplementation of the mapping is
+graded on.
+
+Written when a Swift port of this module was the plan. That plan is retired —
+`mapper/` is the engine, and the app drives it as a sidecar (`docs/APP-PLAN.md`)
+— but the fixtures outlive it: they are still the only thing outside the 8 × 5
+`8x8_8P` captures that would notice a tile column landing on the wrong port.
 
 Tiered, because a full byte dump of every legal geometry is 2,400 files nobody
 will read:

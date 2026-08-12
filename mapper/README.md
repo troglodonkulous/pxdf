@@ -214,7 +214,11 @@ Three things it still does not reach, all measured, not assumed:
 
 ## Fixtures
 
-`fixtures/` is the contract the eventual Swift engine is graded against.
+`fixtures/` is the contract any reimplementation of the mapping is graded
+against. It was written when a Swift port was the plan; that plan is retired
+(`docs/APP-PLAN.md`) and the fixtures outlived it, because outside the captured
+geometry they are still the only thing that would notice a tile column landing
+on the wrong port.
 
 - `manifests/*.json` — derived sizes, the full
   `(controller, port, packetIndex, byte4, length)` header table, and SHA-256

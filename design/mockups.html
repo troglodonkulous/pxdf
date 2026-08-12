@@ -1,0 +1,1053 @@
+<!-- VENDORED 2026-08-11 from the Claude design session. ONE modification:
+     the ten design-system references below were rewritten from
+     _ds/ddf-design-system-fee2c806-87cc-485d-b1c8-5cde8d2c6639/  ->  design-system/
+     and _ds_bundle.js -> components.js, to match this repo's layout.
+     Nothing else is changed. See design/README.md. -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics="">
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="design-system/tokens/fonts.css">
+<link rel="stylesheet" href="design-system/tokens/colors.css">
+<link rel="stylesheet" href="design-system/tokens/typography.css">
+<link rel="stylesheet" href="design-system/tokens/spacing.css">
+<link rel="stylesheet" href="design-system/tokens/radius.css">
+<link rel="stylesheet" href="design-system/tokens/elevation.css">
+<link rel="stylesheet" href="design-system/tokens/motion.css">
+<link rel="stylesheet" href="design-system/tokens/base.css">
+<link rel="stylesheet" href="design-system/styles.css">
+<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js"></script>
+<script src="design-system/components.js"></script>
+<style>
+html{background:var(--n-0)}
+body{margin:0;min-height:100%;background:var(--n-0);font-family:var(--font-ui)}
+a{color:var(--ddf-green-hot)}a:hover{color:var(--ddf-green-glow)}
+@keyframes ddfEqM{0%,100%{transform:scaleY(0.25)}50%{transform:scaleY(1)}}
+.dv-turn{padding:40px 44px 36px;border-bottom:1px solid var(--n-3);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 24px}
+.dv-tid{font:600 10px var(--font-mono);padding:3px 7px;background:var(--n-11);color:var(--n-1);border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 var(--font-ui);color:var(--n-10)}
+.dv-opts{display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px;max-width:100%}
+.dv-oid{font:600 10.5px var(--font-mono);padding:3px 7px;background:var(--n-3);color:var(--n-9);border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11.5px/1.3 var(--font-ui);color:var(--n-8)}
+.dv-opt:target .dv-oid{background:var(--ddf-green-hot);color:var(--text-on-accent)}
+.dv-next{margin:26px 0 0;font:12px/1.5 var(--font-ui);color:var(--n-7)}
+</style>
+</helmet>
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Loop console integrated — generators become live layer sources in Edit (§6)</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="3a"><div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a>Edit — Generators tab: your 11 patterns as a source library, params in a Source inspector, compass direction, palettes as content swatches · periodic = gapless, no media file</div>
+<div data-screen-label="Edit — generator source" style="width:1280px;height:800px;border-radius:var(--r-window);overflow:hidden;background:var(--surface-window);border:1px solid var(--border-hairline);box-shadow:var(--shadow-window);display:flex;flex-direction:column">
+<div style="height:var(--h-titlebar);flex:none;display:flex;align-items:center;padding:0 14px;gap:12px;background:var(--surface-chrome);border-bottom:1px solid var(--border-hairline)">
+<div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></div><div style="width:12px;height:12px;border-radius:50%;background:#febc2e"></div><div style="width:12px;height:12px;border-radius:50%;background:#28c840"></div></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="70px,28px">‹ Play</x-import>
+<span style="font-size:var(--fs-body);font-weight:600;color:var(--text-primary)">First Dance</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">02:00</span>
+<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">saved 18:42:07</span>
+<div style="flex:1;display:flex;justify-content:center">
+<div style="display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--border-hairline);border-radius:var(--r-lg);background:var(--n-2)">
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);background:var(--surface-raised);color:var(--ddf-green-hot);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="mouse-pointer" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="hand" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="zoom-in" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:1px;height:18px;background:var(--border-hairline);margin:0 4px"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="move" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="rotate-cw" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:1px;height:18px;background:var(--border-hairline);margin:0 4px"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="square" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="type" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="pipette" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+</div>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="120px,28px">Preview on Floor</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="primary" hint-size="60px,28px">Save</x-import>
+</div>
+<div style="display:flex;flex:1;min-height:0">
+<div style="width:var(--w-sidebar);flex:none;border-right:1px solid var(--border-hairline);padding:18px 16px;display:flex;flex-direction:column;gap:12px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segFG }}" value="Generators" hint-size="170px,29px"></x-import>
+<span style="font-size:var(--fs-micro);color:var(--text-muted)">Patterns</span>
+<div style="display:flex;flex-direction:column;gap:1px;font-family:var(--font-mono);font-size:11px">
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--r-sm);background:var(--surface-accent-soft);color:oklch(0.86 0.16 148)"><span style="flex:1">Plasma Drift</span><span>→</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--r-sm);color:var(--text-body)"><span style="flex:1">Chevron Scroll</span><span style="color:var(--text-muted)">→</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--r-sm);color:var(--text-body)"><span style="flex:1">Aurora Bands</span><span style="color:var(--text-muted)">→</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--r-sm);color:var(--text-body)"><span style="flex:1">Checyclic Blocks</span><span style="color:var(--text-muted)">→</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--r-sm);color:var(--text-body)"><span style="flex:1">Ripple Rings</span><span style="color:var(--text-muted)">◎</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--r-sm);color:var(--text-body)"><span style="flex:1">Spiral Vortex</span><span style="color:var(--text-muted)">⟳</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--r-sm);color:var(--text-body)"><span style="flex:1">Kaleidoscope Bloom</span><span style="color:var(--text-muted)">⟳</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--r-sm);color:var(--text-body)"><span style="flex:1">Checkerboard Disco Loop</span><span style="color:var(--text-muted)">→</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--r-sm);color:var(--text-body)"><span style="flex:1">Neon Tunnel Loop</span><span style="color:var(--text-muted)">⟳</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--r-sm);color:var(--text-body)"><span style="flex:1">Pixel Ripple Loop</span><span style="color:var(--text-muted)">◎</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--r-sm);color:var(--text-body)"><span style="flex:1">Gold Sparkle Loop</span><span style="color:var(--text-muted)">◎</span></div>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<span style="font-size:var(--fs-micro);color:var(--text-muted)">Quick Preview</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="10px" hint-size="100%,100px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.FloorPreview" dc-props="{{ fpGenQuick }}" hint-size="100%,80px"></x-import>
+</x-import>
+<span style="font-size:var(--fs-micro);color:var(--text-muted)">Direction</span>
+<div style="display:grid;grid-template-columns:repeat(3,30px);gap:4px">
+<div style="height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);background:var(--surface-raised);border:1px solid var(--border-hairline);color:var(--text-secondary);font-family:var(--font-mono);font-size:12px;cursor:pointer">↖</div>
+<div style="height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);background:var(--surface-raised);border:1px solid var(--border-hairline);color:var(--text-secondary);font-family:var(--font-mono);font-size:12px;cursor:pointer">↑</div>
+<div style="height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);background:var(--surface-raised);border:1px solid var(--border-hairline);color:var(--text-secondary);font-family:var(--font-mono);font-size:12px;cursor:pointer">↗</div>
+<div style="height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);background:var(--surface-raised);border:1px solid var(--border-hairline);color:var(--text-secondary);font-family:var(--font-mono);font-size:12px;cursor:pointer">←</div>
+<div style="height:26px"></div>
+<div style="height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);background:var(--surface-accent-soft);border:1px solid var(--border-accent);color:var(--ddf-green-hot);font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer">→</div>
+<div style="height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);background:var(--surface-raised);border:1px solid var(--border-hairline);color:var(--text-secondary);font-family:var(--font-mono);font-size:12px;cursor:pointer">↙</div>
+<div style="height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);background:var(--surface-raised);border:1px solid var(--border-hairline);color:var(--text-secondary);font-family:var(--font-mono);font-size:12px;cursor:pointer">↓</div>
+<div style="height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);background:var(--surface-raised);border:1px solid var(--border-hairline);color:var(--text-secondary);font-family:var(--font-mono);font-size:12px;cursor:pointer">↘</div>
+</div>
+</div>
+<div style="flex:1;min-width:0;padding:20px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+<div style="width:min(100%,720px)">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="14px" hint-size="100%,420px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.FloorPreview" dc-props="{{ fpGen }}" hint-size="100%,380px"></x-import>
+</x-import>
+</div>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">96 × 56 px · aspect 12 : 7</span>
+<span style="font-size:var(--fs-micro);color:var(--text-muted)">Periodic by construction — loops gapless. No media file, no decode.</span>
+</div>
+<div style="width:var(--w-inspector);flex:none;border-left:1px solid var(--border-hairline);padding:18px 20px;display:flex;flex-direction:column;gap:10px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segSXF }}" value="Source" hint-size="174px,29px"></x-import>
+<div style="display:flex;flex-direction:column;gap:3px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Layer 3</x-import>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-primary)">Plasma Drift</span>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Shape</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segWave }}" value="{{ wave }}" onChange="{{ setWave }}" hint-size="174px,29px"></x-import>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:52px;font-size:var(--fs-label);color:var(--text-muted)">X freq</span>
+<span style="flex:1;display:flex"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ xF }}" min="{{ n1 }}" max="{{ n12 }}" onChange="{{ setXF }}" width="100%" hint-size="100%,18px"></x-import></span>
+<span style="width:34px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-numeric)">{{ xF }}</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:52px;font-size:var(--fs-label);color:var(--text-muted)">Y freq</span>
+<span style="flex:1;display:flex"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ yF }}" min="{{ n1 }}" max="{{ n12 }}" onChange="{{ setYF }}" width="100%" hint-size="100%,18px"></x-import></span>
+<span style="width:34px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-numeric)">{{ yF }}</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:52px;font-size:var(--fs-label);color:var(--text-muted)">Sharp</span>
+<span style="flex:1;display:flex"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ shp }}" min="{{ n0 }}" max="{{ n100 }}" onChange="{{ setShp }}" width="100%" hint-size="100%,18px"></x-import></span>
+<span style="width:34px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-numeric)">{{ shpPct }}</span>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Color</x-import>
+<div style="display:flex;flex-wrap:wrap;gap:4px">
+<span title="Neon Club" style="width:36px;height:18px;border-radius:4px;border:1px solid var(--border-accent);box-shadow:var(--glow-accent);background:linear-gradient(90deg,#FF0078,#00E5FF,#8200FF,#FFB300);cursor:pointer"></span>
+<span title="Acid" style="width:36px;height:18px;border-radius:4px;border:1px solid var(--border-hairline);background:linear-gradient(90deg,#0AFF5A,#FFFF00,#0050FF,#FF00C8);cursor:pointer"></span>
+<span title="Sunset Rave" style="width:36px;height:18px;border-radius:4px;border:1px solid var(--border-hairline);background:linear-gradient(90deg,#FF3C00,#FF008C,#4600B4,#FFC800);cursor:pointer"></span>
+<span title="Ice" style="width:36px;height:18px;border-radius:4px;border:1px solid var(--border-hairline);background:linear-gradient(90deg,#00FFFF,#0050FF,#C8FFFF,#6400FF);cursor:pointer"></span>
+<span title="Mono Amber" style="width:36px;height:18px;border-radius:4px;border:1px solid var(--border-hairline);background:linear-gradient(90deg,#280A00,#FF8C00,#FFDC96,#FF8C00);cursor:pointer"></span>
+<span title="Blacklight" style="width:36px;height:18px;border-radius:4px;border:1px solid var(--border-hairline);background:linear-gradient(90deg,#0A001E,#A000FF,#00FFB4,#FF00FF);cursor:pointer"></span>
+<span title="Champagne Gold" style="width:36px;height:18px;border-radius:4px;border:1px solid var(--border-hairline);background:linear-gradient(90deg,#190F00,#FFD700,#FFFAE1,#BE8200);cursor:pointer"></span>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segCMot }}" value="{{ cmot }}" onChange="{{ setCmot }}" hint-size="174px,29px"></x-import>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:52px;font-size:var(--fs-label);color:var(--text-muted)">Hue</span>
+<span style="flex:1;display:flex"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ hueG }}" min="{{ n0 }}" max="{{ n360 }}" onChange="{{ setHueG }}" width="100%" hint-size="100%,18px"></x-import></span>
+<span style="width:34px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-numeric)">{{ hueGDeg }}</span>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Negative Space</x-import>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:52px;font-size:var(--fs-label);color:var(--text-muted)">Fill</span>
+<span style="flex:1;display:flex"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ fillA }}" min="{{ n5 }}" max="{{ n100 }}" onChange="{{ setFillA }}" width="100%" hint-size="100%,18px"></x-import></span>
+<span style="width:34px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-numeric)">{{ fillAPct }}</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:52px;font-size:var(--fs-label);color:var(--text-muted)">Glow</span>
+<span style="flex:1;display:flex"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ glow }}" min="{{ n0 }}" max="{{ n30 }}" onChange="{{ setGlow }}" width="100%" hint-size="100%,18px"></x-import></span>
+<span style="width:34px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-numeric)">{{ glowPct }}</span>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Motion</x-import>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:52px;font-size:var(--fs-label);color:var(--text-muted)">Speed</span>
+<span style="flex:1;display:flex"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ spdG }}" min="{{ pt1 }}" max="{{ n3 }}" step="{{ pt1 }}" onChange="{{ setSpdG }}" width="100%" hint-size="100%,18px"></x-import></span>
+<span style="width:34px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-numeric)">{{ spdGx }}</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:52px;font-size:var(--fs-label);color:var(--text-muted)">Cycle</span>
+<span style="flex:1;display:flex"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ cyc }}" min="{{ n2 }}" max="{{ n20 }}" step="{{ pt5 }}" onChange="{{ setCyc }}" width="100%" hint-size="100%,18px"></x-import></span>
+<span style="width:34px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-numeric)">{{ cycS }}</span>
+</div>
+<span style="font-size:var(--fs-micro);color:var(--text-muted);line-height:1.5">Cycle sets the loop period. One cycle = one seamless repeat.</span>
+</div>
+</div>
+<div style="height:48px;flex:none;border-top:1px solid var(--border-hairline);background:var(--surface-chrome);padding:6px 16px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:center;gap:12px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" dc-props="{{ tightLabel }}" hint-size="auto,14px">Timeline</x-import>
+<span style="font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-muted)">4 layers · 02:00 · L3 selected</span>
+<span style="flex:1"></span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-numeric)">01:04</span>
+<span style="display:inline-flex;color:var(--text-muted);cursor:pointer" title="Expand timeline"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="chevron-up" size="{{ n14 }}" hint-size="14px,14px"></x-import></span>
+</div>
+<div style="position:relative;height:16px">
+<div style="position:absolute;left:8%;width:84%;top:0;height:4px;border-radius:2px;background:var(--layer-1)"></div>
+<div style="position:absolute;left:8%;width:30%;top:6px;height:4px;border-radius:2px;background:var(--layer-2)"></div>
+<div style="position:absolute;left:30%;width:60%;top:12px;height:4px;border-radius:2px;background:var(--layer-3);outline:1px solid var(--n-11)"></div>
+<div style="position:absolute;left:55%;width:28%;top:6px;height:4px;border-radius:2px;background:var(--layer-4)"></div>
+<div style="position:absolute;left:52%;top:-2px;bottom:-2px;width:1px;background:var(--n-9)"></div>
+</div>
+</div>
+</div></div>
+
+</div>
+<p class="dv-next">Straight from your loop console: the 11 patterns (→ compass · ⟳ spin · ◎ radial), waveform, X/Y frequency, sharpness, the 7 palettes, color motion, fill/glow negative space, speed + cycle length. Left out on purpose: seam check (single-canvas floor output makes it moot in-app), PNG/webm export (the engine renders live to the floor — no file round-trip). Try next: "riff on how a generator gets saved as a preset" · "show Gold Sparkle with the Champagne palette"</p>
+</section>
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Requirements v1 applied — custom layouts, playback direction, sound-reactive space, layer-level editing, autosave</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2a"><div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Mapping — custom tile layouts (§1): L-shaped floor, tile tools, aspect-first output readout · wiring from <a class="dv-oid" href="#1a">1a</a> moves behind "Wiring…"</div>
+<div data-screen-label="Mapping — custom layout" style="width:1280px;height:800px;border-radius:var(--r-window);overflow:hidden;background:var(--surface-window);border:1px solid var(--border-hairline);box-shadow:var(--shadow-window);display:flex;flex-direction:column">
+<div style="height:var(--h-titlebar);flex:none;display:flex;align-items:center;padding:0 18px;gap:14px;background:var(--surface-chrome);border-bottom:1px solid var(--border-hairline)">
+<div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></div><div style="width:12px;height:12px;border-radius:50%;background:#febc2e"></div><div style="width:12px;height:12px;border-radius:50%;background:#28c840"></div></div>
+<span style="flex:1;text-align:center;font-size:var(--fs-body);font-weight:600;color:var(--text-primary)">DDF Setup — saturday-wedding.ddf</span>
+<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">saved 18:42:07</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.StatusPill" label="{{ pillLabel }}" tone="{{ pillTone }}" hint-size="90px,26px"></x-import>
+</div>
+<div style="display:flex;flex:1;min-height:0">
+<div style="flex:1;min-width:0;padding:22px 26px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:center;justify-content:space-between">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Layout · 68 Tiles</x-import>
+<div style="display:flex;gap:8px;align-items:center">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Badge" hint-size="auto,20px">8x8_4P</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Badge" hint-size="auto,20px">5 controllers</x-import>
+</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between">
+<div style="display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--border-hairline);border-radius:var(--r-lg);background:var(--n-2)">
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);background:var(--surface-raised);color:var(--ddf-green-hot);cursor:pointer" title="Select tile"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="mouse-pointer" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer" title="Add tiles"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="plus-square" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer" title="Remove tiles"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="eraser" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:1px;height:18px;background:var(--border-hairline);margin:0 4px"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer" title="Move tile"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="move" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer" title="Rotate tile"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="rotate-cw" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+</div>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">T30 · row 3 · col 6 · 0°</span>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="20px" dc-props="{{ panelCenter }}" hint-size="100%,420px">
+<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px;max-width:680px;margin:0 auto;width:100%">
+<sc-for list="{{ layoutTiles }}" as="t" hint-placeholder-count="84">
+<div style="aspect-ratio:1;border-radius:var(--r-cell);border:1px {{ t.bs }} {{ t.bd }};background:{{ t.bg }};box-shadow:{{ t.sh }};display:flex;align-items:center;justify-content:center"><span style="font-family:var(--font-mono);font-size:8px;color:{{ t.fg }}">{{ t.id }}</span></div>
+</sc-for>
+</div>
+</x-import>
+<div style="text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--text-muted)">68 tiles · 96 × 56 px · <span style="color:var(--text-primary);font-weight:600">19′ 8.2″ × 11′ 5.8″</span> · 6.00 × 3.50 m bounds</div>
+<div style="display:flex;justify-content:center;gap:8px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" variant="ghost" hint-size="90px,34px">Wiring…</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" variant="ghost" hint-size="110px,34px">Calibrate…</x-import>
+</div>
+</div>
+<div style="width:var(--w-inspector);flex:none;border-left:1px solid var(--border-hairline);padding:22px 20px;display:flex;flex-direction:column;gap:14px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Floor</x-import>
+<label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:var(--fs-label);color:var(--text-muted)">Type</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Select" options="{{ optTypes }}" value="{{ mapType }}" onChange="{{ setMapType }}" width="100%" hint-size="100%,28px"></x-import></label>
+<div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:var(--fs-label);color:var(--text-muted)">Layout</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segRC }}" value="{{ layoutMode }}" onChange="{{ setLayoutMode }}" hint-size="174px,29px"></x-import></div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Output</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="12px" hint-size="100%,96px">
+<div style="font-family:var(--font-mono);line-height:1.7;color:var(--text-body)"><span style="font-size:20px;font-weight:600;color:var(--text-primary)">96 × 56</span><span style="font-size:11px;color:var(--text-muted)"> px</span><br><span style="font-size:11px">68 tiles · 4,352 px active</span><br><span style="font-size:11px">aspect <span style="color:var(--text-primary);font-weight:600">12 : 7</span></span></div>
+</x-import>
+<div style="font-size:var(--fs-micro);color:var(--text-muted);line-height:1.5">Content scales to fit — match the aspect, not the pixel count. 1920 × 1120 beats 96 × 56.</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Network</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Select" options="{{ optIface }}" value="{{ iface }}" onChange="{{ setIface }}" width="100%" hint-size="100%,28px"></x-import>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Show File</x-import>
+<div style="display:flex;gap:8px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" hint-size="70px,28px">Open…</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" hint-size="80px,28px">Save As…</x-import>
+</div>
+<div style="margin-top:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" variant="primary" dc-props="{{ btnFull }}" hint-size="100%,34px">Open Player</x-import>
+</div>
+</div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2b"><div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Play — direction Fwd / Rev / Bounce per cue (§2), sound-reactive space held (§12), autosave in the title bar (§9)</div>
+<div data-screen-label="Play — spec v1" style="width:1280px;height:800px;border-radius:var(--r-window);overflow:hidden;background:var(--surface-window);border:1px solid var(--border-hairline);box-shadow:var(--shadow-window);display:flex;flex-direction:column">
+<div style="height:var(--h-titlebar);flex:none;display:flex;align-items:center;padding:0 18px;gap:14px;background:var(--surface-chrome);border-bottom:1px solid var(--border-hairline)">
+<div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></div><div style="width:12px;height:12px;border-radius:50%;background:#febc2e"></div><div style="width:12px;height:12px;border-radius:50%;background:#28c840"></div></div>
+<span style="flex:1;text-align:center;font-size:var(--fs-body);font-weight:600;color:var(--text-primary)">DDF Player — saturday-wedding.ddf</span>
+<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">saved 18:42:07</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">96 × 56</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="70px,28px">Setup…</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.StatusPill" label="{{ pillLabel }}" tone="{{ pillTone }}" hint-size="90px,26px"></x-import>
+</div>
+<div style="display:flex;flex:1;min-height:0">
+<div style="width:var(--w-sidebar);flex:none;border-right:1px solid var(--border-hairline);padding:22px 0;display:flex;flex-direction:column;gap:6px">
+<div style="padding:0 20px 8px;display:flex;align-items:center;justify-content:space-between">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Cue Stack</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.IconButton" icon="plus" title="Add cue" dc-props="{{ plusProps }}" hint-size="24px,24px"></x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:0 10px;overflow:auto">
+<div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--r-lg)">
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">01</span>
+<span style="flex:1;font-size:var(--fs-body-lg);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Doors / Warm</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">∞</span>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--r-lg);background:var(--surface-selected);box-shadow:0 0 16px oklch(0.82 0.20 148 / 0.28)">
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:600;color:oklch(0.32 0.09 148)">02</span>
+<span style="flex:1;font-size:var(--fs-body-lg);font-weight:600;color:var(--text-on-accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">First Dance</span>
+<span title="Custom fade" style="font-family:var(--font-mono);font-size:var(--fs-caption);color:oklch(0.32 0.09 148)">≠</span>
+<sc-if value="{{ eqOn }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:flex-end;gap:2px;height:12px;color:var(--text-on-accent)"><span style="width:2.5px;height:12px;background:currentColor;border-radius:1px;transform-origin:bottom;animation:ddfEqM 0.7s var(--ease-inout) infinite"></span><span style="width:2.5px;height:12px;background:currentColor;border-radius:1px;transform-origin:bottom;animation:ddfEqM 0.83s var(--ease-inout) 0.18s infinite"></span><span style="width:2.5px;height:12px;background:currentColor;border-radius:1px;transform-origin:bottom;animation:ddfEqM 0.96s var(--ease-inout) 0.36s infinite"></span></span></sc-if>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:10px 11px;border-radius:var(--r-lg);border:1px dashed var(--n-6)">
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">03</span>
+<span style="flex:1;font-size:var(--fs-body-lg);color:var(--text-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Open Floor</span>
+<span style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-accent)">Standby</span>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--r-lg)">
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">04</span>
+<span style="flex:1;font-size:var(--fs-body-lg);color:var(--text-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Cake Cutting</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">1:12</span>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--r-lg)">
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">05</span>
+<span style="flex:1;font-size:var(--fs-body-lg);color:var(--text-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Last Call</span>
+<span title="Needs re-fit" style="display:inline-flex;color:var(--sem-warn)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="triangle-alert" size="{{ n13 }}" hint-size="13px,13px"></x-import></span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">3:10</span>
+</div>
+</div>
+<div style="margin-top:auto;padding:12px 20px 0">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" variant="primary" dc-props="{{ goProps }}" hint-size="100%,52px">GO</x-import>
+</div>
+</div>
+<div style="flex:1;min-width:0;padding:22px 26px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;justify-content:space-between">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Floor A · 68 Tiles</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segLP }}" value="{{ mode }}" onChange="{{ setMode }}" hint-size="150px,29px"></x-import>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="20px" dc-props="{{ panelCenter }}" hint-size="100%,100%">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.FloorPreview" dc-props="{{ fpPlay }}" hint-size="100%,300px"></x-import>
+</x-import>
+<div style="text-align:center;font-family:var(--font-mono);font-size:var(--fs-label)"><span style="color:var(--text-accent);font-weight:600">{{ modeUpper }}</span><span style="color:var(--text-muted)"> · {{ fpsVal }} fps · 4.2 ms · 24 pkts/frame</span></div>
+</div>
+<div style="width:var(--w-inspector);flex:none;border-left:1px solid var(--border-hairline);padding:22px 20px;display:flex;flex-direction:column;gap:14px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Cue Control</x-import>
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+<span style="font-size:var(--fs-body);font-weight:600;color:var(--text-primary)">First Dance</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">02:00</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:var(--fs-label);color:var(--text-muted)">Speed</span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">{{ speedPct }}</span></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ speed }}" min="{{ n0 }}" max="{{ n200 }}" accent="{{ true }}" onChange="{{ setSpeed }}" width="100%" hint-size="100%,18px"></x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<span style="font-size:var(--fs-label);color:var(--text-muted)">Direction</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segDir }}" value="{{ dirCue }}" onChange="{{ setDirCue }}" hint-size="174px,29px"></x-import>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:var(--fs-label);color:var(--text-muted)">Loop</span>
+<span style="display:inline-flex;align-items:center;gap:7px"><span style="font-family:var(--font-mono);font-size:13px;color:var(--ddf-green-hot)">∞</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Switch" checked="{{ loopCue }}" onChange="{{ setLoopCue }}" hint-size="34px,20px"></x-import></span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:var(--fs-label);color:var(--text-muted)">Brightness</span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">{{ brightPct }}</span></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ bright }}" accent="{{ true }}" onChange="{{ setBright }}" width="100%" hint-size="100%,18px"></x-import>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="font-size:var(--fs-label);color:var(--text-muted)">Fade in</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segFade }}" value="{{ fadeMode }}" onChange="{{ setFadeMode }}" hint-size="160px,29px"></x-import>
+<sc-if value="{{ fadeCustom }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:var(--fs-label);color:var(--text-muted)">Duration</span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-accent)">3.0 s</span></div>
+</sc-if>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<div style="display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:var(--fs-label);color:var(--text-muted)">Sound reactive</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Switch" checked="{{ snd }}" onChange="{{ setSnd }}" hint-size="34px,20px"></x-import>
+</div>
+<span style="font-size:var(--fs-micro);color:var(--text-muted);line-height:1.5">Audio drives brightness, intensity, speed.</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" dc-props="{{ btnFull }}" hint-size="100%,28px">Edit Cue…</x-import>
+<div style="margin-top:auto;display:flex;flex-direction:column">
+<div style="height:40px;display:flex;align-items:center;justify-content:center;border:1px solid var(--n-6);border-radius:var(--r-lg);background:var(--n-0);color:var(--text-primary);font-size:var(--fs-caption);font-weight:600;letter-spacing:0.14em;cursor:pointer">BLACKOUT</div>
+</div>
+</div>
+</div>
+<div style="height:var(--h-transport);flex:none;border-top:1px solid var(--border-hairline);background:var(--surface-chrome);display:flex;align-items:center;gap:22px;padding:0 24px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:10px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.IconButton" icon="rewind" title="Previous cue" hint-size="34px,34px"></x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.IconButton" icon="{{ playIcon }}" variant="primary" size="lg" title="Play / pause" hint-size="44px,44px"></x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.IconButton" icon="fast-forward" title="Next cue" hint-size="34px,34px"></x-import>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Timecode" current="01:04" total="02:00" hint-size="90px,16px"></x-import>
+<div style="flex:1;position:relative;height:14px">
+<div style="position:absolute;inset:2px 0;border-radius:2px;background:repeating-linear-gradient(90deg,transparent 0 5px,var(--surface-chrome) 5px 7px),linear-gradient(to right,var(--ddf-green-hot) 52%,var(--led-cell-off) 52%)"></div>
+<div style="position:absolute;left:calc(52% - 3px);top:0;width:6px;height:14px;border-radius:1px;background:var(--ddf-green-glow);box-shadow:var(--glow-accent)"></div>
+</div>
+<div style="display:flex;align-items:center;gap:11px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" dc-props="{{ tightLabel }}" hint-size="auto,14px">Fade</x-import>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-numeric);background:var(--surface-raised);border:1px solid var(--border-hairline);border-radius:var(--r-xs);padding:4px 9px">1.5 s</span>
+</div>
+<div style="display:flex;align-items:center;gap:11px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" dc-props="{{ tightLabel }}" hint-size="auto,14px">Master</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ master }}" onChange="{{ setMaster }}" width="{{ n96 }}" hint-size="96px,18px"></x-import>
+<span style="font-family:var(--font-mono);font-size:var(--fs-body);color:var(--text-numeric);width:34px">{{ masterPct }}</span>
+</div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2c"><div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>Edit — clip level dropped, 1 media = 1 layer (§3 + §7): Layer / Xform / FX, color adjustments (§4), trim handles + reorder (§3)</div>
+<div data-screen-label="Edit — layer-level" style="width:1280px;height:800px;border-radius:var(--r-window);overflow:hidden;background:var(--surface-window);border:1px solid var(--border-hairline);box-shadow:var(--shadow-window);display:flex;flex-direction:column">
+<div style="height:var(--h-titlebar);flex:none;display:flex;align-items:center;padding:0 14px;gap:12px;background:var(--surface-chrome);border-bottom:1px solid var(--border-hairline)">
+<div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></div><div style="width:12px;height:12px;border-radius:50%;background:#febc2e"></div><div style="width:12px;height:12px;border-radius:50%;background:#28c840"></div></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="70px,28px">‹ Play</x-import>
+<span style="font-size:var(--fs-body);font-weight:600;color:var(--text-primary)">First Dance</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">02:00</span>
+<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">saved 18:42:07</span>
+<div style="flex:1;display:flex;justify-content:center">
+<div style="display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--border-hairline);border-radius:var(--r-lg);background:var(--n-2)">
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);background:var(--surface-raised);color:var(--ddf-green-hot);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="mouse-pointer" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="hand" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="zoom-in" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:1px;height:18px;background:var(--border-hairline);margin:0 4px"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="move" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="rotate-cw" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:1px;height:18px;background:var(--border-hairline);margin:0 4px"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="square" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="type" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="pipette" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+</div>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="120px,28px">Preview on Floor</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="primary" hint-size="60px,28px">Save</x-import>
+</div>
+<div style="display:flex;flex:1;min-height:0">
+<div style="width:var(--w-sidebar);flex:none;border-right:1px solid var(--border-hairline);padding:18px 16px;display:flex;flex-direction:column;gap:14px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segFG }}" value="Files" hint-size="170px,29px"></x-import>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:var(--fs-micro);color:var(--text-muted)">Quick Preview</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="10px" hint-size="100%,110px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.FloorPreview" dc-props="{{ fpQuick }}" hint-size="100%,90px"></x-import>
+</x-import>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<span style="font-size:var(--fs-micro);color:var(--text-muted)">File Browser</span>
+<div style="display:flex;flex-direction:column;gap:1px;font-size:var(--fs-caption)">
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px;color:var(--text-secondary)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="folder" size="{{ n13 }}" hint-size="13px,13px"></x-import>Documents</div>
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px 5px 20px;color:var(--text-secondary)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="folder-open" size="{{ n13 }}" hint-size="13px,13px"></x-import>DDF Media</div>
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px 5px 36px;border-radius:var(--r-sm);font-family:var(--font-mono);font-size:11px;color:var(--text-body)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="film" size="{{ n12 }}" hint-size="12px,12px"></x-import>firefly.mp4</div>
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px 5px 36px;border-radius:var(--r-sm);font-family:var(--font-mono);font-size:11px;background:var(--surface-accent-soft);color:oklch(0.86 0.16 148)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="film" size="{{ n12 }}" hint-size="12px,12px"></x-import>sparkles.mp4</div>
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px 5px 36px;border-radius:var(--r-sm);font-family:var(--font-mono);font-size:11px;color:var(--text-body)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="film" size="{{ n12 }}" hint-size="12px,12px"></x-import>blobs.mov</div>
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px 5px 36px;border-radius:var(--r-sm);font-family:var(--font-mono);font-size:11px;color:var(--text-body)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="film" size="{{ n12 }}" hint-size="12px,12px"></x-import>snowflakes.avi</div>
+</div>
+</div>
+<div style="flex:1;min-width:0;padding:20px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+<div style="position:relative;width:min(100%,640px)">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="14px" hint-size="100%,350px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.FloorPreview" dc-props="{{ fpCanvas }}" hint-size="100%,300px"></x-import>
+</x-import>
+<div style="position:absolute;left:24%;top:20%;width:38%;height:52%;border:1.5px dashed var(--n-11);pointer-events:none"></div>
+<div style="position:absolute;left:24%;top:20%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+<div style="position:absolute;left:62%;top:20%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+<div style="position:absolute;left:24%;top:72%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+<div style="position:absolute;left:62%;top:72%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+</div>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">96 × 56 px · aspect 12 : 7</span>
+</div>
+<div style="width:var(--w-inspector);flex:none;border-left:1px solid var(--border-hairline);padding:18px 20px;display:flex;flex-direction:column;gap:12px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segLXF }}" value="Layer" hint-size="174px,29px"></x-import>
+<div style="display:flex;align-items:center;gap:8px">
+<div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Layer 2</x-import>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">sparkles.mp4</span>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.IconButton" icon="chevron-up" title="Move layer up" dc-props="{{ plusProps }}" hint-size="24px,24px"></x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.IconButton" icon="chevron-down" title="Move layer down" dc-props="{{ plusProps }}" hint-size="24px,24px"></x-import>
+</div>
+<label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:var(--fs-label);color:var(--text-muted)">Blend</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Select" options="{{ optBlend }}" value="{{ blend }}" onChange="{{ setBlend }}" width="100%" hint-size="100%,28px"></x-import></label>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:var(--fs-label);color:var(--text-muted)">Opacity</span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">{{ opacityPct }}</span></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ opacity }}" accent="{{ true }}" onChange="{{ setOpacity }}" width="100%" hint-size="100%,18px"></x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:var(--fs-label);color:var(--text-muted)">Speed</span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">{{ clipSpeedPct }}</span></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ clipSpeed }}" min="{{ n0 }}" max="{{ n200 }}" accent="{{ true }}" onChange="{{ setClipSpeed }}" width="100%" hint-size="100%,18px"></x-import>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:var(--fs-label);color:var(--text-muted)">Loop</span>
+<span style="display:inline-flex;align-items:center;gap:7px"><span style="font-family:var(--font-mono);font-size:13px;color:var(--ddf-green-hot)">∞</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Switch" checked="{{ loopClip }}" onChange="{{ setLoopClip }}" hint-size="34px,20px"></x-import></span>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Color</x-import>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:52px;font-size:var(--fs-label);color:var(--text-muted)">Hue</span>
+<span style="flex:1;display:flex"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ hue }}" min="{{ nm180 }}" max="{{ n180 }}" onChange="{{ setHue }}" width="100%" hint-size="100%,18px"></x-import></span>
+<span style="width:34px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-numeric)">{{ hueDeg }}</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:52px;font-size:var(--fs-label);color:var(--text-muted)">Sat</span>
+<span style="flex:1;display:flex"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ sat }}" min="{{ n0 }}" max="{{ n200 }}" onChange="{{ setSat }}" width="100%" hint-size="100%,18px"></x-import></span>
+<span style="width:34px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-numeric)">{{ satPct }}</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:52px;font-size:var(--fs-label);color:var(--text-muted)">Contrast</span>
+<span style="flex:1;display:flex"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ con }}" min="{{ n0 }}" max="{{ n200 }}" onChange="{{ setCon }}" width="100%" hint-size="100%,18px"></x-import></span>
+<span style="width:34px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-numeric)">{{ conPct }}</span>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:var(--fs-label);color:var(--text-muted)">Tint</span>
+<span style="display:inline-flex;align-items:center;gap:7px"><span style="width:14px;height:14px;border-radius:4px;border:1px solid var(--border-strong);background:transparent"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">None</span></span>
+</div>
+</div>
+</div>
+<div style="height:172px;flex:none;border-top:1px solid var(--border-hairline);background:var(--surface-chrome);display:flex;flex-direction:column">
+<div style="height:30px;flex:none;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--border-hairline)">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" dc-props="{{ tightLabel }}" hint-size="auto,14px">Timeline</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Timecode" current="01:04" total="02:00" size="12px" hint-size="80px,14px"></x-import>
+<span style="font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-muted)">drag clip ends to trim</span>
+<span style="flex:1"></span>
+<span style="display:inline-flex;color:var(--text-muted);cursor:pointer" title="Collapse timeline"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="chevron-down" size="{{ n14 }}" hint-size="14px,14px"></x-import></span>
+</div>
+<div style="flex:1;display:flex;min-height:0">
+<div style="width:116px;flex:none;border-right:1px solid var(--border-hairline);display:flex;flex-direction:column">
+<div style="height:18px;flex:none;border-bottom:1px solid var(--n-4)"></div>
+<div style="flex:1;display:flex;align-items:center;gap:7px;padding:0 12px;font-size:var(--fs-label);color:var(--text-secondary);border-bottom:1px solid var(--n-4)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="eye" size="{{ n12 }}" hint-size="12px,12px"></x-import>L4 · text</div>
+<div style="flex:1;display:flex;align-items:center;gap:7px;padding:0 12px;font-size:var(--fs-label);color:var(--text-secondary);border-bottom:1px solid var(--n-4)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="eye" size="{{ n12 }}" hint-size="12px,12px"></x-import>L3 · blobs</div>
+<div style="flex:1;display:flex;align-items:center;gap:7px;padding:0 12px;font-size:var(--fs-label);font-weight:600;color:var(--text-accent);border-bottom:1px solid var(--n-4)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="eye" size="{{ n12 }}" hint-size="12px,12px"></x-import>L2 · sparkles</div>
+<div style="flex:1;display:flex;align-items:center;gap:7px;padding:0 12px;font-size:var(--fs-label);color:var(--text-secondary)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="eye" size="{{ n12 }}" hint-size="12px,12px"></x-import>L1 · firefly</div>
+</div>
+<div style="flex:1;position:relative;display:flex;flex-direction:column">
+<div style="height:18px;flex:none;position:relative;border-bottom:1px solid var(--n-4);font-family:var(--font-mono);font-size:9px;color:var(--text-muted)">
+<span style="position:absolute;left:6px;top:4px">0:00</span>
+<span style="position:absolute;left:25%;top:4px;transform:translateX(-50%)">0:30</span>
+<span style="position:absolute;left:50%;top:4px;transform:translateX(-50%)">1:00</span>
+<span style="position:absolute;left:75%;top:4px;transform:translateX(-50%)">1:30</span>
+<span style="position:absolute;right:6px;top:4px">2:00</span>
+</div>
+<div style="flex:1;position:relative;border-bottom:1px solid var(--n-4)"><div style="position:absolute;left:55%;width:28%;top:5px;bottom:5px;border-radius:var(--r-xs);background:var(--layer-4);display:flex;align-items:center;padding:0 8px;overflow:hidden;font-family:var(--font-mono);font-size:10px;color:var(--n-1)">text</div></div>
+<div style="flex:1;position:relative;border-bottom:1px solid var(--n-4)"><div style="position:absolute;left:32%;width:60%;top:5px;bottom:5px;border-radius:var(--r-xs);background:var(--layer-3);display:flex;align-items:center;padding:0 8px;overflow:hidden;font-family:var(--font-mono);font-size:10px;color:var(--n-1)">blobs.mov</div></div>
+<div style="flex:1;position:relative;border-bottom:1px solid var(--n-4)"><div style="position:absolute;left:8%;width:30%;top:5px;bottom:5px;border-radius:var(--r-xs);background:var(--layer-2);outline:2px solid var(--n-11);outline-offset:1px;font-family:var(--font-mono);font-size:10px;color:var(--n-1)">
+<div style="position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:2px 0 0 2px;background:var(--n-11);cursor:ew-resize"></div>
+<div style="position:absolute;left:12px;right:12px;top:0;bottom:0;display:flex;align-items:center;overflow:hidden">sparkles.mp4</div>
+<div style="position:absolute;right:0;top:0;bottom:0;width:5px;border-radius:0 2px 2px 0;background:var(--n-11);cursor:ew-resize"></div>
+</div></div>
+<div style="flex:1;position:relative"><div style="position:absolute;left:8%;width:84%;top:5px;bottom:5px;border-radius:var(--r-xs);background:var(--layer-1);display:flex;align-items:center;padding:0 8px;overflow:hidden;font-family:var(--font-mono);font-size:10px;color:var(--n-1)">firefly.mp4</div></div>
+<div style="position:absolute;left:52%;top:0;bottom:0;width:1px;background:var(--n-9)"></div>
+<div style="position:absolute;left:calc(52% - 4px);top:0;width:9px;height:9px;background:var(--n-9);clip-path:polygon(0 0,100% 0,50% 100%)"></div>
+</div>
+</div>
+</div>
+</div></div>
+
+</div>
+<p class="dv-next">Held space, per your notes: sound-reactive lives in <a class="dv-oid" href="#2b">2b</a>'s cue panel; generators/effects wait for your loop-generator tool; NDI, remote, and mapping export stay post-MVP. Try next: "mock the text generator panel" · "promote turn 2 as the canonical set"</p>
+</section>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Hi-fi MVP set — from wireframes 3a–3d + 2a, composed from the DDF design system</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a"><div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Mapping (3a) — connector 1 shown hovered: its two tile columns light up</div>
+<div data-screen-label="Mapping" style="width:1280px;height:800px;border-radius:var(--r-window);overflow:hidden;background:var(--surface-window);border:1px solid var(--border-hairline);box-shadow:var(--shadow-window);display:flex;flex-direction:column">
+<div style="height:var(--h-titlebar);flex:none;display:flex;align-items:center;padding:0 18px;gap:16px;background:var(--surface-chrome);border-bottom:1px solid var(--border-hairline)">
+<div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></div><div style="width:12px;height:12px;border-radius:50%;background:#febc2e"></div><div style="width:12px;height:12px;border-radius:50%;background:#28c840"></div></div>
+<span style="flex:1;text-align:center;font-size:var(--fs-body);font-weight:600;color:var(--text-primary)">DDF Setup — saturday-wedding.ddf</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.StatusPill" label="{{ pillLabel }}" tone="{{ pillTone }}" hint-size="90px,26px"></x-import>
+</div>
+<div style="display:flex;flex:1;min-height:0">
+<div style="flex:1;min-width:0;padding:22px 26px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:center;justify-content:space-between">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Wiring · 1 connector = 2 chains = 2 tile columns</x-import>
+<div style="display:flex;gap:8px;align-items:center">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Badge" hint-size="auto,20px">8x8_4P</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Badge" hint-size="auto,20px">3 controllers</x-import>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:0">
+<svg width="660" height="440" viewBox="0 0 660 440" style="overflow:visible;max-width:100%">
+<defs><pattern id="ddfcell" x="10" y="110" width="64" height="56" patternUnits="userSpaceOnUse"><rect x="3" y="3" width="58" height="50" rx="3" style="fill:var(--floor-cell-off)"></rect></pattern></defs>
+<rect x="30" y="8" width="140" height="40" rx="7" style="fill:var(--surface-raised);stroke:var(--border-strong)"></rect>
+<rect x="260" y="8" width="140" height="40" rx="7" style="fill:var(--surface-raised);stroke:var(--border-strong)"></rect>
+<rect x="490" y="8" width="140" height="40" rx="7" style="fill:var(--surface-raised);stroke:var(--border-strong)"></rect>
+<text x="46" y="30" style="font-family:var(--font-mono);font-size:11px;fill:var(--text-secondary)">CTRL 1</text>
+<text x="276" y="30" style="font-family:var(--font-mono);font-size:11px;fill:var(--text-secondary)">CTRL 2</text>
+<text x="506" y="30" style="font-family:var(--font-mono);font-size:11px;fill:var(--text-secondary)">CTRL 3</text>
+<circle cx="154" cy="20" r="3" style="fill:var(--ddf-green-hot)"></circle>
+<circle cx="384" cy="20" r="3" style="fill:var(--ddf-green-hot)"></circle>
+<circle cx="614" cy="20" r="3" style="fill:var(--ddf-green-hot)"></circle>
+<path d="M54 55 V84 H74 V110" style="stroke:var(--ddf-green-glow);stroke-width:2;fill:none;filter:drop-shadow(0 0 4px oklch(0.82 0.20 148 / 0.8))"></path>
+<path d="M84 55 V76 H202 V110" style="stroke:var(--ddf-green-hot);stroke-width:1.5;fill:none;opacity:0.6"></path>
+<path d="M284 55 V84 H330 V110" style="stroke:var(--ddf-green-hot);stroke-width:1.5;fill:none;opacity:0.6"></path>
+<path d="M314 55 V76 H458 V110" style="stroke:var(--ddf-green-hot);stroke-width:1.5;fill:none;opacity:0.6"></path>
+<path d="M514 55 V84 H586 V110" style="stroke:var(--ddf-green-hot);stroke-width:1.5;fill:none;opacity:0.6"></path>
+<path d="M114 55 V66 M144 55 V66 M344 55 V66 M374 55 V66 M544 55 V66 M574 55 V66 M604 55 V66" style="stroke:var(--n-6);stroke-dasharray:3 3;fill:none"></path>
+<circle cx="54" cy="48" r="6.5" style="fill:var(--ddf-green-deep);stroke:var(--ddf-green-glow);stroke-width:1.5"></circle>
+<circle cx="84" cy="48" r="6.5" style="fill:var(--ddf-green-deep);stroke:var(--ddf-green-hot)"></circle>
+<circle cx="114" cy="48" r="6.5" style="fill:var(--n-2);stroke:var(--n-6)"></circle>
+<circle cx="144" cy="48" r="6.5" style="fill:var(--n-2);stroke:var(--n-6)"></circle>
+<circle cx="284" cy="48" r="6.5" style="fill:var(--ddf-green-deep);stroke:var(--ddf-green-hot)"></circle>
+<circle cx="314" cy="48" r="6.5" style="fill:var(--ddf-green-deep);stroke:var(--ddf-green-hot)"></circle>
+<circle cx="344" cy="48" r="6.5" style="fill:var(--n-2);stroke:var(--n-6)"></circle>
+<circle cx="374" cy="48" r="6.5" style="fill:var(--n-2);stroke:var(--n-6)"></circle>
+<circle cx="514" cy="48" r="6.5" style="fill:var(--ddf-green-deep);stroke:var(--ddf-green-hot)"></circle>
+<circle cx="544" cy="48" r="6.5" style="fill:var(--n-2);stroke:var(--n-6)"></circle>
+<circle cx="574" cy="48" r="6.5" style="fill:var(--n-2);stroke:var(--n-6)"></circle>
+<circle cx="604" cy="48" r="6.5" style="fill:var(--n-2);stroke:var(--n-6)"></circle>
+<rect x="10" y="110" width="640" height="280" rx="6" style="fill:var(--n-1);stroke:var(--border-well)"></rect>
+<rect x="10" y="110" width="640" height="280" style="fill:url(#ddfcell)"></rect>
+<rect x="10" y="110" width="128" height="280" rx="4" style="fill:oklch(0.80 0.20 148 / 0.07);stroke:var(--ddf-green-glow);stroke-width:1.5"></rect>
+<rect x="138" y="110" width="128" height="280" rx="4" style="fill:none;stroke:var(--ddf-green-hot);opacity:0.4"></rect>
+<rect x="266" y="110" width="128" height="280" rx="4" style="fill:none;stroke:var(--ddf-green-hot);opacity:0.4"></rect>
+<rect x="394" y="110" width="128" height="280" rx="4" style="fill:none;stroke:var(--ddf-green-hot);opacity:0.4"></rect>
+<rect x="522" y="110" width="128" height="280" rx="4" style="fill:none;stroke:var(--ddf-green-hot);opacity:0.4"></rect>
+<text x="42" y="410" text-anchor="middle" style="font-family:var(--font-mono);font-size:9.5px;fill:var(--ddf-green-hot)">P1</text>
+<text x="106" y="410" text-anchor="middle" style="font-family:var(--font-mono);font-size:9.5px;fill:var(--ddf-green-hot)">P2</text>
+<text x="170" y="410" text-anchor="middle" style="font-family:var(--font-mono);font-size:9.5px;fill:var(--n-7)">P3</text>
+<text x="234" y="410" text-anchor="middle" style="font-family:var(--font-mono);font-size:9.5px;fill:var(--n-7)">P4</text>
+<text x="298" y="410" text-anchor="middle" style="font-family:var(--font-mono);font-size:9.5px;fill:var(--n-7)">P5</text>
+<text x="362" y="410" text-anchor="middle" style="font-family:var(--font-mono);font-size:9.5px;fill:var(--n-7)">P6</text>
+<text x="426" y="410" text-anchor="middle" style="font-family:var(--font-mono);font-size:9.5px;fill:var(--n-7)">P7</text>
+<text x="490" y="410" text-anchor="middle" style="font-family:var(--font-mono);font-size:9.5px;fill:var(--n-7)">P8</text>
+<text x="554" y="410" text-anchor="middle" style="font-family:var(--font-mono);font-size:9.5px;fill:var(--n-7)">P9</text>
+<text x="618" y="410" text-anchor="middle" style="font-family:var(--font-mono);font-size:9.5px;fill:var(--n-7)">P10</text>
+<text x="10" y="432" style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;fill:var(--n-6)">TILE COL 1</text>
+<text x="650" y="432" text-anchor="end" style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;fill:var(--n-6)">TILE COL 10</text>
+</svg>
+<div style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted)">10 × 5 tiles · 80 × 40 px · <span style="color:var(--text-primary);font-weight:600">16′ 4.9″ × 8′ 2.4″</span> · 5.00 × 2.50 m</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" variant="ghost" hint-size="110px,34px">Calibrate…</x-import>
+</div>
+</div>
+<div style="width:var(--w-inspector);flex:none;border-left:1px solid var(--border-hairline);padding:22px 20px;display:flex;flex-direction:column;gap:16px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Floor</x-import>
+<div style="display:flex;flex-direction:column;gap:12px">
+<label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:var(--fs-label);color:var(--text-muted)">Type</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Select" options="{{ optTypes }}" value="{{ mapType }}" onChange="{{ setMapType }}" width="100%" hint-size="100%,28px"></x-import></label>
+<label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:var(--fs-label);color:var(--text-muted)">Width</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Select" options="{{ optW }}" value="{{ mapW }}" onChange="{{ setMapW }}" width="100%" hint-size="100%,28px"></x-import></label>
+<label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:var(--fs-label);color:var(--text-muted)">Height</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Select" options="{{ optH }}" value="{{ mapH }}" onChange="{{ setMapH }}" width="100%" hint-size="100%,28px"></x-import></label>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="12px" hint-size="100%,110px">
+<div style="font-family:var(--font-mono);font-size:11px;line-height:1.8;color:var(--text-body)"><span style="color:var(--text-primary);font-weight:600">16′ 4.9″ × 8′ 2.4″</span><br>5.00 × 2.50 m · 50 tiles<br>80 × 40 px<br>3 controllers <span style="color:var(--text-muted)">derived</span><br>20 pkts · 9,700 B/frame</div>
+</x-import>
+<div style="font-size:var(--fs-micro);color:var(--text-muted);line-height:1.5">Tile = 500 mm. Imperial is derived, never the input.</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Network</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Select" options="{{ optIface }}" value="{{ iface }}" onChange="{{ setIface }}" width="100%" hint-size="100%,28px"></x-import>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Show File</x-import>
+<div style="display:flex;gap:8px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" hint-size="70px,28px">Open…</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" hint-size="80px,28px">Save As…</x-import>
+</div>
+<div style="margin-top:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" variant="primary" dc-props="{{ btnFull }}" hint-size="100%,34px">Open Player</x-import>
+</div>
+</div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1b"><div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Play (3b) — custom fade on the live cue, standby next cue, ⚠ re-fit flag, global fade in the transport</div>
+<div data-screen-label="Play" style="width:1280px;height:800px;border-radius:var(--r-window);overflow:hidden;background:var(--surface-window);border:1px solid var(--border-hairline);box-shadow:var(--shadow-window);display:flex;flex-direction:column">
+<div style="height:var(--h-titlebar);flex:none;display:flex;align-items:center;padding:0 18px;gap:14px;background:var(--surface-chrome);border-bottom:1px solid var(--border-hairline)">
+<div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></div><div style="width:12px;height:12px;border-radius:50%;background:#febc2e"></div><div style="width:12px;height:12px;border-radius:50%;background:#28c840"></div></div>
+<span style="flex:1;text-align:center;font-size:var(--fs-body);font-weight:600;color:var(--text-primary)">DDF Player — saturday-wedding.ddf</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">10 × 5 · 80 × 40</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="70px,28px">Setup…</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.StatusPill" label="{{ pillLabel }}" tone="{{ pillTone }}" hint-size="90px,26px"></x-import>
+</div>
+<div style="display:flex;flex:1;min-height:0">
+<div style="width:var(--w-sidebar);flex:none;border-right:1px solid var(--border-hairline);padding:22px 0;display:flex;flex-direction:column;gap:6px">
+<div style="padding:0 20px 8px;display:flex;align-items:center;justify-content:space-between">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Cue Stack</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.IconButton" icon="plus" title="Add cue" dc-props="{{ plusProps }}" hint-size="24px,24px"></x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:0 10px;overflow:auto">
+<div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--r-lg)">
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">01</span>
+<span style="flex:1;font-size:var(--fs-body-lg);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Doors / Warm</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">∞</span>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--r-lg);background:var(--surface-selected);box-shadow:0 0 16px oklch(0.82 0.20 148 / 0.28)">
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:600;color:oklch(0.32 0.09 148)">02</span>
+<span style="flex:1;font-size:var(--fs-body-lg);font-weight:600;color:var(--text-on-accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">First Dance</span>
+<span title="Custom fade" style="font-family:var(--font-mono);font-size:var(--fs-caption);color:oklch(0.32 0.09 148)">≠</span>
+<sc-if value="{{ eqOn }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:flex-end;gap:2px;height:12px;color:var(--text-on-accent)"><span style="width:2.5px;height:12px;background:currentColor;border-radius:1px;transform-origin:bottom;animation:ddfEqM 0.7s var(--ease-inout) infinite"></span><span style="width:2.5px;height:12px;background:currentColor;border-radius:1px;transform-origin:bottom;animation:ddfEqM 0.83s var(--ease-inout) 0.18s infinite"></span><span style="width:2.5px;height:12px;background:currentColor;border-radius:1px;transform-origin:bottom;animation:ddfEqM 0.96s var(--ease-inout) 0.36s infinite"></span></span></sc-if>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:10px 11px;border-radius:var(--r-lg);border:1px dashed var(--n-6)">
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">03</span>
+<span style="flex:1;font-size:var(--fs-body-lg);color:var(--text-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Open Floor</span>
+<span style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-accent)">Standby</span>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--r-lg)">
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">04</span>
+<span style="flex:1;font-size:var(--fs-body-lg);color:var(--text-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Cake Cutting</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">1:12</span>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--r-lg)">
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">05</span>
+<span style="flex:1;font-size:var(--fs-body-lg);color:var(--text-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Last Call</span>
+<span title="Needs re-fit" style="display:inline-flex;color:var(--sem-warn)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="triangle-alert" size="{{ n13 }}" hint-size="13px,13px"></x-import></span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-muted)">3:10</span>
+</div>
+</div>
+<div style="margin-top:auto;padding:12px 20px 0">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" variant="primary" dc-props="{{ goProps }}" hint-size="100%,52px">GO</x-import>
+</div>
+</div>
+<div style="flex:1;min-width:0;padding:22px 26px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;justify-content:space-between">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Floor A · 10 × 5</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segLP }}" value="{{ mode }}" onChange="{{ setMode }}" hint-size="150px,29px"></x-import>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="20px" style="flex:1" dc-props="{{ panelCenter }}" hint-size="100%,100%">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.FloorPreview" dc-props="{{ fpPlay }}" hint-size="100%,300px"></x-import>
+</x-import>
+<div style="text-align:center;font-family:var(--font-mono);font-size:var(--fs-label)"><span style="color:var(--text-accent);font-weight:600">{{ modeUpper }}</span><span style="color:var(--text-muted)"> · {{ fpsVal }} fps · 4.2 ms · 20 pkts/frame</span></div>
+</div>
+<div style="width:var(--w-inspector);flex:none;border-left:1px solid var(--border-hairline);padding:22px 20px;display:flex;flex-direction:column;gap:16px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Cue Control</x-import>
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+<span style="font-size:var(--fs-body);font-weight:600;color:var(--text-primary)">First Dance</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">02:00</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:var(--fs-label);color:var(--text-muted)">Speed</span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">{{ speedPct }}</span></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ speed }}" min="{{ n0 }}" max="{{ n200 }}" accent="{{ true }}" onChange="{{ setSpeed }}" width="100%" hint-size="100%,18px"></x-import>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:var(--fs-label);color:var(--text-muted)">Loop</span>
+<span style="display:inline-flex;align-items:center;gap:7px"><span style="font-family:var(--font-mono);font-size:13px;color:var(--ddf-green-hot)">∞</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Switch" checked="{{ loopCue }}" onChange="{{ setLoopCue }}" hint-size="34px,20px"></x-import></span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:var(--fs-label);color:var(--text-muted)">Brightness</span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">{{ brightPct }}</span></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ bright }}" accent="{{ true }}" onChange="{{ setBright }}" width="100%" hint-size="100%,18px"></x-import>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="font-size:var(--fs-label);color:var(--text-muted)">Fade in</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segFade }}" value="{{ fadeMode }}" onChange="{{ setFadeMode }}" hint-size="160px,29px"></x-import>
+<sc-if value="{{ fadeCustom }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:var(--fs-label);color:var(--text-muted)">Duration</span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-accent)">3.0 s</span></div>
+</sc-if>
+<span style="font-size:var(--fs-micro);color:var(--text-muted);line-height:1.5">Overrides the transport fade for this cue.</span>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" dc-props="{{ btnFull }}" hint-size="100%,28px">Edit Cue…</x-import>
+<div style="margin-top:auto;display:flex;flex-direction:column">
+<div style="height:40px;display:flex;align-items:center;justify-content:center;border:1px solid var(--n-6);border-radius:var(--r-lg);background:var(--n-0);color:var(--text-primary);font-size:var(--fs-caption);font-weight:600;letter-spacing:0.14em;cursor:pointer">BLACKOUT</div>
+</div>
+</div>
+</div>
+<div style="height:var(--h-transport);flex:none;border-top:1px solid var(--border-hairline);background:var(--surface-chrome);display:flex;align-items:center;gap:22px;padding:0 24px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:10px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.IconButton" icon="rewind" title="Previous cue" hint-size="34px,34px"></x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.IconButton" icon="{{ playIcon }}" variant="primary" size="lg" title="Play / pause" hint-size="44px,44px"></x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.IconButton" icon="fast-forward" title="Next cue" hint-size="34px,34px"></x-import>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Timecode" current="01:04" total="02:00" hint-size="90px,16px"></x-import>
+<div style="flex:1;position:relative;height:14px">
+<div style="position:absolute;inset:2px 0;border-radius:2px;background:repeating-linear-gradient(90deg,transparent 0 5px,var(--surface-chrome) 5px 7px),linear-gradient(to right,var(--ddf-green-hot) 52%,var(--led-cell-off) 52%)"></div>
+<div style="position:absolute;left:calc(52% - 3px);top:0;width:6px;height:14px;border-radius:1px;background:var(--ddf-green-glow);box-shadow:var(--glow-accent)"></div>
+</div>
+<div style="display:flex;align-items:center;gap:11px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" dc-props="{{ tightLabel }}" hint-size="auto,14px">Fade</x-import>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-numeric);background:var(--surface-raised);border:1px solid var(--border-hairline);border-radius:var(--r-xs);padding:4px 9px">1.5 s</span>
+</div>
+<div style="display:flex;align-items:center;gap:11px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" dc-props="{{ tightLabel }}" hint-size="auto,14px">Master</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ master }}" onChange="{{ setMaster }}" width="{{ n96 }}" hint-size="96px,18px"></x-import>
+<span style="font-family:var(--font-mono);font-size:var(--fs-body);color:var(--text-numeric);width:34px">{{ masterPct }}</span>
+</div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1c"><div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Edit (3c) — Files + Clip panel, timeline expanded, selection on canvas</div>
+<div data-screen-label="Edit — expanded" style="width:1280px;height:800px;border-radius:var(--r-window);overflow:hidden;background:var(--surface-window);border:1px solid var(--border-hairline);box-shadow:var(--shadow-window);display:flex;flex-direction:column">
+<div style="height:var(--h-titlebar);flex:none;display:flex;align-items:center;padding:0 14px;gap:12px;background:var(--surface-chrome);border-bottom:1px solid var(--border-hairline)">
+<div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></div><div style="width:12px;height:12px;border-radius:50%;background:#febc2e"></div><div style="width:12px;height:12px;border-radius:50%;background:#28c840"></div></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="70px,28px">‹ Play</x-import>
+<span style="font-size:var(--fs-body);font-weight:600;color:var(--text-primary)">First Dance</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">02:00</span>
+<div style="flex:1;display:flex;justify-content:center">
+<div style="display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--border-hairline);border-radius:var(--r-lg);background:var(--n-2)">
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);background:var(--surface-raised);color:var(--ddf-green-hot);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="mouse-pointer" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="hand" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="zoom-in" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:1px;height:18px;background:var(--border-hairline);margin:0 4px"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="move" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="rotate-cw" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:1px;height:18px;background:var(--border-hairline);margin:0 4px"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="square" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="type" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="pipette" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+</div>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="120px,28px">Preview on Floor</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="primary" hint-size="60px,28px">Save</x-import>
+</div>
+<div style="display:flex;flex:1;min-height:0">
+<div style="width:var(--w-sidebar);flex:none;border-right:1px solid var(--border-hairline);padding:18px 16px;display:flex;flex-direction:column;gap:14px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segFG }}" value="Files" hint-size="170px,29px"></x-import>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:var(--fs-micro);color:var(--text-muted)">Quick Preview</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="10px" hint-size="100%,110px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.FloorPreview" dc-props="{{ fpQuick }}" hint-size="100%,90px"></x-import>
+</x-import>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<span style="font-size:var(--fs-micro);color:var(--text-muted)">File Browser</span>
+<div style="display:flex;flex-direction:column;gap:1px;font-size:var(--fs-caption)">
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px;color:var(--text-secondary)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="folder" size="{{ n13 }}" hint-size="13px,13px"></x-import>Documents</div>
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px 5px 20px;color:var(--text-secondary)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="folder-open" size="{{ n13 }}" hint-size="13px,13px"></x-import>DDF Media</div>
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px 5px 36px;border-radius:var(--r-sm);font-family:var(--font-mono);font-size:11px;color:var(--text-body)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="film" size="{{ n12 }}" hint-size="12px,12px"></x-import>firefly.mp4</div>
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px 5px 36px;border-radius:var(--r-sm);font-family:var(--font-mono);font-size:11px;background:var(--surface-accent-soft);color:oklch(0.86 0.16 148)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="film" size="{{ n12 }}" hint-size="12px,12px"></x-import>sparkles.mp4</div>
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px 5px 36px;border-radius:var(--r-sm);font-family:var(--font-mono);font-size:11px;color:var(--text-body)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="film" size="{{ n12 }}" hint-size="12px,12px"></x-import>blobs.mov</div>
+<div style="display:flex;align-items:center;gap:7px;padding:5px 6px 5px 36px;border-radius:var(--r-sm);font-family:var(--font-mono);font-size:11px;color:var(--text-body)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="film" size="{{ n12 }}" hint-size="12px,12px"></x-import>snowflakes.avi</div>
+</div>
+</div>
+<div style="flex:1;min-width:0;padding:20px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+<div style="position:relative;width:min(100%,640px)">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="14px" hint-size="100%,350px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.FloorPreview" dc-props="{{ fpCanvas }}" hint-size="100%,300px"></x-import>
+</x-import>
+<div style="position:absolute;left:24%;top:20%;width:38%;height:52%;border:1.5px dashed var(--n-11);pointer-events:none"></div>
+<div style="position:absolute;left:24%;top:20%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+<div style="position:absolute;left:62%;top:20%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+<div style="position:absolute;left:24%;top:72%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+<div style="position:absolute;left:62%;top:72%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+</div>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">80 × 40 px · 16′ 4.9″ × 8′ 2.4″</span>
+</div>
+<div style="width:var(--w-inspector);flex:none;border-left:1px solid var(--border-hairline);padding:18px 20px;display:flex;flex-direction:column;gap:14px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segCXF }}" value="Clip" hint-size="174px,29px"></x-import>
+<div style="display:flex;flex-direction:column;gap:3px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Layer 2</x-import>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-primary)">sparkles.mp4</span>
+</div>
+<label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:var(--fs-label);color:var(--text-muted)">Blend</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Select" options="{{ optBlend }}" value="{{ blend }}" onChange="{{ setBlend }}" width="100%" hint-size="100%,28px"></x-import></label>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:var(--fs-label);color:var(--text-muted)">Opacity</span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">{{ opacityPct }}</span></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ opacity }}" accent="{{ true }}" onChange="{{ setOpacity }}" width="100%" hint-size="100%,18px"></x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:var(--fs-label);color:var(--text-muted)">Speed</span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">{{ clipSpeedPct }}</span></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Slider" value="{{ clipSpeed }}" min="{{ n0 }}" max="{{ n200 }}" accent="{{ true }}" onChange="{{ setClipSpeed }}" width="100%" hint-size="100%,18px"></x-import>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:var(--fs-label);color:var(--text-muted)">Loop</span>
+<span style="display:inline-flex;align-items:center;gap:7px"><span style="font-family:var(--font-mono);font-size:13px;color:var(--ddf-green-hot)">∞</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Switch" checked="{{ loopClip }}" onChange="{{ setLoopClip }}" hint-size="34px,20px"></x-import></span>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.KeyValue" label="In / Out" value="00:08 → 00:38" hint-size="100%,16px"></x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.KeyValue" label="Source" value="1920 × 1080" hint-size="100%,16px"></x-import>
+</div>
+</div>
+<div style="height:172px;flex:none;border-top:1px solid var(--border-hairline);background:var(--surface-chrome);display:flex;flex-direction:column">
+<div style="height:30px;flex:none;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--border-hairline)">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" dc-props="{{ tightLabel }}" hint-size="auto,14px">Timeline</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Timecode" current="01:04" total="02:00" size="12px" hint-size="80px,14px"></x-import>
+<span style="flex:1"></span>
+<span style="display:inline-flex;color:var(--text-muted);cursor:pointer" title="Collapse timeline"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="chevron-down" size="{{ n14 }}" hint-size="14px,14px"></x-import></span>
+</div>
+<div style="flex:1;display:flex;min-height:0">
+<div style="width:116px;flex:none;border-right:1px solid var(--border-hairline);display:flex;flex-direction:column">
+<div style="height:18px;flex:none;border-bottom:1px solid var(--n-4)"></div>
+<div style="flex:1;display:flex;align-items:center;gap:7px;padding:0 12px;font-size:var(--fs-label);color:var(--text-secondary);border-bottom:1px solid var(--n-4)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="eye" size="{{ n12 }}" hint-size="12px,12px"></x-import>L4 · text</div>
+<div style="flex:1;display:flex;align-items:center;gap:7px;padding:0 12px;font-size:var(--fs-label);color:var(--text-secondary);border-bottom:1px solid var(--n-4)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="eye" size="{{ n12 }}" hint-size="12px,12px"></x-import>L3 · blobs</div>
+<div style="flex:1;display:flex;align-items:center;gap:7px;padding:0 12px;font-size:var(--fs-label);font-weight:600;color:var(--text-accent);border-bottom:1px solid var(--n-4)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="eye" size="{{ n12 }}" hint-size="12px,12px"></x-import>L2 · sparkles</div>
+<div style="flex:1;display:flex;align-items:center;gap:7px;padding:0 12px;font-size:var(--fs-label);color:var(--text-secondary)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="eye" size="{{ n12 }}" hint-size="12px,12px"></x-import>L1 · firefly</div>
+</div>
+<div style="flex:1;position:relative;display:flex;flex-direction:column">
+<div style="height:18px;flex:none;position:relative;border-bottom:1px solid var(--n-4);font-family:var(--font-mono);font-size:9px;color:var(--text-muted)">
+<span style="position:absolute;left:6px;top:4px">0:00</span>
+<span style="position:absolute;left:25%;top:4px;transform:translateX(-50%)">0:30</span>
+<span style="position:absolute;left:50%;top:4px;transform:translateX(-50%)">1:00</span>
+<span style="position:absolute;left:75%;top:4px;transform:translateX(-50%)">1:30</span>
+<span style="position:absolute;right:6px;top:4px">2:00</span>
+</div>
+<div style="flex:1;position:relative;border-bottom:1px solid var(--n-4)"><div style="position:absolute;left:55%;width:28%;top:5px;bottom:5px;border-radius:var(--r-xs);background:var(--layer-4);display:flex;align-items:center;padding:0 8px;overflow:hidden;font-family:var(--font-mono);font-size:10px;color:var(--n-1)">text</div></div>
+<div style="flex:1;position:relative;border-bottom:1px solid var(--n-4)"><div style="position:absolute;left:32%;width:60%;top:5px;bottom:5px;border-radius:var(--r-xs);background:var(--layer-3);display:flex;align-items:center;padding:0 8px;overflow:hidden;font-family:var(--font-mono);font-size:10px;color:var(--n-1)">blobs.mov</div></div>
+<div style="flex:1;position:relative;border-bottom:1px solid var(--n-4)"><div style="position:absolute;left:8%;width:30%;top:5px;bottom:5px;border-radius:var(--r-xs);background:var(--layer-2);outline:2px solid var(--n-11);outline-offset:1px;display:flex;align-items:center;padding:0 8px;overflow:hidden;font-family:var(--font-mono);font-size:10px;color:var(--n-1)">sparkles.mp4</div></div>
+<div style="flex:1;position:relative"><div style="position:absolute;left:8%;width:84%;top:5px;bottom:5px;border-radius:var(--r-xs);background:var(--layer-1);display:flex;align-items:center;padding:0 8px;overflow:hidden;font-family:var(--font-mono);font-size:10px;color:var(--n-1)">firefly.mp4</div></div>
+<div style="position:absolute;left:52%;top:0;bottom:0;width:1px;background:var(--n-9)"></div>
+<div style="position:absolute;left:calc(52% - 4px);top:0;width:9px;height:9px;background:var(--n-9);clip-path:polygon(0 0,100% 0,50% 100%)"></div>
+</div>
+</div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1d"><div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Edit (3d) — Generators + Xform panel, timeline collapsed to a strip: canvas gains ~120px</div>
+<div data-screen-label="Edit — collapsed" style="width:1280px;height:800px;border-radius:var(--r-window);overflow:hidden;background:var(--surface-window);border:1px solid var(--border-hairline);box-shadow:var(--shadow-window);display:flex;flex-direction:column">
+<div style="height:var(--h-titlebar);flex:none;display:flex;align-items:center;padding:0 14px;gap:12px;background:var(--surface-chrome);border-bottom:1px solid var(--border-hairline)">
+<div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></div><div style="width:12px;height:12px;border-radius:50%;background:#febc2e"></div><div style="width:12px;height:12px;border-radius:50%;background:#28c840"></div></div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="70px,28px">‹ Play</x-import>
+<span style="font-size:var(--fs-body);font-weight:600;color:var(--text-primary)">First Dance</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">02:00</span>
+<div style="flex:1;display:flex;justify-content:center">
+<div style="display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--border-hairline);border-radius:var(--r-lg);background:var(--n-2)">
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="mouse-pointer" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="hand" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="zoom-in" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:1px;height:18px;background:var(--border-hairline);margin:0 4px"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);background:var(--surface-raised);color:var(--ddf-green-hot);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="move" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="rotate-cw" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:1px;height:18px;background:var(--border-hairline);margin:0 4px"></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="square" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="type" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--text-secondary);cursor:pointer"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="pipette" size="{{ n15 }}" hint-size="15px,15px"></x-import></div>
+</div>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="primary" hint-size="60px,28px">Save</x-import>
+</div>
+<div style="display:flex;flex:1;min-height:0">
+<div style="width:var(--w-sidebar);flex:none;border-right:1px solid var(--border-hairline);padding:18px 16px;display:flex;flex-direction:column;gap:14px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segFG }}" value="Generators" hint-size="170px,29px"></x-import>
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="54px,28px">Solid</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="primary" hint-size="72px,28px">Gradient</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="50px,28px">Text</x-import>
+</div>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="10px" hint-size="100%,96px">
+<div style="height:70px;border-radius:var(--r-sm);background:linear-gradient(90deg,var(--ddf-green-hot),var(--n-0))"></div>
+</x-import>
+<div style="display:flex;flex-direction:column;gap:9px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.KeyValue" label="Angle" value="90°" hint-size="100%,16px"></x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.KeyValue" label="Stops" value="2" hint-size="100%,16px"></x-import>
+</div>
+<span style="font-size:var(--fs-micro);color:var(--text-muted);line-height:1.5">Drops onto a lane like any clip — same transform and FX.</span>
+</div>
+<div style="flex:1;min-width:0;padding:20px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+<div style="position:relative;width:min(100%,720px)">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="14px" hint-size="100%,390px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.FloorPreview" dc-props="{{ fpCanvas }}" hint-size="100%,340px"></x-import>
+</x-import>
+<div style="position:absolute;left:24%;top:20%;width:38%;height:52%;border:1.5px dashed var(--n-11);pointer-events:none"></div>
+<div style="position:absolute;left:24%;top:20%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+<div style="position:absolute;left:62%;top:20%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+<div style="position:absolute;left:24%;top:72%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+<div style="position:absolute;left:62%;top:72%;width:9px;height:9px;border-radius:50%;background:var(--n-11);border:2px solid var(--n-1);transform:translate(-50%,-50%)"></div>
+</div>
+<span style="font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)">80 × 40 px · 16′ 4.9″ × 8′ 2.4″</span>
+</div>
+<div style="width:var(--w-inspector);flex:none;border-left:1px solid var(--border-hairline);padding:18px 20px;display:flex;flex-direction:column;gap:14px;overflow:auto">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segCXF }}" value="Xform" hint-size="174px,29px"></x-import>
+<div style="display:flex;flex-direction:column;gap:3px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" hint-size="auto,14px">Layer 2</x-import>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--text-primary)">sparkles.mp4</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+<div style="display:flex;align-items:center;gap:6px;height:28px;background:var(--surface-raised);border:1px solid var(--border-hairline);border-radius:var(--r-sm);padding:0 8px"><span style="font-size:var(--fs-micro);color:var(--text-muted)">X</span><span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">16</span></div>
+<div style="display:flex;align-items:center;gap:6px;height:28px;background:var(--surface-raised);border:1px solid var(--border-hairline);border-radius:var(--r-sm);padding:0 8px"><span style="font-size:var(--fs-micro);color:var(--text-muted)">Y</span><span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">7</span></div>
+<div style="display:flex;align-items:center;gap:6px;height:28px;background:var(--surface-raised);border:1px solid var(--border-hairline);border-radius:var(--r-sm);padding:0 8px"><span style="font-size:var(--fs-micro);color:var(--text-muted)">W</span><span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">40</span></div>
+<div style="display:flex;align-items:center;gap:6px;height:28px;background:var(--surface-raised);border:1px solid var(--border-hairline);border-radius:var(--r-sm);padding:0 8px"><span style="font-size:var(--fs-micro);color:var(--text-muted)">H</span><span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">24</span></div>
+<div style="display:flex;align-items:center;gap:6px;height:28px;background:var(--surface-raised);border:1px solid var(--border-hairline);border-radius:var(--r-sm);padding:0 8px"><span style="font-size:var(--fs-micro);color:var(--text-muted)">S</span><span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">120%</span></div>
+<div style="display:flex;align-items:center;gap:6px;height:28px;background:var(--surface-raised);border:1px solid var(--border-hairline);border-radius:var(--r-sm);padding:0 8px"><span style="font-size:var(--fs-micro);color:var(--text-muted)">R</span><span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-numeric)">0°</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<span style="font-size:var(--fs-label);color:var(--text-muted)">Fit</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Segmented" options="{{ segFit }}" value="Cover" hint-size="174px,29px"></x-import>
+</div>
+<div style="border-top:1px solid var(--border-hairline)"></div>
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="72px,28px">Fill Floor</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="62px,28px">Center</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" size="sm" variant="ghost" hint-size="56px,28px">Flip X</x-import>
+</div>
+<span style="font-size:var(--fs-micro);color:var(--text-muted);line-height:1.5">Values in floor pixels — 80 × 40 is small enough to think in pixels.</span>
+</div>
+</div>
+<div style="height:48px;flex:none;border-top:1px solid var(--border-hairline);background:var(--surface-chrome);padding:6px 16px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:center;gap:12px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.SectionLabel" dc-props="{{ tightLabel }}" hint-size="auto,14px">Timeline</x-import>
+<span style="font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-muted)">4 layers · 02:00 · L2 selected</span>
+<span style="flex:1"></span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-numeric)">01:04</span>
+<span style="display:inline-flex;color:var(--text-muted);cursor:pointer" title="Expand timeline"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="chevron-up" size="{{ n14 }}" hint-size="14px,14px"></x-import></span>
+</div>
+<div style="position:relative;height:16px">
+<div style="position:absolute;left:8%;width:84%;top:0;height:4px;border-radius:2px;background:var(--layer-1)"></div>
+<div style="position:absolute;left:8%;width:30%;top:6px;height:4px;border-radius:2px;background:var(--layer-2);outline:1px solid var(--n-11)"></div>
+<div style="position:absolute;left:55%;width:28%;top:6px;height:4px;border-radius:2px;background:var(--layer-4)"></div>
+<div style="position:absolute;left:32%;width:60%;top:12px;height:4px;border-radius:2px;background:var(--layer-3)"></div>
+<div style="position:absolute;left:52%;top:-2px;bottom:-2px;width:1px;background:var(--n-9)"></div>
+</div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1e"><div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Re-fit sheet (2a) — fires when a Mapping edit changes the floor's resolution</div>
+<div data-screen-label="Re-fit sheet" style="width:520px;background:var(--surface-window);border:1px solid var(--border-strong);border-radius:var(--r-xl);box-shadow:var(--shadow-popover);padding:24px;display:flex;flex-direction:column;gap:14px">
+<span style="font-size:var(--fs-title);font-weight:600;letter-spacing:var(--ls-title);color:var(--text-primary)">Floor geometry changed</span>
+<div style="font-family:var(--font-mono);font-size:var(--fs-caption)"><span style="color:var(--text-muted)">80 × 40 px</span><span style="color:var(--text-muted)"> → </span><span style="color:var(--text-accent);font-weight:600">112 × 80 px</span><span style="color:var(--text-muted)"> · 10 × 5 → 14 × 10 tiles</span></div>
+<span style="font-size:var(--fs-body);color:var(--text-body)">5 cues were authored at the old resolution.</span>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Panel" inset="{{ true }}" pad="4px 14px" hint-size="100%,190px">
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--n-4);font-size:var(--fs-caption)"><span style="font-family:var(--font-mono);color:var(--text-muted)">01</span><span style="flex:1;color:var(--text-body)">Doors / Warm</span><span style="font-size:var(--fs-label);color:oklch(0.70 0.14 148)">Auto-fits · cover</span></div>
+<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--n-4);font-size:var(--fs-caption)"><span style="font-family:var(--font-mono);color:var(--text-muted)">02</span><span style="flex:1;color:var(--text-body)">First Dance</span><span style="display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-label);color:var(--sem-warn)"><x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Icon" name="triangle-alert" size="{{ n12 }}" hint-size="12px,12px"></x-import>Text layer — check</span></div>
+<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--n-4);font-size:var(--fs-caption)"><span style="font-family:var(--font-mono);color:var(--text-muted)">03</span><span style="flex:1;color:var(--text-body)">Open Floor</span><span style="font-size:var(--fs-label);color:oklch(0.70 0.14 148)">Auto-fits · cover</span></div>
+<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--n-4);font-size:var(--fs-caption)"><span style="font-family:var(--font-mono);color:var(--text-muted)">04</span><span style="flex:1;color:var(--text-body)">Cake Cutting</span><span style="font-size:var(--fs-label);color:oklch(0.70 0.14 148)">Auto-fits · cover</span></div>
+<div style="display:flex;align-items:center;gap:10px;padding:9px 0;font-size:var(--fs-caption)"><span style="font-family:var(--font-mono);color:var(--text-muted)">05</span><span style="flex:1;color:var(--text-body)">Last Call</span><span style="font-size:var(--fs-label);color:oklch(0.70 0.14 148)">Auto-fits · cover</span></div>
+</div>
+</x-import>
+<span style="font-size:var(--fs-micro);color:var(--text-muted);line-height:1.5">Kept cues are flagged in the stack and re-fit by hand in Edit — nothing silently rescales.</span>
+<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:2px">
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" hint-size="90px,34px">Keep As-Is</x-import>
+<x-import component-from-global-scope="DistinctiveDanceFloorDesignSystem_fee2c8.Button" variant="primary" hint-size="130px,34px">Auto-Fit All Cues</x-import>
+</div>
+</div></div>
+
+</div>
+<p class="dv-next">Try next: "make the wiring diagram fully interactive" · "riff on the GO / transport area" · "add the Edit FX panel state"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;playing&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Player state&quot;},&quot;linkStatus&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;linked&quot;,&quot;reconnecting&quot;,&quot;dropped&quot;],&quot;default&quot;:&quot;linked&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Player state&quot;}}">
+class Component extends DCLogic {
+  state = {mode:'Live',speed:100,bright:82,master:82,opacity:70,clipSpeed:100,loopCue:true,loopClip:true,fadeMode:'Custom',blend:'Add',mapType:'8x8_4P',mapW:'10',mapH:'5',iface:'en0 · 10.200.50.78',dirCue:'Fwd',snd:false,hue:0,sat:100,con:100,layoutMode:'Custom',wave:'Sin',cmot:'Cycle',xF:4,yF:3,shp:0,fillA:100,glow:0,spdG:1,cyc:6,hueG:0};
+  renderVals(){
+    const s=this.state;
+    const playing=this.props.playing??true;
+    const link=this.props.linkStatus??'linked';
+    const pill={linked:['LINKED','ok'],reconnecting:['RECONNECTING','warn'],dropped:['DROPPED','danger']}[link]||['LINKED','ok'];
+    const set=k=>v=>this.setState({[k]:v});
+    return {
+      ...s, playing,
+      eqOn:playing, playIcon:playing?'pause':'play', fpsVal:playing?'30.0':'0.0',
+      pillLabel:pill[0], pillTone:pill[1],
+      setMode:set('mode'),setSpeed:set('speed'),setBright:set('bright'),setMaster:set('master'),setOpacity:set('opacity'),setClipSpeed:set('clipSpeed'),setLoopCue:set('loopCue'),setLoopClip:set('loopClip'),setFadeMode:set('fadeMode'),setBlend:set('blend'),setMapType:set('mapType'),setMapW:set('mapW'),setMapH:set('mapH'),setIface:set('iface'),
+      fadeCustom:s.fadeMode==='Custom',
+      modeUpper:s.mode.toUpperCase(),
+      speedPct:s.speed+'%',brightPct:s.bright+'%',masterPct:s.master+'%',opacityPct:s.opacity+'%',clipSpeedPct:s.clipSpeed+'%',
+      segLP:['Live','Preview'],segFG:['Files','Generators'],segCXF:['Clip','Xform','FX'],segLXF:['Layer','Xform','FX'],segFit:['Cover','Fit','Stretch'],segFade:['Global','Custom'],
+      optBlend:['Normal','Add','Multiply','Screen'],optTypes:['8x8_4P','8x8_8P','6x6_4P','6x6_8P'],optW:['8','10','12','14'],optH:['4','5','6','8'],optIface:['en0 · 10.200.50.78','en1 · 192.168.1.20'],
+      fpPlay:{cols:10,rows:5,animated:playing,hue:s.mode==='Live'?148:265,chroma:s.mode==='Live'?0.22:0.16},
+      fpQuick:{cols:10,rows:5,gap:2,radius:2,animated:false,hue:210,chroma:0.14,floorL:0.3},
+      fpCanvas:{cols:80,rows:40,gap:1,radius:1,animated:false,hue:148,chroma:0.2,floorL:0.12},
+      btnFull:{style:{width:'100%'}},
+      goProps:{style:{width:'100%',height:'52px',fontSize:'16px',fontWeight:600,letterSpacing:'0.12em',borderRadius:'var(--r-2xl)'}},
+      plusProps:{style:{width:24,height:24,borderRadius:'var(--r-sm)'}},
+      tightLabel:{style:{letterSpacing:'0.1em'}},
+      panelCenter:{style:{flex:1,justifyContent:'center',minHeight:0}},
+      n0:0,n12:12,n13:13,n14:14,n15:15,n96:96,n200:200,nm180:-180,n180:180,
+      setDirCue:set('dirCue'),setSnd:set('snd'),setHue:set('hue'),setSat:set('sat'),setCon:set('con'),setLayoutMode:set('layoutMode'),
+      segDir:['Fwd','Rev','Bounce'],segRC:['Rectangle','Custom'],segWave:['Sin','Tri','Sq','Saw'],segCMot:['Cycle','Static','Pulse'],segSXF:['Source','Xform','FX'],
+      setWave:set('wave'),setCmot:set('cmot'),setXF:set('xF'),setYF:set('yF'),setShp:set('shp'),setFillA:set('fillA'),setGlow:set('glow'),setSpdG:set('spdG'),setCyc:set('cyc'),setHueG:set('hueG'),
+      shpPct:s.shp+'%',fillAPct:s.fillA+'%',glowPct:s.glow+'%',spdGx:(+s.spdG).toFixed(1)+'×',cycS:(+s.cyc).toFixed(1)+'s',hueGDeg:s.hueG+'°',
+      fpGen:{cols:24,rows:14,gap:2,radius:2,animated:this.props.playing??true,hue:330,chroma:0.24,floorL:0.1},
+      fpGenQuick:{cols:12,rows:7,gap:2,radius:2,animated:this.props.playing??true,hue:330,chroma:0.22,floorL:0.12},
+      n1:1,n2:2,n3:3,n5:5,n20:20,n30:30,n100:100,n360:360,pt1:0.1,pt5:0.5,
+      hueDeg:s.hue+'°',satPct:s.sat+'%',conPct:s.con+'%',
+      layoutTiles:(()=>{const out=[];let n=0;for(let y=0;y<7;y++)for(let x=0;x<12;x++){const p=y<5||x<4;if(!p){out.push({id:'',bs:'dashed',bd:'var(--n-4)',bg:'transparent',fg:'transparent',sh:'none'});continue;}n++;const sel=y===2&&x===5;out.push({id:'T'+String(n).padStart(2,'0'),bs:'solid',bd:sel?'var(--ddf-green-hot)':'var(--floor-tile-line)',bg:sel?'var(--surface-accent-soft)':'var(--n-3)',fg:sel?'var(--ddf-green-hot)':'var(--n-6)',sh:sel?'var(--glow-accent)':'none'});}return out;})()
+    };
+  }
+}
+</script>
+</body>
+</html>
