@@ -7,6 +7,7 @@ import { Sidecar, type LinkStatus } from './sidecar.js'
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(currentDirectory, '../..')
+const BLACK_FRAME = blackFrame(SHOP_RIG)
 
 let mainWindow: BrowserWindow | null = null
 let sidecar: Sidecar | null = null
@@ -38,6 +39,16 @@ function createWindow(): void {
   mainWindow = window
   window.on('closed', () => {
     if (mainWindow === window) mainWindow = null
+
+    // On macOS the app stays alive with no windows, so closing the last one
+    // destroys the renderer while the sidecar keeps running — and the sidecar
+    // re-sends its last frame forever, which is the correct behaviour for a
+    // stalled renderer and the wrong one for a renderer that no longer exists.
+    // The floor would hold whatever was on it with no UI left to change it.
+    // Black is the only safe frame to leave behind; the socket stays open,
+    // because stopping the send is what makes controller 1 revert to the
+    // vendor's own content.
+    if (BrowserWindow.getAllWindows().length === 0) sidecar?.writeFrame(BLACK_FRAME)
   })
   window.webContents.on('did-finish-load', () => publishStatus(currentStatus))
 
@@ -62,7 +73,7 @@ void app.whenReady().then(() => {
     type: SHOP_RIG.type,
     cols: SHOP_RIG.tileCols,
     rows: SHOP_RIG.tileRows,
-    blackFrame: blackFrame(SHOP_RIG),
+    blackFrame: BLACK_FRAME,
     onStatus: publishStatus,
   })
   sidecar.start()
