@@ -278,6 +278,91 @@ describe('a cue change never shows black', () => {
     expect(rig.engine.snapshot().standbyCueId).toBe('c');
   });
 
+  it('keeps a Standby the operator chose while the change was still in flight', () => {
+    const rig = build(show(cue('a'), cue('b'), cue('c'), cue('d')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().standbyCueId).toBe('b');
+
+    // GO, then a slow decode, and the operator uses that time to pick cue d.
+    // The window in which the change is in flight is exactly the window in
+    // which they have a moment to choose.
+    rig.engine.go();
+    rig.engine.selectCue('d');
+    rig.run(10);
+    expect(rig.engine.snapshot().standbyCueId).toBe('d');
+
+    rig.source('b').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().standbyCueId).toBe('d');
+
+    // And the choice is consumed by firing it, so the stack resumes stepping.
+    rig.engine.go();
+    rig.source('d').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().liveCueId).toBe('d');
+    expect(rig.engine.snapshot().standbyCueId).toBe(null);
+  });
+
+  it('keeps a Standby chosen with the transport buttons across a change', () => {
+    const rig = build(show(cue('a'), cue('b'), cue('c'), cue('d')));
+    rig.engine.go();
+    rig.engine.selectNext();
+    rig.engine.selectNext();
+    expect(rig.engine.snapshot().standbyCueId).toBe('c');
+
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().standbyCueId).toBe('c');
+  });
+
+  it('still advances Standby when the operator chose nothing', () => {
+    const rig = build(show(cue('a'), cue('b'), cue('c')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().standbyCueId).toBe('b');
+
+    rig.engine.go();
+    rig.source('b').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().standbyCueId).toBe('c');
+  });
+
+  it('consumes a chosen Standby when a duration fires it, rather than sticking on it', () => {
+    const rig = build(show(cue('a', 100), cue('b'), cue('c'), cue('d')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    // The operator picks cue d while a is running; a's duration then fires it
+    // instead of GO. Firing is firing — the choice has been spent, so Standby
+    // has to step past d rather than sitting on the cue already on the floor.
+    rig.engine.selectCue('d');
+    rig.advance(150);
+    rig.engine.tick();
+    rig.source('d').ready = true;
+    rig.engine.tick();
+
+    expect(rig.engine.snapshot().liveCueId).toBe('d');
+    expect(rig.engine.snapshot().standbyCueId).toBe(null);
+  });
+
+  it('advances Standby past a cue that auto-advanced on its duration', () => {
+    const rig = build(show(cue('a', 100), cue('b'), cue('c')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.advance(150);
+    rig.engine.tick();
+    rig.source('b').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().liveCueId).toBe('b');
+    expect(rig.engine.snapshot().standbyCueId).toBe('c');
+  });
+
   it('replaces an armed cue when GO is pressed again before it lands', () => {
     const rig = build(show(cue('a'), cue('b'), cue('c')));
     rig.engine.goTo('b');

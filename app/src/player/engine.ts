@@ -136,6 +136,18 @@ export class PlayerEngine<S extends FrameSource> {
   private transportPaused = false;
 
   private standbyCueId: string | null = null;
+  /**
+   * True when the operator chose the Standby cue themselves and it has not been
+   * fired yet.
+   *
+   * Without this, `promotePending` overwrites Standby with whatever follows the
+   * cue that just went live — and the window in which it does that is exactly
+   * the window in which the operator has time to pick the next cue. GO, a
+   * second or two of decoding, a click on cue 9, the change lands, and Standby
+   * is silently back on cue 3. Firing a cue consumes the choice, because the
+   * cue they picked is now the one on the floor.
+   */
+  private standbyPinned = false;
   private liveStartedAt = 0;
   /** Time already elapsed on the live cue before the last pause. */
   private elapsedBeforePause = 0;
@@ -164,7 +176,10 @@ export class PlayerEngine<S extends FrameSource> {
     if (this.live !== null && !has(this.live.cue.id)) this.clearLive();
     if (this.pending !== null && !has(this.pending.cue.id)) this.pending = this.release(this.pending);
     if (this.preview !== null && !has(this.preview.cue.id)) this.preview = this.release(this.preview);
-    if (!has(this.standbyCueId)) this.standbyCueId = this.cueAfter(this.live?.cue.id ?? null)?.id ?? null;
+    if (!has(this.standbyCueId)) {
+      this.standbyCueId = this.cueAfter(this.live?.cue.id ?? null)?.id ?? null;
+      this.standbyPinned = false;
+    }
   }
 
   setMode(mode: PlayerMode): void {
@@ -203,6 +218,7 @@ export class PlayerEngine<S extends FrameSource> {
       return;
     }
     this.standbyCueId = cueId;
+    this.standbyPinned = true;
   }
 
   /**
@@ -218,6 +234,11 @@ export class PlayerEngine<S extends FrameSource> {
 
     this.pending = this.release(this.pending);
     this.pending = this.arm(cue);
+    // Firing consumes the operator's choice: the cue they picked is the one
+    // going to the floor, so Standby is free to advance when the change lands.
+    // A selection made *after* this, while the change is still in flight, pins
+    // it again and survives the promotion.
+    this.standbyPinned = false;
     this.lastError = null;
   }
 
@@ -231,12 +252,16 @@ export class PlayerEngine<S extends FrameSource> {
   /** Transport: step Standby, without firing. */
   selectNext(): void {
     const next = this.cueAfter(this.standbyCueId);
-    if (next !== null) this.standbyCueId = next.id;
+    if (next === null) return;
+    this.standbyCueId = next.id;
+    this.standbyPinned = true;
   }
 
   selectPrevious(): void {
     const previous = this.cueBefore(this.standbyCueId);
-    if (previous !== null) this.standbyCueId = previous.id;
+    if (previous === null) return;
+    this.standbyCueId = previous.id;
+    this.standbyPinned = true;
   }
 
   /**
@@ -359,7 +384,10 @@ export class PlayerEngine<S extends FrameSource> {
     if (this.transportPaused) pending.source.pause();
     this.release(outgoing);
 
-    this.standbyCueId = this.cueAfter(pending.cue.id)?.id ?? null;
+    // Standby advances only if the operator has not chosen one since GO. See
+    // `standbyPinned`: overwriting a deliberate choice here throws away the
+    // thing they did while waiting for this very change to land.
+    if (!this.standbyPinned) this.standbyCueId = this.cueAfter(pending.cue.id)?.id ?? null;
   }
 
   private advanceOnDuration(): void {
@@ -380,6 +408,7 @@ export class PlayerEngine<S extends FrameSource> {
       return;
     }
     this.pending = this.arm(next);
+    this.standbyPinned = false;
   }
 
   private arm(cue: Cue): Slot<S> {
