@@ -152,6 +152,43 @@ it on its own metronome. A stalled writer re-sends, never gaps.
   `python -m mapper send --type 8x8_4P --cols 10 --rows 12 --pattern gradient24 --dry-run`.
   Re-derive rather than trusting this line if `mapper/` ever changes.
 
+Three things follow from wanting those gates to grade anything, settled at PR 1.
+
+**The pass is a pure function over typed arrays, not a method on a canvas.**
+
+```ts
+onePass(src: Uint8ClampedArray, srcW, srcH, opts): Uint8Array   // pixel_count * 3
+opts = { rotation: 0|90|180|270, mirrorX, mirrorY, S, master }
+```
+
+`S = 1` then needs no test-only backdoor — it is an argument, and the Setup UI
+simply offers 4 / 8 / 16. The gate runs under a plain unit-test runner with no
+canvas, no `putImageData` and no headless-Electron harness, which is what makes
+it cheap enough to run on every change rather than once at review. The app feeds
+it `ctx.getImageData(...).data`; nothing else about the pipeline changes.
+
+**The RGBA→RGB repack lives inside that loop.** Reading the work canvas gives
+RGBA; the wire wants RGB. Anywhere else it becomes a second full traversal of
+the framebuffer and "the one pass" stops being one. Alpha is dropped, not
+composited — the work canvas is cleared to opaque black each frame, so alpha is
+255 by construction and a layer that lowers it is compositing against black,
+which is what the floor physically does.
+
+**The gate's input framebuffer comes from Python.** `gradient24` is defined once,
+in `mapper/patterns.py`, and a JavaScript reimplementation of it would be a
+second implementation of the thing under test — reliably self-consistent,
+occasionally wrong together. The test shells out to generate the framebuffer and
+pipes its own output into `mapper stream --dry-run`. No `mapper/` change is
+needed for either half.
+
+**And the gate is mutation-checked, because identity is a pass that should do
+nothing.** At `S = 1`, rotation 0, no mirror, master 100 %, a correct `onePass`
+is a no-op, so the digest matching proves very little on its own — a pass that
+ignored `rotation` entirely would still pass it. The rotate ×4 and mirror ×2
+gates cover the transform algebra; a rotated input, and a master of 99 %, must
+each *fail* the digest; and a hand-computed 2 × 2 block grades the box filter,
+which `S = 1` never exercises.
+
 ## Build order
 
 One PR per gate. Branch from `main` each time, after the previous merges.
@@ -159,12 +196,31 @@ One PR per gate. Branch from `main` each time, after the previous merges.
 | PR | Branch | Scope | Gate |
 |---|---|---|---|
 | B | `mapper-stream` | `mapper stream`, `--emit-digest`, its test | stream digest == `send --dry-run` digest |
-| 1 | `app-shell` | Electron + Vite + React, sidecar supervision, **the one pass complete**, Player window | gradient24 digest · rotate ×4 · mirror ×2 |
-| 2 | `app-compositor` | layer stack, normalised transforms, **colour adjustment (§4)**, timeline with start/end trim, per-cue speed and Loop N/∞ (§2), S setting | 4-layer cue identical preview vs wire at S = 4/8/16 |
-| 3 | `app-generators-setup` | generators (§6), **text generator (§5)**, Setup + Rotation, auto-fit, cue rotate/mirror, **project files + crash recovery** | 10 × 5 show re-fits to 10 × 12 · kill the app mid-edit and lose nothing |
-| 4 | `app-hardening` | packaging, codesign, notarize, failure drills | every drill survived |
+| 1 | `app-shell` | Electron + Vite + React, sidecar supervision, **the one pass complete**, a minimal render host | gradient24 digest · rotate ×4 · mirror ×2 |
+| 2 | `app-player` | Play surface: cue stack, GO, transport, Live/Preview, BLACKOUT, Master. **A cue is a media file and a duration** | black frames on the wire for BLACKOUT, cue gaps and idle · gapless cue change · the socket never closes |
+| 3 | `app-compositor` | layer stack, normalised transforms, **colour adjustment (§4)**, timeline with start/end trim, per-cue speed and Loop N/∞ (§2), S setting | 4-layer cue identical preview vs wire at S = 4/8/16 |
+| 4 | `app-generators-setup` | generators (§6), **text generator (§5)**, Setup + Rotation, auto-fit, cue rotate/mirror, **project files + crash recovery** | 10 × 5 show re-fits to 10 × 12 · kill the app mid-edit and lose nothing |
+| 5 | `app-hardening` | packaging, codesign, notarize, failure drills | every drill survived |
 
 The floor session produces no PR. It produces a runsheet section, as §11 did.
+
+**PR 2 was split out of PR 1 on 2026-08-11.** The two forms of this plan had
+already drifted on the point: this table said "Player window" and nothing more,
+while `app-plan.html`'s DAY 1 spelled out "cue stack, GO, transport,
+Live/Preview, BLACKOUT, MASTER. A cue is a media file and a duration" — a whole
+surface, invisible in the canonical copy. Splitting it also fixes a dependency
+inversion the old order carried: the compositor PR built a four-layer stack
+before anything in the app could run a show at all. A cue is single-source in
+PR 2 and gains layers in PR 3, so each PR runs.
+
+**PR 2's gate is deliberately not a digest against `mapper play`.** Chromium's
+H.264 decoder and ffmpeg's do not agree byte for byte — chroma upsampling and
+IDCT rounding differ — so a pixel digest across the two fails for a *correct*
+implementation, and the repair someone reaches for is to change the pass until
+it agrees. That is the seventh self-consistent-but-wrong result, pre-written.
+What is exact is the black-frame invariant: an all-zero framebuffer has one
+correct wire digest, and `CLAUDE.md` makes sending it a safety property rather
+than a nicety, because a floor that stops receiving does not go dark.
 
 **The app lives in `app/` in this repo.** The digest gate couples it to
 `mapper/`, and a split repo means version skew between the app and the engine it
@@ -180,7 +236,7 @@ Two rules keep the renderer replaceable, and cost nothing today:
 
 - **Colour adjustment (§4) is `ctx.filter`, and nearly free.** Hue, saturation,
   contrast and brightness are one CSS filter string on the layer's draw; opacity
-  is `globalAlpha`; tint is one composite pass. All per layer, in PR 2. Scale and
+  is `globalAlpha`; tint is one composite pass. All per layer, in PR 3. Scale and
   rotation are the Xform panel, stored normalised like every other transform.
 - **Text is a scrolling marquee, not a static title.** At 80 px wide the floor
   fits about ten 8-px glyphs. Requirements §5's four scroll directions are the
@@ -223,11 +279,14 @@ Named so they do not creep back in.
   per-source and per-layer effects over a parameter set
   (speed/intensity/colour/scale/rotation/direction/opacity) plus an architecture
   that accepts more later. The Edit inspector's FX tab is in the mockups, so it
-  ships as a tab; **what is behind it is deferred**, because PR 3 already carries
+  ships as a tab; **what is behind it is deferred**, because PR 4 already carries
   text, generators, Setup, auto-fit and crash recovery, and an effects system on
   top of that is not credible in the time. The colour half of §7's parameter set
   lands anyway as §4 above; the compositing half — per-layer post effects — is
-  the deferred part. Promote it into PR 2 if the schedule turns out to have room.
+  the deferred part. Promote it into PR 3 if the schedule turns out to have room;
+  left deferred at the PR 1 review on 2026-08-11, to be decided when PR 3's real
+  scope is known. Note that the deferral was originally a session's call and not
+  the operator's — it is a scheduling judgement, not a scope decision they made.
 - **Sound-reactive.** Space held in the Play page's cue panel per §12.
 - **Syphon / NDI.** Deferred, not blocked — 2–4 days as a helper, whenever
   wanted.
@@ -249,7 +308,7 @@ Named so they do not creep back in.
   controller order. The white frame and per-column walk are not optional.
 - **Frame pacing matters more than measured.** The 7.8 %-of-a-frame worst case
   at 60 fps is documented and unexplained. Harmless at 30.
-- **The app must run unattended for hours.** Nothing here is soak-tested. PR 4's
+- **The app must run unattended for hours.** Nothing here is soak-tested. PR 5's
   drills are the minimum, not proof.
 
 ## Sources

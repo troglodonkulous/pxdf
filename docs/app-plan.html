@@ -638,8 +638,19 @@ hr{border:none;border-top:1px solid var(--border-hairline);margin:44px 0}
     <div class="day-mark">DAY 1</div>
     <div class="day-body">
       <h4>Wire and the one pass</h4>
-      <p>Add <code>mapper stream</code>. Scaffold Electron + Vite + React, drop in the design tokens, spawn and supervise the sidecar. Build the final composite pass complete — supersample, rotation, mirror, master, box-downsample — before any layer exists. Player window: cue stack, GO, transport, Live/Preview, BLACKOUT, MASTER. A cue is a media file and a duration.</p>
+      <p>Add <code>mapper stream</code>. Scaffold Electron + Vite + React, drop in the design tokens, spawn and supervise the sidecar. Build the final composite pass complete — supersample, rotation, mirror, master, box-downsample — before any layer exists. The pass is a pure function over typed arrays, so <code>S = 1</code> is an argument rather than a test-only backdoor and the gate needs no canvas. A minimal render host window drives it; the Play surface is its own PR below.</p>
       <div class="gate">gate · gradient24 matches 10cfd968…f8057 · rotate ×4 and mirror ×2 both identity</div>
+    </div>
+    <div class="day-rail"></div>
+  </div>
+
+  <div class="day">
+    <div class="day-mark">DAY 1½</div>
+    <div class="day-body">
+      <h4>The Player</h4>
+      <p>Play surface: cue stack, GO, transport, Live/Preview, BLACKOUT, MASTER. A cue is a media file and a duration — single-source here, gaining layers in the compositor PR below, so that every PR from this one on can actually run a show. Split out of DAY 1 on 2026-08-11, when this page and <code>APP-PLAN.md</code> were found to disagree about whether the Player was in it.</p>
+      <div class="gate">gate · BLACKOUT, cue gaps and idle all put black frames on the wire · cue changes are gapless · the socket never closes</div>
+      <p class="sec-note">Not a digest against <code>mapper play</code>: Chromium's H.264 decoder and ffmpeg's do not agree byte for byte, so that gate fails for a correct implementation and invites someone to "fix" the pass until it passes. The black-frame invariant is exact.</p>
     </div>
     <div class="day-rail"></div>
   </div>

@@ -6,12 +6,13 @@ from the code and would otherwise rediscover expensively — or get wrong.
 
 ## The one thing to internalise
 
-**This project has produced six self-consistent-but-wrong conclusions.** The
+**This project has produced seven self-consistent-but-wrong conclusions.** The
 "512-byte packet", "byte 4 always 0x00", frame counts low by one across all six
 captures, fps wrong in both directions, an oracle classifier that passed a
-genuinely wrong mapping by laundering it as a vendor defect, and
+genuinely wrong mapping by laundering it as a vendor defect,
 `oracle.harness --live` silently grading a stored capture while a live send was
-on the wire.
+on the wire, and an app acceptance gate that reported green while the dependency
+it existed to check was never installed.
 
 Every measurement here is taken through tooling this project also wrote, so an
 error in the instrument reproduces itself in the result and looks like
@@ -47,7 +48,7 @@ rationalise.
 All of it runs off-hardware. Run all of it before claiming anything is done.
 
 ```bash
-python -m unittest discover -t . -s mapper/tests        # 63 tests, ~20 s
+python -m unittest discover -t . -s mapper/tests        # 70 tests, ~20 s
 python -m unittest discover -t . -s tools/oracle/tests  # 39 tests
 python -m mapper matrix                                 # 2400 configs
 python -m tools.oracle.harness run --configs tools/oracle/configs.acceptance.json
@@ -63,6 +64,11 @@ python -m mapper send --type 8x8_4P --cols 10 --rows 5 --pattern gradient24 --dr
 # against both -- see docs/APP-PLAN.md.
 python -m mapper send --type 8x8_4P --cols 10 --rows 12 --pattern gradient24 --dry-run | tail -1
 #   -> 12df0afcfb2c05be3b967822ae965dc251578b27f4813d372447c3d09d59352d
+
+# the app. `npm ls` catches an unmet dependency; `electron --version` catches a
+# package whose binary never downloaded, which `npm ls` reports as fine.
+cd app && npm ls >/dev/null && npx electron --version >/dev/null \
+    && npm run typecheck && npm test   # 56 tests
 ```
 
 ## The rig
@@ -154,6 +160,20 @@ interface number is **not stable across reboots** — re-derive with
   (Fwd/Rev/Bounce), Custom layout and Calibrate… all appear in it and are all
   shelved or scrapped. `docs/REQUIREMENTS-v1.pdf` wins over the mockups, and
   `docs/APP-PLAN.md` says what is cut and why.
+- **A delegated builder's acceptance command needs one leg that fails when a
+  dependency is absent.** PR 1's was `typecheck && test && build`, run in a
+  sandbox without network where `npm install` silently no-op'd; the gate
+  reported green over the whole half of the PR it existed to check. No single
+  leg was buggy — externalising `electron` is correct for a bundler, a
+  `@ts-ignore` on an unresolvable import is a normal local workaround, and unit
+  tests not spawning processes is ordinary. The defect lived only in the
+  conjunction, which is why reading any one file would not have shown it.
+  `typecheck` does catch it today, but only because no `@ts-ignore` masks the
+  import any more — one re-added comment and that is gone, so do not rely on it.
+  `npm ls` is the cheap unconditional check and is **not** sufficient alone:
+  `npm install` can report success while a large binary payload never arrives,
+  and `npm ls` calls that healthy. Where the deliverable is a *process*, make
+  something launch it.
 
 ## Git
 
