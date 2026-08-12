@@ -62,6 +62,14 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    // Relative asset URLs, because the packaged app is loaded with `loadFile`
+    // and therefore over `file://`. Vite's default of `/assets/...` resolves
+    // against the filesystem root there, every asset 404s, and the window comes
+    // up blank with an empty `#root` — no error dialog, no console the operator
+    // would ever see. `npm run dev` cannot show this: the dev server is loaded
+    // over `http://` with `loadURL`, where an absolute path is correct. The
+    // production page had never been opened until the wire gate opened it.
+    base: './',
     plugins: [launchElectron()],
     server: {
       fs: {

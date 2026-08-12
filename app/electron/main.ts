@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
-import { dirname, join, resolve } from 'node:path'
-import { app, BrowserWindow, ipcMain, powerSaveBlocker } from 'electron'
+import { delimiter, dirname, join, resolve } from 'node:path'
+import { app, BrowserWindow, dialog, ipcMain, powerSaveBlocker } from 'electron'
 import { SHOP_RIG } from '../src/render/geometry.js'
 import { blackFrame } from '../src/render/onePass.js'
 import { Sidecar, type LinkStatus } from './sidecar.js'
@@ -22,8 +22,8 @@ function publishStatus(status: LinkStatus): void {
 
 function createWindow(): void {
   const window = new BrowserWindow({
-    width: 920,
-    height: 620,
+    width: 1280,
+    height: 800,
     minWidth: 720,
     minHeight: 520,
     title: 'DDF Sender',
@@ -62,6 +62,28 @@ function createWindow(): void {
 
 ipcMain.on('ddf:frame', (_event: unknown, frame: Uint8Array) => {
   sidecar?.writeFrame(frame)
+})
+
+ipcMain.handle('ddf:pick-media', async (): Promise<string[]> => {
+  // A test seam, in the same family as the DDF_ADDRESS / DDF_PORT / DDF_PYTHON
+  // overrides `Sidecar` already reads. The wire gate has to get a cue into the
+  // stack, and a native file dialog cannot be driven from a script — so with
+  // this set, the picker returns these paths instead of opening. Without it,
+  // nothing about the dialog changes.
+  const seeded = process.env.DDF_PICK_MEDIA
+  if (seeded !== undefined && seeded.length > 0) return seeded.split(delimiter)
+
+  const result = await dialog.showOpenDialog({
+    title: 'Add media cues',
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      {
+        name: 'Video files',
+        extensions: ['mp4', 'm4v', 'mov', 'avi', 'mkv', 'webm', 'mpg', 'mpeg'],
+      },
+    ],
+  })
+  return result.canceled ? [] : result.filePaths
 })
 
 void app.whenReady().then(() => {
