@@ -1,5 +1,6 @@
 import type { FrameSource } from './engine'
 import { mediaUrl } from './mediaUrl'
+import { SourceReadiness } from './sourceReadiness'
 
 export interface DrawRect {
   readonly x: number
@@ -39,13 +40,12 @@ export function coverRect(srcW: number, srcH: number, dstW: number, dstH: number
 /** A detached, muted video decoder that satisfies the player's frame-source contract. */
 export class VideoSource implements FrameSource {
   private readonly video: HTMLVideoElement
-  private readyValue = false
-  private failedValue = false
-  private disposed = false
+  /** Ready / failed / disposed, and the ordering between them. */
+  private readonly state = new SourceReadiness()
   private frameCallbackId: number | null = null
 
   private readonly onError = (): void => {
-    if (!this.disposed) this.failedValue = true
+    this.state.fail()
   }
 
   // Readiness has two independent signals on purpose, and neither gates the
@@ -58,11 +58,8 @@ export class VideoSource implements FrameSource {
   // that never reports ready is a cue that never goes live: GO would appear to
   // do nothing, for ever, with no error anywhere.
   //
-  // `HAVE_CURRENT_DATA` means there is decoded data for the current position,
-  // which is precisely the condition `draw` needs. It is the floor, not the
-  // ceiling.
+  // Both signals land in `markReadyFromElement`, which owns the threshold.
   private readonly onData = (): void => {
-    if (this.disposed) return
     this.markReadyFromElement()
   }
 
@@ -77,7 +74,7 @@ export class VideoSource implements FrameSource {
     this.video.addEventListener('canplay', this.onData)
 
     if (path.trim().length === 0) {
-      this.failedValue = true
+      this.state.fail()
       return
     }
 
@@ -100,16 +97,16 @@ export class VideoSource implements FrameSource {
       this.video.load()
       this.requestDecodedFrame()
     } catch {
-      this.failedValue = true
+      this.state.fail()
     }
   }
 
   get ready(): boolean {
-    return this.readyValue
+    return this.state.ready
   }
 
   get failed(): boolean {
-    return this.failedValue
+    return this.state.failed
   }
 
   /**
@@ -128,7 +125,7 @@ export class VideoSource implements FrameSource {
    * defect stayed invisible.
    */
   fail(): void {
-    if (!this.disposed) this.failedValue = true
+    this.state.fail()
   }
 
   get positionMs(): number {
@@ -142,21 +139,22 @@ export class VideoSource implements FrameSource {
   }
 
   play(): void {
-    if (this.disposed || this.failedValue) return
+    if (this.state.disposed || this.state.failed) return
     void this.video.play().catch((error: unknown) => {
-      if (this.disposed) return
+      // An `AbortError` means a newer load or pause superseded this play, which
+      // is ordinary during a cue change and not a failure. `state.fail()`
+      // ignores everything after teardown on its own.
       if (error instanceof DOMException && error.name === 'AbortError') return
-      this.failedValue = true
+      this.state.fail()
     })
   }
 
   pause(): void {
-    if (!this.disposed) this.video.pause()
+    if (!this.state.disposed) this.video.pause()
   }
 
   dispose(): void {
-    if (this.disposed) return
-    this.disposed = true
+    if (!this.state.dispose()) return
 
     if (this.frameCallbackId !== null && this.hasVideoFrameCallbacks()) {
       this.video.cancelVideoFrameCallback(this.frameCallbackId)
@@ -178,13 +176,13 @@ export class VideoSource implements FrameSource {
     context.fillStyle = '#000000'
     context.fillRect(0, 0, width, height)
 
-    if (this.readyValue && !this.failedValue) {
+    if (this.state.ready && !this.state.failed) {
       const rect = coverRect(this.video.videoWidth, this.video.videoHeight, width, height)
       if (rect.width > 0 && rect.height > 0) {
         try {
           context.drawImage(this.video, rect.x, rect.y, rect.width, rect.height)
         } catch {
-          this.failedValue = true
+          this.state.fail()
         }
       }
     }
@@ -196,18 +194,20 @@ export class VideoSource implements FrameSource {
   }
 
   private requestDecodedFrame(): void {
-    if (!this.hasVideoFrameCallbacks() || this.disposed) return
+    if (!this.hasVideoFrameCallbacks() || this.state.disposed) return
     this.frameCallbackId = this.video.requestVideoFrameCallback(() => {
       this.frameCallbackId = null
       if (!this.markReadyFromElement()) this.requestDecodedFrame()
     })
   }
 
+  /**
+   * The one DOM read behind readiness, kept here rather than in
+   * `SourceReadiness` so the threshold sits next to the constant that defines
+   * it. `HAVE_CURRENT_DATA` means there is decoded data for the current
+   * position, which is exactly what `draw` needs — the floor, not the ceiling.
+   */
   private markReadyFromElement(): boolean {
-    if (this.disposed || this.failedValue || this.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-      return false
-    }
-    this.readyValue = true
-    return true
+    return this.state.observe(this.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)
   }
 }
