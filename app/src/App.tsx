@@ -212,12 +212,28 @@ export function App() {
     const previewContainer = previewContainerRef.current
     if (surface !== 'play' || previewCanvas === null || previewContainer === null) return
 
+    // The canvas element always holds a floor-native framebuffer (see the
+    // layout effect above) — rotation never touches that pixel data, only
+    // this element's on-screen box. `previewContainer`'s box stays
+    // floor-shaped regardless of rotation (an empty div, sized only to
+    // reserve layout space), so at 90/270 the box a rotated floor needs to
+    // sit in is portrait where the container is landscape or vice versa.
+    // This fits that (rotated) box inside the container the way `object-fit:
+    // contain` would, then rotates the floor-shaped canvas into it — the
+    // same way a landscape photo is shown, uncropped, in a portrait frame.
     const positionPreview = (): void => {
       const bounds = previewContainer.getBoundingClientRect()
-      previewCanvas.style.left = `${bounds.left}px`
-      previewCanvas.style.top = `${bounds.top}px`
-      previewCanvas.style.width = `${bounds.width}px`
-      previewCanvas.style.height = `${bounds.height}px`
+      const swapped = rotation === 90 || rotation === 270
+      const boxW = swapped ? floor.heightPx : floor.widthPx
+      const boxH = swapped ? floor.widthPx : floor.heightPx
+      const fitScale = Math.min(bounds.width / boxW, bounds.height / boxH)
+      const fittedW = boxW * fitScale
+      const fittedH = boxH * fitScale
+      previewCanvas.style.left = `${bounds.left + bounds.width / 2}px`
+      previewCanvas.style.top = `${bounds.top + bounds.height / 2}px`
+      previewCanvas.style.width = `${swapped ? fittedH : fittedW}px`
+      previewCanvas.style.height = `${swapped ? fittedW : fittedH}px`
+      previewCanvas.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`
     }
 
     positionPreview()
@@ -228,7 +244,7 @@ export function App() {
       observer.disconnect()
       window.removeEventListener('resize', positionPreview)
     }
-  }, [surface, floor.widthPx, floor.heightPx])
+  }, [surface, floor.widthPx, floor.heightPx, rotation])
 
   const refreshSnapshot = (): void => setSnapshot(engine.snapshot())
 
