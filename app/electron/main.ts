@@ -8,7 +8,7 @@ import { PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
 import { MEDIA_SCHEME, mediaPath, mediaUrl } from '../src/player/mediaUrl.js'
 import type { ShowFloor } from '../src/player/show.js'
 import { runMapperPlan } from './mapperPlan.js'
-import { Sidecar, type LinkStatus } from './sidecar.js'
+import { Sidecar, type SenderStatus } from './sidecar.js'
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(currentDirectory, '../..')
@@ -49,13 +49,13 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null
 let sidecar: Sidecar | null = null
-let currentStatus: LinkStatus = 'reconnecting'
+let currentStatus: SenderStatus = 'restarting'
 let currentFloor: ShowFloor = { type: SHOP_RIG.type, tileCols: SHOP_RIG.tileCols, tileRows: SHOP_RIG.tileRows }
 let currentBlackFrame: Uint8Array = blackFrame(SHOP_RIG)
 let quitAfterStop = false
 let stopInProgress = false
 
-function publishStatus(status: LinkStatus): void {
+function publishStatus(status: SenderStatus): void {
   currentStatus = status
   mainWindow?.webContents.send('ddf:status', status)
 }

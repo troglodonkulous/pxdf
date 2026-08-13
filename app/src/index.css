@@ -201,16 +201,16 @@ input:disabled {
   background: var(--sem-idle);
 }
 
-.status-linked .status-dot {
+.status-sending .status-dot {
   background: var(--sem-ok);
   box-shadow: var(--glow-accent);
 }
 
-.status-reconnecting .status-dot {
+.status-restarting .status-dot {
   background: var(--sem-warn);
 }
 
-.status-dropped .status-dot {
+.status-stopped .status-dot {
   background: var(--sem-danger);
 }
 

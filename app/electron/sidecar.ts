@@ -1,6 +1,26 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 
-export type LinkStatus = 'linked' | 'reconnecting' | 'dropped'
+/**
+ * What the sender process is doing. Not what the floor is doing.
+ *
+ * These names used to be `linked` / `reconnecting` / `dropped`, and the first
+ * of them was a claim nothing in this repo can support. It is published from
+ * Node's `spawn` event, which — as the comment forty lines down has always said
+ * — "fires on process creation and says nothing about survival", let alone
+ * about a controller at the other end of a cable.
+ *
+ * Nor could any amount of work here make it support one. The child is spawned
+ * with stdout `'ignore'`, so the sidecar has no back-channel; and `mapper` is
+ * fire-and-forget UDP broadcast (`mapper/sender.py:38-40` opens `SOCK_DGRAM`
+ * with `SO_BROADCAST` and never calls `recv`), so nothing downstream can
+ * acknowledge even in principle. An operator reading "Linked" was reading a
+ * statement about a Python process, dressed as one about the hardware.
+ *
+ * The bad news that *is* observable still arrives: `mapper/sender.py:44` binds
+ * to the selected local IP, so an interface that has gone away makes the child
+ * exit and lands here as `stopped`.
+ */
+export type SenderStatus = 'sending' | 'restarting' | 'stopped'
 
 /**
  * Note what is *not* here: address, port, local IP and the Python binary.
@@ -19,7 +39,7 @@ export interface SidecarOptions {
   readonly cols: number
   readonly rows: number
   readonly blackFrame: Uint8Array
-  readonly onStatus: (status: LinkStatus) => void
+  readonly onStatus: (status: SenderStatus) => void
 }
 
 const RETRY_DELAYS_MS = [0, 250, 500, 1_000] as const
@@ -196,7 +216,7 @@ export class Sidecar {
       }
       if (this.stopping || !this.started) return
 
-      this.options.onStatus('dropped')
+      this.options.onStatus('stopped')
       this.scheduleRespawn()
     }
 
@@ -211,7 +231,7 @@ export class Sidecar {
 
       this.writable = true
       this.writeIfPossible(this.lastFrame ?? this.options.blackFrame)
-      this.options.onStatus('linked')
+      this.options.onStatus('sending')
 
       // The ladder resets only once this child has *stayed* up. `spawn` fires
       // on process creation and says nothing about survival, so resetting here
@@ -238,7 +258,7 @@ export class Sidecar {
   private scheduleRespawn(): void {
     const delay = RETRY_DELAYS_MS[Math.min(this.retryIndex, RETRY_DELAYS_MS.length - 1)]
     this.retryIndex += 1
-    this.options.onStatus('reconnecting')
+    this.options.onStatus('restarting')
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null
       this.spawnChild()

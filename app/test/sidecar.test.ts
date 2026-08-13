@@ -19,7 +19,7 @@ const spawn = vi.hoisted(() => vi.fn());
 vi.mock('node:child_process', () => ({ spawn }));
 
 const { Sidecar } = await import('../electron/sidecar');
-import type { LinkStatus } from '../electron/sidecar';
+import type { SenderStatus } from '../electron/sidecar';
 
 /** A child process that behaves like a pipe: writable until told otherwise. */
 class FakeChild extends EventEmitter {
@@ -73,7 +73,7 @@ function makeSidecar() {
     return child;
   });
 
-  const statuses: LinkStatus[] = [];
+  const statuses: SenderStatus[] = [];
   const sidecar = new Sidecar({
     isPackaged: false,
     repoRoot: '/repo',
@@ -334,17 +334,17 @@ describe('respawn', () => {
     expect(children.length).toBe(51);
   });
 
-  it('reports dropped, then reconnecting, then linked', () => {
+  it('reports stopped, then restarting, then sending', () => {
     const { sidecar, children, statuses } = makeSidecar();
     sidecar.start();
     children[0].goLive();
     statuses.length = 0;
 
     children[0].die();
-    expect(statuses).toEqual(['dropped', 'reconnecting']);
+    expect(statuses).toEqual(['stopped', 'restarting']);
     vi.advanceTimersByTime(0);
     children[1].goLive();
-    expect(statuses).toEqual(['dropped', 'reconnecting', 'linked']);
+    expect(statuses).toEqual(['stopped', 'restarting', 'sending']);
   });
 });
 

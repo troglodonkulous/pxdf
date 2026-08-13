@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { LinkStatus } from '../../electron/sidecar.js'
+import type { SenderStatus } from '../../electron/sidecar.js'
 import type { ShowFloor } from '../player/show.js'
 import {
   canvasSize,
@@ -16,11 +16,12 @@ import {
   type DiagramModel,
 } from './diagramLayout.js'
 import { parsePlanTable, type PlanTable } from './mapperPlan.js'
+import { StatusPill } from '../StatusPill.js'
 
 interface MappingScreenProps {
   readonly floor: FloorGeometry
   readonly rotation: Rotation
-  readonly status: LinkStatus
+  readonly status: SenderStatus
   readonly changeFloor: (
     patch: Partial<Pick<ShowFloor, 'type' | 'tileCols' | 'tileRows'>>,
   ) => Promise<void>
@@ -63,14 +64,6 @@ function rowCounts(type: string): readonly number[] {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
-}
-
-function statusLabel(status: LinkStatus): string {
-  switch (status) {
-    case 'linked': return 'Linked'
-    case 'reconnecting': return 'Reconnecting'
-    case 'dropped': return 'Dropped'
-  }
 }
 
 export function MappingScreen({
@@ -204,10 +197,7 @@ export function MappingScreen({
     <main className="mapping-screen">
       <header className="title-bar">
         <span className="show-title">DDF Setup — Mapping</span>
-        <span className={`status-pill status-${status}`}>
-          <span className="status-dot" aria-hidden="true" />
-          {statusLabel(status)}
-        </span>
+        <StatusPill status={status} />
       </header>
 
       <div className="mapping-body">

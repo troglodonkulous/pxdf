@@ -584,19 +584,24 @@ try {
   check(await page.evaluate('document.querySelector(".play-screen") === null'),
     'Play is not mounted until it is opened')
 
-  // And the link indicator agrees with the wire it is describing.
+  // And the sender indicator agrees with the wire it is describing.
   //
-  // It did not. `Sidecar` publishes 'linked' when the child spawns and
+  // It did not. `Sidecar` publishes its live status when the child spawns and
   // `main.ts` re-publishes on `did-finish-load`, and both land before React's
   // effect has subscribed — so nothing re-published until the *next* spawn and
-  // the pill sat on its initial 'Reconnecting' while 600 packets a second were
+  // the pill sat on its initial 'Restarting' while 600 packets a second were
   // leaving the socket. Cosmetic only until you remember what the indicator is
   // for: an operator who has seen it cry wolf once reads straight past it on
   // the night it is right. Asserted against the same window that just proved
   // packets are flowing, because that pairing is the whole claim.
+  //
+  // Note what this does *not* assert, and cannot: that the floor is receiving.
+  // The pill used to read "Linked" and this check used to grade that word. It
+  // was never earned — `mapper` broadcasts UDP and never reads a reply, so no
+  // instrument in this repo can tell a live floor from an unplugged one.
   const linkLabel = await waitFor(
-    'document.querySelector(".status-pill")?.textContent?.trim() === "Linked" ? "Linked" : null')
-  check(linkLabel === 'Linked', 'the link indicator says Linked while the wire is live',
+    'document.querySelector(".status-pill")?.textContent?.trim() === "Sending" ? "Sending" : null')
+  check(linkLabel === 'Sending', 'the sender indicator says Sending while the wire is live',
     String(await page.evaluate('document.querySelector(".status-pill")?.textContent?.trim() ?? null')))
 
   const shop = planShape('8x8_4P', 10, SHOP_RIG_ROWS)
