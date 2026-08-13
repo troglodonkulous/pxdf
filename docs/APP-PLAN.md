@@ -217,13 +217,37 @@ mockup.
    10 × 5 and 10 × 12, shell out, parse the table, and assert the surface's
    controller/port/tile-column assignment and its derived readout match it
    field for field.
-2. **A geometry change is visible on the wire and never silent.** Extend
-   `test/e2e/wire.mjs`: set 10 × 12 in the running UI and watch packets per
-   frame go **20 → 50** and bytes per frame **9,700 → 23,290**, with **no gap in
-   the packet stream** across the restart and black — not silence — during it.
+2. **A geometry change is visible on the wire, with no gap in the content.**
+   Extend `test/e2e/wire.mjs`: set 10 × 12 in the running UI and watch packets
+   per frame go **20 → 50** and bytes per frame **9,700 → 23,290**. No *content*
+   gap across the restart — controllers never see garbage or stale non-black
+   content, which `Sidecar.stop()`'s black-before-goodbye write is what
+   provides. The **transport** gap is real and budgeted rather than denied: a
+   geometry change replaces the `mapper stream` process, and the old one has to
+   stop being the sender before the new one starts or two senders interleave
+   frames onto one floor. So the gate is that the silence stays under a small
+   bound — `wire.mjs` uses 2 s — which is well short of the ~5 s at which
+   controller 1 reverts to the vendor's own content.
+
+   *Reworded in PR 3, 2026-08-13.* The original said "no gap in the packet
+   stream", which read literally is unachievable without either live
+   reconfiguration inside `mapper/` — far outside this plan's "one new
+   subcommand, nothing existing edited" — or two concurrent senders, which this
+   document's own integration seam calls out as the failure mode to avoid. The
+   wording is amended here rather than quietly reinterpreted in the test, so the
+   doc and the gate say the same thing.
 3. **The job-rig digest becomes reachable.** `gate.digest.test.ts` already
    grades both rigs. The new assertion is that the app, driven to 10 × 12
    through the UI, produces the framebuffer that digest grades.
+
+   *Scope note, PR 3, 2026-08-13.* PR 3 meets the half it can: the Mapping
+   surface's selection path is driven to 10 × 12 and asserted to produce the
+   `FloorGeometry` `gate.digest.test.ts` already hashes to `12df0afc…`, and the
+   wire is asserted to carry real composed content at 50 packets / 23,290 bytes
+   per frame at that geometry. **The byte-exact half is owed to PR 5** — the
+   digest grades `gradient24`, and until the app has a generator its only
+   sources are decoded video, which is not byte-exact by construction. Recorded
+   on PR 5's row below rather than marked met here.
 
 ### Cut from 1a, deliberately
 
@@ -351,9 +375,9 @@ One PR per gate. Branch from `main` each time, after the previous merges.
 | B | `mapper-stream` | `mapper stream`, `--emit-digest`, its test | stream digest == `send --dry-run` digest |
 | 1 | `app-shell` | Electron + Vite + React, sidecar supervision, **the one pass complete**, a minimal render host | gradient24 digest · rotate ×4 · mirror ×2 |
 | 2 | `app-player` | Play surface: cue stack, GO, transport, Live/Preview, BLACKOUT, Master. **A cue is a media file and a duration** | black frames on the wire for BLACKOUT, cue gaps and idle · gapless cue change · the socket never closes · a cue that cannot play says so and does not stall the loop · only opened files are served |
-| 3 | `app-mapping` | **Mapping surface** (mockup 1a): floor Type / Width / Height, the wiring diagram, the derived readout, the NIC picker, Rotation, Mapping ↔ Play navigation. **Geometry becomes a runtime variable end to end** | the diagram agrees with `mapper plan` · a geometry change is visible on the wire as 20 → 50 packets/frame with no silence across it |
+| 3 | `app-mapping` | **Mapping surface** (mockup 1a): floor Type / Width / Height, the wiring diagram, the derived readout, the NIC picker, Rotation, Mapping ↔ Play navigation. **Geometry becomes a runtime variable end to end** | the diagram agrees with `mapper plan` · a geometry change is visible on the wire as 20 → 50 packets/frame, with no content gap across the restart and the transport gap bounded well under controller 1's ~5 s revert |
 | 4 | `app-compositor` | layer stack, normalised transforms, **colour adjustment (§4)**, timeline with start/end trim, per-cue speed and Loop N/∞ (§2), **a global fade time and per-cue override**, S setting | 4-layer cue identical preview vs wire at S = 4/8/16 |
-| 5 | `app-generators` | generators (§6), **text generator (§5)**, auto-fit, cue rotate/mirror, **project files + crash recovery** | 10 × 5 show re-fits to 10 × 12 · kill the app mid-edit and lose nothing |
+| 5 | `app-generators` | generators (§6), **text generator (§5)**, auto-fit, cue rotate/mirror, **project files + crash recovery** | 10 × 5 show re-fits to 10 × 12 · kill the app mid-edit and lose nothing · **owed from PR 3:** gradient24 from an in-app generator, driven to 10 × 12 through the UI, hashes to `12df0afc…` |
 | 6 | `app-hardening` | packaging, codesign, notarize, failure drills | every drill survived |
 
 The floor session produces no PR. It produces a runsheet section, as §11 did.
