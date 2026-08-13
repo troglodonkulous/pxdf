@@ -72,7 +72,7 @@ fast hard-edged motion, for no gain over 30.
 - **`--scaler area`** for real footage. A 1080p source is 24× the floor's width
   and 4K is 48×; `neighbor` at 48:1 keeps one pixel per 48×48 block and reads as
   crawling noise. Use `neighbor` only for a source already at floor resolution,
-  such as `tools/make_test_patterns.py` output.
+  such as `tools/oracle/make-gradient-avi.ps1` output.
 - **`--fit cover`**. `letterbox` leaves exactly 9 of the floor's 80 columns
   permanently black (columns 0–3 and 75–79, measured); on a surface people stand
   on that reads as the floor being broken, while `cover`'s 5-row crop goes

@@ -9,7 +9,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { emptyShow, nextCueId, parseShow, serializeShow, SHOW_FILE_VERSION } from '../src/player/show';
-import type { Show } from '../src/player/show';
+import type { Cue, Show } from '../src/player/show';
+import { cueNameFromPath, insertCue, renameCue, setCueDuration } from '../src/player/playHelpers';
 
 const SHOP_FLOOR = { type: '8x8_4P', tileCols: 10, tileRows: 5 };
 
@@ -48,6 +49,56 @@ describe('show file', () => {
     expect(show.version).toBe(SHOW_FILE_VERSION);
     expect(show.cues).toEqual([]);
     expect(parseShow(JSON.parse(serializeShow(show)))).toEqual(show);
+  });
+
+  /**
+   * The writer and the reader, graded against each other.
+   *
+   * Every other test in this file feeds the parser a show that this file wrote,
+   * which means the parser has only ever been checked against its own author's
+   * idea of a show. Nothing had established that the *app* builds one it can
+   * read back — and the app does not use the literal above, it assembles cues in
+   * `addMedia` out of `nextCueId`, `cueNameFromPath` and a picker path, then
+   * edits them through the `playHelpers` functions.
+   *
+   * So this walks that exact path and requires the result to survive the round
+   * trip. It is the coupling PR 5 depends on: Save writes whatever the app is
+   * holding, Open runs it through `parseShow`, and a field the app can produce
+   * but the parser refuses is a show that saves and will not reopen.
+   */
+  it('reparses a show assembled the way the app assembles one', () => {
+    const picked = [
+      '/Users/rob/Movies/Doors — Warm.mp4',
+      '/Users/rob/Movies/first dance (final).mov',
+      '/Volumes/SD/loop.webm',
+    ];
+
+    let cues: readonly Cue[] = [];
+    for (const path of picked) {
+      cues = insertCue(cues, {
+        id: nextCueId(cues),
+        name: cueNameFromPath(path),
+        source: { kind: 'video', path },
+        durationMs: null,
+      });
+    }
+    cues = setCueDuration(cues, 'cue-2', 120_000);
+    cues = renameCue(cues, 'cue-3', 'Last Song');
+
+    const built: Show = { ...emptyShow(SHOP_FLOOR, 'Untitled show'), cues };
+    expect(parseShow(JSON.parse(serializeShow(built)))).toEqual(built);
+  });
+
+  it('names a cue something the parser will accept, for every path the picker can return', () => {
+    // `asString` refuses an empty name, so a `cueNameFromPath` that can return
+    // one is a show the app builds and cannot reopen. The native dialog returns
+    // files, but `DDF_PICK_MEDIA` — the wire gate's seam into the same code —
+    // is a delimiter-split string, and a stray trailing delimiter yields ''.
+    for (const path of ['/media/clip.mp4', 'C:\\clips\\a.mov', '.mp4', 'noext', '/media/', '']) {
+      const name = cueNameFromPath(path);
+      const cue: Cue = { id: 'cue-1', name, source: { kind: 'video', path: path || '/x.mp4' }, durationMs: null };
+      expect(() => parseShow({ ...emptyShow(SHOP_FLOOR), cues: [cue] })).not.toThrow();
+    }
   });
 
   it('mints cue ids that do not collide with the ones already in the stack', () => {

@@ -32,7 +32,7 @@ export interface ProbeOptions {
   readonly now?: () => number
 }
 
-export const PROBE_TIMEOUT_MS = 5_000
+const PROBE_TIMEOUT_MS = 5_000
 const POLL_MS = 50
 
 export async function probeDurationMs(probe: DurationProbe, options: ProbeOptions = {}): Promise<number> {

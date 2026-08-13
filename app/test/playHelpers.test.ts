@@ -27,10 +27,10 @@ describe('Play helpers', () => {
     expect(formatTimecode(3_661_000)).toBe('61:01')
   })
 
-  it('inserts without mutating the original cue list', () => {
+  it('appends without mutating the original cue list', () => {
     const original = [cue('a'), cue('c')]
-    const inserted = insertCue(original, cue('b'), 1)
-    expect(inserted.map(({ id }) => id)).toEqual(['a', 'b', 'c'])
+    const inserted = insertCue(original, cue('b'))
+    expect(inserted.map(({ id }) => id)).toEqual(['a', 'c', 'b'])
     expect(original.map(({ id }) => id)).toEqual(['a', 'c'])
   })
 

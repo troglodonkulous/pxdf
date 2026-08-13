@@ -2,6 +2,16 @@ import { spawn, type ChildProcess } from 'node:child_process'
 
 export type LinkStatus = 'linked' | 'reconnecting' | 'dropped'
 
+/**
+ * Note what is *not* here: address, port, local IP and the Python binary.
+ *
+ * Each had an optional field beside its `DDF_*` environment override, and no
+ * caller ever set one — not `main.ts`, not `sidecar.test.ts`, not the wire
+ * gate, which seeds `DDF_ADDRESS` and `DDF_PORT`. Two ways to configure one
+ * value, one of them dead, is a coin-flip for whoever next needs to change it,
+ * and the dead half is the one that reads more discoverable. The environment
+ * path stays because it is the one the gate actually exercises.
+ */
 export interface SidecarOptions {
   readonly isPackaged: boolean
   readonly repoRoot: string
@@ -10,10 +20,6 @@ export interface SidecarOptions {
   readonly rows: number
   readonly blackFrame: Uint8Array
   readonly onStatus: (status: LinkStatus) => void
-  readonly address?: string
-  readonly port?: number
-  readonly localIp?: string
-  readonly python?: string
 }
 
 const RETRY_DELAYS_MS = [0, 250, 500, 1_000] as const
@@ -140,11 +146,11 @@ export class Sidecar {
   private spawnChild(): void {
     if (this.stopping || !this.started) return
 
-    const address = process.env.DDF_ADDRESS ?? this.options.address ??
+    const address = process.env.DDF_ADDRESS ??
       (this.options.isPackaged ? '255.255.255.255' : '127.0.0.1')
-    const port = process.env.DDF_PORT ?? String(this.options.port ?? 60_001)
-    const python = process.env.DDF_PYTHON ?? this.options.python ?? 'python3'
-    const localIp = process.env.DDF_LOCAL_IP ?? this.options.localIp
+    const port = process.env.DDF_PORT ?? String(60_001)
+    const python = process.env.DDF_PYTHON ?? 'python3'
+    const localIp = process.env.DDF_LOCAL_IP
     const args = [
       '-m', 'mapper', 'stream',
       '--type', this.options.type,

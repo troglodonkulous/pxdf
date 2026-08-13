@@ -58,7 +58,3 @@ def from_xml(text: str) -> FloorConfig:
 
 def read(path: str | Path) -> FloorConfig:
     return from_xml(Path(path).read_text(encoding="utf-8"))
-
-
-def write(config: FloorConfig, path: str | Path) -> None:
-    Path(path).write_text(to_xml(config), encoding="utf-8")

@@ -23,9 +23,6 @@ class Address:
     packet_index: int
     body_offset: int
 
-    def as_tuple(self) -> tuple[int, int, int, int]:
-        return (self.controller, self.port, self.packet_index, self.body_offset)
-
 
 def pixel_address(
     config: FloorConfig, x: int, y: int, orientation: Orientation = IDENTITY
@@ -90,28 +87,27 @@ def pack_send_buffer(
     config: FloorConfig,
     framebuffer: bytes | bytearray,
     orientation: Orientation = IDENTITY,
-    color_order: str = "BGR",
 ) -> bytearray:
-    """RGB framebuffer -> the contiguous buffer the packets are sliced from."""
+    """RGB framebuffer -> the contiguous buffer the packets are sliced from.
+
+    The wire is BGR, always. This used to take a `color_order` argument with an
+    RGB branch; nothing ever passed it, in this repo or from the app, and the
+    fixture manifests record `"colorOrder": "BGR"` as a literal. An untaken
+    branch through the one function that decides what every pixel looks like on
+    the floor is a place for a wrong frame to hide, not a feature.
+    """
     expected = config.pixel_count * 3
     if len(framebuffer) != expected:
         raise ValueError(f"framebuffer is {len(framebuffer)} bytes, expected {expected}")
-    if color_order not in ("BGR", "RGB"):
-        raise ValueError(f"unknown colour order {color_order!r}")
 
     sources = send_buffer_sources(config, orientation)
     buffer = bytearray(expected)
-    if color_order == "BGR":
-        for slot, source in enumerate(sources):
-            s = source * 3
-            d = slot * 3
-            buffer[d] = framebuffer[s + 2]
-            buffer[d + 1] = framebuffer[s + 1]
-            buffer[d + 2] = framebuffer[s]
-    else:
-        for slot, source in enumerate(sources):
-            s = source * 3
-            buffer[slot * 3 : slot * 3 + 3] = framebuffer[s : s + 3]
+    for slot, source in enumerate(sources):
+        s = source * 3
+        d = slot * 3
+        buffer[d] = framebuffer[s + 2]
+        buffer[d + 1] = framebuffer[s + 1]
+        buffer[d + 2] = framebuffer[s]
     return buffer
 
 
@@ -120,10 +116,9 @@ def build_frame(
     framebuffer: bytes | bytearray,
     orientation: Orientation = IDENTITY,
     eof: bool = True,
-    color_order: str = "BGR",
 ) -> list[bytes]:
     """One frame as an ordered list of datagrams, ready for `sendto`."""
-    buffer = pack_send_buffer(config, framebuffer, orientation, color_order)
+    buffer = pack_send_buffer(config, framebuffer, orientation)
     return datagrams_from_buffer(config, buffer, build_plan(config, eof=eof))
 
 
@@ -131,7 +126,6 @@ def unpack_send_buffer(
     config: FloorConfig,
     buffer: bytes | bytearray,
     orientation: Orientation = IDENTITY,
-    color_order: str = "BGR",
 ) -> bytearray:
     """Send buffer -> RGB framebuffer. The inverse of `pack_send_buffer`.
 
@@ -148,12 +142,9 @@ def unpack_send_buffer(
     for slot, source in enumerate(sources):
         s = slot * 3
         d = source * 3
-        if color_order == "BGR":
-            framebuffer[d] = buffer[s + 2]
-            framebuffer[d + 1] = buffer[s + 1]
-            framebuffer[d + 2] = buffer[s]
-        else:
-            framebuffer[d : d + 3] = buffer[s : s + 3]
+        framebuffer[d] = buffer[s + 2]
+        framebuffer[d + 1] = buffer[s + 1]
+        framebuffer[d + 2] = buffer[s]
     return framebuffer
 
 

@@ -6,46 +6,11 @@ PowerShell sender was written for.
 
 Written from the specification in `docs/DECOMP_FINDINGS.md`. Contains no vendor
 code.
+
+Import from the submodule that owns the thing you want -- `mapper.floors`,
+`mapper.frame`, `mapper.plan`, `mapper.orientation`, `mapper.sender`. This file
+deliberately re-exports nothing. It used to carry a twenty-name `__all__`, and
+no caller in the repo ever used it: every consumer already imports from the
+module that defines what it needs, which is also the import that tells a reader
+where the definition lives.
 """
-
-from .floors import (
-    BODY_MAX,
-    CONST_BYTE2,
-    DEST_ADDRESS,
-    DEST_PORT,
-    EOF_FLAG,
-    FLOOR_TYPES,
-    MAGIC,
-    MAX_TILE_COLS,
-    TILE_PITCH_MM,
-    FloorConfig,
-    FloorType,
-    floor_type,
-    legal_configs,
-)
-from .frame import Address, build_frame, pack_send_buffer, pixel_address
-from .orientation import Orientation
-from .plan import PacketSpec, build_plan
-
-__all__ = [
-    "Address",
-    "BODY_MAX",
-    "CONST_BYTE2",
-    "DEST_ADDRESS",
-    "DEST_PORT",
-    "EOF_FLAG",
-    "FLOOR_TYPES",
-    "FloorConfig",
-    "FloorType",
-    "MAGIC",
-    "MAX_TILE_COLS",
-    "Orientation",
-    "PacketSpec",
-    "TILE_PITCH_MM",
-    "build_frame",
-    "build_plan",
-    "floor_type",
-    "legal_configs",
-    "pack_send_buffer",
-    "pixel_address",
-]

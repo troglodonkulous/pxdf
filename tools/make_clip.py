@@ -11,9 +11,10 @@ exact pixel geometry of the target floor (`FloorConfig`, so this can never
 drift from the mapper's own idea of the geometry), at a fixed frame rate. That
 is exactly the shape `mapper.avi.read_video` requires and refuses to guess at.
 
-**`--scaler` matters more than it looks.** `tools/make_test_patterns.py` uses
-`flags=neighbor` because its patterns are authored *at* floor resolution and
-must keep hard 8-pixel tile boundaries, which any smooth filter would blur.
+**`--scaler` matters more than it looks.** A pattern generator authoring *at*
+floor resolution wants `flags=neighbor`, because it must keep hard 8-pixel tile
+boundaries that any smooth filter would blur — `tools/oracle/make-gradient-avi.ps1`
+writes at floor resolution for exactly that reason.
 That reasoning does not survive contact with real footage: a 1080p source is
 24x the floor's width and a 4K source is 48x, and nearest-neighbour at 48:1
 keeps one pixel out of every 48x48 block and throws away the other 2303. On
