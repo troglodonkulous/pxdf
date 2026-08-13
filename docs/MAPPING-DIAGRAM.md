@@ -38,24 +38,37 @@ port 0 of every controller is the same colour at the same height, port 1 is the
 next, and so on — which makes the diagram readable *across* controllers as well
 as within one.
 
-Two runs are drawn per port, each with its own stagger:
+Two runs are drawn per cable, each with its own stagger:
 
-| Run | Drop height by port index `i` |
+| Run | Drop height by jack index `i` |
 |---|---|
 | Power supply → controller | `60 − 10i` — so 60, 50, 40, 30 |
 | Controller → floor edge | `70 + 10i` — so 70, 80, 90, 100 |
+
+Ledset writes the index as `i % 4` over its edge list
+(`LedSet.decompiled.cs:1548-1559`), which within one controller *is* the jack
+index, because it never draws more than four sockets on a box. Ours indexes by
+jack directly. Taking `% 4` of a *port* index instead — which the first build did
+— gives ports 0 and 4 of an `_8P` controller the same colour and the same drop
+height, and their cables draw on top of each other.
 
 The two staggers run in **opposite directions**, which is the detail that makes
 it work: the upper bundle fans one way and the lower bundle fans the other, so
 the two never share a horizontal line even where a controller sits directly
 above its edge.
 
-**Unused ports are simply not wired.** The wire loop runs once per *floor edge*,
-not once per port, so a controller whose ports are only partly used draws its
-full set of four port circles and receives fewer wires. On our rig that is
-literally controller 3, which uses two of its four ports — the diagram shows the
-two spare sockets, unwired, which is exactly what an operator sees when they
-look at the physical box.
+**Unused sockets are simply not wired.** The wire loop runs once per *floor
+edge*, not once per port, so a controller that is only partly used draws its full
+set of four circles and receives fewer wires. Four is a hardware constant — the
+sockets on the back panel (`docs/PROTOCOL.md:34`) — not the port count, and
+drawing one circle per *port* is what put eight of them at a 15 pitch into an
+80-wide box on an `_8P` type, with the last three outside it.
+
+On our rig the partly-used box is controller 3. Note that the vendor's picture of
+it and the cable trace disagree: Ledset draws two wired circles and two spare,
+because its `_4P` branch is port-wise; the trace at
+`docs/RUNSHEET-10x5-4P.md:1546-1560` found **one** connector populated there,
+carrying two chains. Ours follows the trace — one lit jack, three dim.
 
 ## 2. The layout model
 
@@ -115,11 +128,31 @@ diagram's `Controller 1` has to be the operator's leftmost box, because
 `CLAUDE.md` records that controller 1 is the Master/IR unit and the one that
 reverts to vendor content when packets stop.
 
-**How many edges there are depends on the type.** For a `_4P` type it is one
-small edge per tile column — one connector feeds one column. For `_8P` the edges
-are wide and cover two columns each, with the odd column out taking a small edge.
-Our rig is `8x8_4P` and takes the first path; the `_8P` path is described here
-for completeness and is **not** something PR 3 needs to get right.
+**How many edges Ledset draws depends on the type, and for `_4P` it is wrong.**
+`GetEdgeList()` (`LedSet.decompiled.cs:1692-1703`) branches on the floor-type
+enum: `Pixel6x6_4` and `Pixel8x8_4` get one *small* edge per tile column, and
+everything else gets wide edges covering two columns each, with an odd trailing
+column taking a small one. So the vendor draws its `_4P` diagram port-wise — one
+cable per column, ten cables for a ten-column floor.
+
+That does not match the floor the vendor's own hardware ships.
+`docs/PROTOCOL.md:75-79` settled the physical pairing at gate 4 and confirmed it
+twice — "Connector 1 drives ports 0 and 1; connector 2 drives ports 2 and 3" —
+and the cable trace at `docs/RUNSHEET-10x5-4P.md:1546-1560` counted **5
+connectors populated ({2,2,1})** on our ten-column `8x8_4P` rig. Five cables, not
+ten. A controller has four physical jacks whatever the type; what changes is how
+many of them can carry chains — two at `_4P`, four at `_8P`.
+
+**Our diagram is therefore jack-level at every type**, which is the vendor's
+`_8P` path applied uniformly: `jack = floor(port / 2)`, one cable per used jack,
+each landing on a wide edge spanning its two columns, and a lone trailing column
+taking a small edge. Decided with the operator 2026-08-13; a deliberate
+departure from Ledset, recorded here and in `diagramLayout.ts` so nobody
+"corrects" it back by re-reading `decompiled/`.
+
+An earlier version of this section stated the vendor's `_4P` branch as fact
+about the floor rather than about the vendor, and `app/src/mapping/diagramLayout.ts`
+was built on it.
 
 ## 4. Where the tile-to-pixel mapping lives
 
