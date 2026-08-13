@@ -104,7 +104,11 @@ export interface EngineSnapshot {
   readonly elapsedMs: number;
   /** The live cue's duration, or null when it holds until GO. */
   readonly cueDurationMs: number | null;
-  /** Set when a cue could not be played. Cleared by the next successful GO. */
+  /**
+   * Set when a cue could not be played, and cleared when the surface it
+   * happened on is working again or gone — not when the operator presses GO.
+   * See `ErrorSurface`.
+   */
   readonly lastError: string | null;
 }
 
@@ -120,6 +124,20 @@ interface Slot<S extends FrameSource> {
   readonly cue: Cue;
   readonly source: S;
 }
+
+/**
+ * Which operator-visible surface an error is about.
+ *
+ * There is one banner and two places a cue can fail, and they do not mean the
+ * same thing: a preview that will not decode is an annoyance, a floor that has
+ * gone black is the show. Tagging the error is what stops a success on one
+ * surface from clearing an error about the other — previewing a good clip while
+ * the floor is dark must not take the banner down.
+ *
+ * `pending` failures are tagged `live`. A cue that was armed by GO is on its way
+ * to the wire, and the operator is watching for it to arrive there.
+ */
+type ErrorSurface = 'live' | 'preview';
 
 export class PlayerEngine<S extends FrameSource> {
   private show: Show;
@@ -152,6 +170,7 @@ export class PlayerEngine<S extends FrameSource> {
   /** Time already elapsed on the live cue before the last pause. */
   private elapsedBeforePause = 0;
   private lastError: string | null = null;
+  private lastErrorSurface: ErrorSurface | null = null;
 
   constructor(options: EngineOptions<S>) {
     this.show = options.show;
@@ -188,7 +207,13 @@ export class PlayerEngine<S extends FrameSource> {
     // Leaving preview releases the decoder rather than leaving it running
     // behind a surface nobody is looking at. Live is untouched in both
     // directions: switching modes must never disturb the floor.
-    if (mode === 'live') this.preview = this.release(this.preview);
+    if (mode === 'live') {
+      this.preview = this.release(this.preview);
+      // The surface the error was about is now off screen, so the banner has
+      // nothing left to refer to. Without this it survives to the end of the
+      // session, describing a decoder that no longer exists.
+      this.resolve('preview');
+    }
   }
 
   setBlackout(blackout: boolean): void {
@@ -239,7 +264,11 @@ export class PlayerEngine<S extends FrameSource> {
     // A selection made *after* this, while the change is still in flight, pins
     // it again and survives the promotion.
     this.standbyPinned = false;
-    this.lastError = null;
+    // No error clearing here, deliberately. GO is a request; the banner reports
+    // outcomes. Clearing at arm time meant pressing GO on a cue that cannot
+    // decode blanked the banner and then refilled it a frame or two later, and
+    // the blank is what the operator sees at the one moment they are looking.
+    // `promotePending` clears it, when content is actually on the wire.
   }
 
   /** Fire a specific cue immediately, bypassing Standby. Double-click in the stack. */
@@ -312,6 +341,12 @@ export class PlayerEngine<S extends FrameSource> {
     this.promotePending();
     this.advanceOnDuration();
 
+    // A decoding preview answers a preview error. Reading the state is safe
+    // here, where the live equivalent would not be: `reapFailures` released the
+    // failed preview on the same tick it recorded it, so a preview that is
+    // ready is never the one the banner is talking about.
+    if (this.preview?.source.ready === true) this.resolve('preview');
+
     const liveTarget: Target<S> =
       this.live === null || this.blackout ? BLACK : { kind: 'source', source: this.live.source };
 
@@ -354,20 +389,32 @@ export class PlayerEngine<S extends FrameSource> {
 
   private reapFailures(): void {
     if (this.pending?.source.failed === true) {
-      this.lastError = `cue ${JSON.stringify(this.pending.cue.name)} failed to play`;
+      this.fail('live', `cue ${JSON.stringify(this.pending.cue.name)} failed to play`);
       this.pending = this.release(this.pending);
     }
     if (this.live?.source.failed === true) {
       // The floor goes black rather than to the next cue. An automatic advance
       // here would put unrelated content up at the moment something is already
       // wrong, with nothing on screen to say why.
-      this.lastError = `cue ${JSON.stringify(this.live.cue.name)} stopped playing`;
+      this.fail('live', `cue ${JSON.stringify(this.live.cue.name)} stopped playing`);
       this.clearLive();
     }
     if (this.preview?.source.failed === true) {
-      this.lastError = `cue ${JSON.stringify(this.preview.cue.name)} failed to preview`;
+      this.fail('preview', `cue ${JSON.stringify(this.preview.cue.name)} failed to preview`);
       this.preview = this.release(this.preview);
     }
+  }
+
+  private fail(surface: ErrorSurface, message: string): void {
+    this.lastError = message;
+    this.lastErrorSurface = surface;
+  }
+
+  /** Take the banner down, but only if it is about the surface that recovered. */
+  private resolve(surface: ErrorSurface): void {
+    if (this.lastErrorSurface !== surface) return;
+    this.lastError = null;
+    this.lastErrorSurface = null;
   }
 
   private promotePending(): void {
@@ -388,6 +435,13 @@ export class PlayerEngine<S extends FrameSource> {
     // `standbyPinned`: overwriting a deliberate choice here throws away the
     // thing they did while waiting for this very change to land.
     if (!this.standbyPinned) this.standbyCueId = this.cueAfter(pending.cue.id)?.id ?? null;
+
+    // Content is on the wire, which is the only event that answers a live
+    // error. This has to be the promotion rather than the state "live exists
+    // and is ready" — that state is also true one tick after a *pending* cue
+    // failed underneath a healthy live one, and resolving from it would erase
+    // that error a frame after recording it.
+    this.resolve('live');
   }
 
   private advanceOnDuration(): void {

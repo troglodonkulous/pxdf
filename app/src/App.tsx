@@ -305,8 +305,14 @@ export function App() {
     <main className={`player-shell mode-${snapshot.mode}`}>
       <header className="title-bar">
         <span className="show-title">DDF Player — {show.name}</span>
-        <span className="geometry-readout">10 × 5 · 80 × 40</span>
-        <span title="Setup arrives in PR 4"><button type="button" className="button ghost small" disabled>Setup…</button></span>
+        {/* Derived, because a hardcoded readout is a readout that lies the day
+            the floor changes -- and PR 3 makes geometry a runtime variable, so
+            that day is the next one. The job rig is the same three controllers
+            at 10 x 12, and this line would still have read 10 x 5 on it. */}
+        <span className="geometry-readout">
+          {FLOOR.tileCols} × {FLOOR.tileRows} · {FLOOR.widthPx} × {FLOOR.heightPx}
+        </span>
+        <span title="Mapping arrives in PR 3"><button type="button" className="button ghost small" disabled>Mapping…</button></span>
         <span className={`status-pill status-${status}`}>
           <span className="status-dot" aria-hidden="true" />
           {statusLabel(status)}
@@ -391,7 +397,9 @@ export function App() {
 
         <section className="preview-column" aria-label="Floor preview">
           <div className="preview-heading">
-            <span className="section-label">Floor A · 50 Tiles</span>
+            <span className="section-label">
+              Floor A · {FLOOR.tileCols * FLOOR.tileRows} Tiles
+            </span>
             <div className="segmented" aria-label="Player mode">
               {(['live', 'preview'] as const).map((mode) => (
                 <button
@@ -428,10 +436,10 @@ export function App() {
             <span>{selectedCue === null ? '—' : formatTimecode(selectedCue.durationMs)}</span>
           </div>
 
-          <label className="disabled-control" title="Speed arrives in PR 3">
+          <label className="disabled-control" title="Speed arrives in PR 4">
             <span><span>Speed</span><output>100%</output></span>
             <input type="range" value="100" min="0" max="200" disabled readOnly />
-            <small>Available in PR 3</small>
+            <small>Available in PR 4</small>
           </label>
 
           <div className="disabled-control" title="Reverse and Bounce are shelved; v1 is forward-only">
@@ -444,23 +452,23 @@ export function App() {
             <small>Forward-only in v1</small>
           </div>
 
-          <label className="disabled-control" title="Brightness arrives in PR 3">
+          <label className="disabled-control" title="Brightness arrives in PR 4">
             <span><span>Brightness</span><output>100%</output></span>
             <input type="range" value="100" disabled readOnly />
-            <small>Available in PR 3</small>
+            <small>Available in PR 4</small>
           </label>
 
           <div className="inspector-rule" />
-          <div className="disabled-control" title="Per-cue fades arrive in PR 3">
+          <div className="disabled-control" title="Per-cue fades arrive in PR 4">
             <span>Fade in</span>
             <div className="segmented disabled" aria-disabled="true">
               <button type="button" className="is-active" disabled>Global</button>
               <button type="button" disabled>Custom</button>
             </div>
-            <small>Available in PR 3</small>
+            <small>Available in PR 4</small>
           </div>
 
-          <span title="Cue editing arrives in PR 3"><button type="button" className="button secondary full" disabled>Edit Cue…</button></span>
+          <span title="Cue editing arrives in PR 4"><button type="button" className="button secondary full" disabled>Edit Cue…</button></span>
 
           <button
             type="button"
@@ -492,7 +500,7 @@ export function App() {
           <i style={{ left: `calc(${progress * 100}% - 3px)` }} />
         </div>
 
-        <div className="transport-disabled" title="Global fades arrive in PR 3">
+        <div className="transport-disabled" title="Global fades arrive in PR 4">
           <span className="section-label">Fade</span>
           <button type="button" disabled>1.5 s</button>
         </div>

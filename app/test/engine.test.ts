@@ -551,3 +551,140 @@ describe('transport and master', () => {
     expect(rig.source('a').disposed).toBe(true);
   });
 });
+
+/**
+ * The error banner is the only channel this player has for "the thing you asked
+ * for did not happen", so what makes it disappear has to be the thing actually
+ * happening — not the operator asking a second time.
+ *
+ * The original rule was "cleared by the next GO", cleared at arm time. That
+ * reports success at the moment of the *request*: press GO on a cue that cannot
+ * decode and the banner clears, then repopulates a frame or two later when the
+ * decoder gives up. A banner that blanks and comes back reads, in the only
+ * moment anyone is looking at it, as a problem that resolved itself.
+ *
+ * So an error is now tied to the surface it happened on, and clears when that
+ * surface is either working again or gone. The two surfaces resolve differently
+ * and the asymmetry is load-bearing:
+ *
+ *   - Live resolves on the *promotion*, a transition. It cannot be the state
+ *     `live !== null && ready`, because a pending cue can fail while an older
+ *     cue is still happily on the wire — and that state is true on the very
+ *     next tick, which would erase the error one frame after setting it.
+ *   - Preview resolves on the *state* `preview.ready`, which is safe only
+ *     because a failed preview is released in the same tick that records it,
+ *     so a ready preview is never the one the error is about.
+ */
+describe('the error banner tracks the failure, not the button press', () => {
+  /** Live cue a dies. Floor is black, banner explains why. */
+  function liveFailure() {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.source('a').failed = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().lastError).toContain('Cue a');
+    return rig;
+  }
+
+  it('holds the error while the recovering cue is still decoding', () => {
+    const rig = liveFailure();
+
+    rig.engine.goTo('b');
+    // GO is a request, not an outcome: nothing has reached the floor yet, and
+    // the floor is still black. Clearing here is the defect this test exists
+    // for -- it announces a recovery that has not happened.
+    expect(rig.engine.snapshot().lastError).toContain('Cue a');
+    expect(onWire(rig.engine.tick().wire)).toBe(null);
+    expect(rig.engine.snapshot().lastError).toContain('Cue a');
+  });
+
+  // Green against the broken engine too, because clearing at arm time also
+  // ends with a clear banner here. It is evidence of nothing on its own -- what
+  // separates the two is the test above, which asserts *when*. Kept as the
+  // other half of that pair: one says the banner clears, one says not yet.
+  it('clears the error when the recovering cue reaches the wire', () => {
+    const rig = liveFailure();
+
+    rig.engine.goTo('b');
+    rig.source('b').ready = true;
+    expect(onWire(rig.engine.tick().wire)).toBe('b');
+    expect(rig.engine.snapshot().lastError).toBe(null);
+  });
+
+  it('never blanks the banner when the recovering cue fails too', () => {
+    const rig = liveFailure();
+
+    rig.engine.goTo('b');
+    rig.source('b').failed = true;
+    // The banner changes what it says without ever going empty: one failure is
+    // replaced by the next, and there is no frame in between that reads clean.
+    expect(rig.engine.snapshot().lastError).not.toBe(null);
+    rig.engine.tick();
+    expect(rig.engine.snapshot().lastError).toContain('Cue b');
+  });
+
+  it('clears a preview error once a preview decodes', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.setMode('preview');
+
+    rig.engine.selectCue('a');
+    rig.source('a').failed = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().lastError).toContain('Cue a');
+
+    rig.engine.selectCue('b');
+    rig.source('b').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().lastError).toBe(null);
+  });
+
+  it('clears a preview error on leaving preview, where the surface goes away', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.setMode('preview');
+    rig.engine.selectCue('a');
+    rig.source('a').failed = true;
+    rig.engine.tick();
+
+    rig.engine.setMode('live');
+    // The decoder is released and the surface is off screen. An error about it
+    // would otherwise sit on the banner for the rest of the session.
+    expect(rig.engine.snapshot().lastError).toBe(null);
+  });
+
+  it('does not let a working preview clear an error about a black floor', () => {
+    const rig = liveFailure();
+
+    rig.engine.setMode('preview');
+    rig.engine.selectCue('b');
+    rig.source('b').ready = true;
+    rig.engine.tick();
+
+    // This is the reason errors carry a surface at all. The preview is fine and
+    // the floor is still black; one flat error cleared by any success would
+    // take the banner down and leave the operator reading a healthy preview as
+    // if it were the floor.
+    expect(onWire(rig.engine.tick().wire)).toBe(null);
+    expect(rig.engine.snapshot().lastError).toContain('Cue a');
+  });
+
+  it('keeps a pending failure up while the older cue keeps playing', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.engine.goTo('b');
+    rig.source('b').failed = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().lastError).toContain('Cue b');
+
+    // `a` is live and ready on this tick and every tick after it. Resolving the
+    // live surface from that state rather than from the promotion would clear
+    // the banner here, one frame after it was set, with `b` still not playing.
+    expect(onWire(rig.engine.tick().wire)).toBe('a');
+    expect(rig.engine.snapshot().lastError).toContain('Cue b');
+  });
+});

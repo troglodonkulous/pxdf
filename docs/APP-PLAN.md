@@ -352,7 +352,7 @@ One PR per gate. Branch from `main` each time, after the previous merges.
 | 1 | `app-shell` | Electron + Vite + React, sidecar supervision, **the one pass complete**, a minimal render host | gradient24 digest · rotate ×4 · mirror ×2 |
 | 2 | `app-player` | Play surface: cue stack, GO, transport, Live/Preview, BLACKOUT, Master. **A cue is a media file and a duration** | black frames on the wire for BLACKOUT, cue gaps and idle · gapless cue change · the socket never closes · a cue that cannot play says so and does not stall the loop · only opened files are served |
 | 3 | `app-mapping` | **Mapping surface** (mockup 1a): floor Type / Width / Height, the wiring diagram, the derived readout, the NIC picker, Rotation, Mapping ↔ Play navigation. **Geometry becomes a runtime variable end to end** | the diagram agrees with `mapper plan` · a geometry change is visible on the wire as 20 → 50 packets/frame with no silence across it |
-| 4 | `app-compositor` | layer stack, normalised transforms, **colour adjustment (§4)**, timeline with start/end trim, per-cue speed and Loop N/∞ (§2), S setting | 4-layer cue identical preview vs wire at S = 4/8/16 |
+| 4 | `app-compositor` | layer stack, normalised transforms, **colour adjustment (§4)**, timeline with start/end trim, per-cue speed and Loop N/∞ (§2), **a global fade time and per-cue override**, S setting | 4-layer cue identical preview vs wire at S = 4/8/16 |
 | 5 | `app-generators` | generators (§6), **text generator (§5)**, auto-fit, cue rotate/mirror, **project files + crash recovery** | 10 × 5 show re-fits to 10 × 12 · kill the app mid-edit and lose nothing |
 | 6 | `app-hardening` | packaging, codesign, notarize, failure drills | every drill survived |
 
@@ -429,6 +429,14 @@ Two rules keep the renderer replaceable, and cost nothing today:
 - **Brightness and Master are compositor-side.** `PROTOCOL.md` Q6 is closed:
   nothing in the vendor stack exposes colour or brightness over Ethernet for
   this controller.
+- **Fades are PR 4, and were in no PR at all until 2026-08-13.** The mockups
+  show a global fade time with a per-cue Global/Custom override, and this plan
+  never mentioned the word — so PR 2's inspector shipped a disabled Fade control
+  captioned with a PR number that was a guess. They belong here because a fade
+  is a cross-cue composite: two sources drawn into one buffer with a weight that
+  moves over time, which is the layer stack's machinery and nothing the engine's
+  single live slot can express. Until then, cue changes are hard cuts —
+  gaplessly, which `engine.test.ts` grades.
 - **Media is loaded over `ddf-media://`, never over `file://`.** A `<video>`
   whose `src` is a `file://` URL loads from a page served over `file://` and is
   blocked from a page served over `http://`, and the app is served both ways —
