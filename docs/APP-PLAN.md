@@ -3,13 +3,13 @@
 **Canonical.** This supersedes `README.md`'s old plan steps 4–6 (a Swift package
 graded against `fixtures/`, then a SwiftUI GUI), decided 2026-08-11.
 
-Same content, three forms — if they disagree, **this file wins**:
-
-| Form | Where | For |
-|---|---|---|
-| This file | `docs/APP-PLAN.md` | the record, and what an agent reads |
-| Rendered | `docs/app-plan.html` | reading and sharing; snapshot of 2026-08-11 |
-| Live | https://claude.ai/code/artifact/fea97194-eb00-4547-9611-bca522935813 | same page, may drift ahead of the snapshot |
+**This file is the only copy.** `docs/app-plan.html` was a rendered snapshot of
+the same material and was deleted on 2026-08-12, because the two forms had
+already drifted once on something load-bearing: this file's build order said
+"Player window" and nothing more, while the HTML's DAY 1 spelled out a whole
+surface. A second form of a plan is a second plan. The artifact at
+`https://claude.ai/code/artifact/fea97194-eb00-4547-9611-bca522935813` is stale
+and is not maintained.
 
 Feature scope comes from `docs/REQUIREMENTS-v1.pdf`. Visual scope comes from
 `design/mockups.html`. **The requirements document wins where the two disagree**
@@ -101,6 +101,26 @@ Python owning the clock is the README's double-buffering requirement for free: a
 renderer hitch re-sends the previous frame instead of producing a gap, and the
 wire keeps its measured ±0.4 ms pacing whatever Chromium is doing.
 
+**The render loop writes exactly one frame per animation frame, on every path,
+and composition is not allowed to throw.** Learned the expensive way in PR 2:
+`getImageData` raised `SecurityError` on a tainted work canvas, and because the
+throw happened *in the middle* of the loop body, everything downstream of it was
+skipped — the `writeFrame` that feeds the floor, the preview paint, and the
+periodic `setStats`/`setSnapshot` that are the only things telling React the
+engine moved. The engine was correct the whole time. The floor went black, the
+cue stack froze mid-change, and nothing reported an error, because the one place
+an error could have been recorded was downstream of the throw. It threw sixty
+times a second for as long as the app ran.
+
+So `player/compose.ts` owns the one step that touches a decoder, a canvas and
+cross-origin media, and it has a contract: **it returns bytes that are always
+safe to send, and it never throws.** A failure returns black and marks the
+source failed, which routes into `PlayerEngine`'s single failure channel — the
+operator gets the cue's name in a banner, the engine reaps the source, and black
+on the floor becomes a decision instead of an accident. The lesson is not "add a
+try/catch"; it is that a show surface needs a structural guarantee rather than
+one that holds as long as nothing in the middle misbehaves.
+
 **S is a setting — 4 / 8 / 16, default 8** — beside a live render-ms readout,
 settled at the shop against real clips. The 16× sweet spot was measured through
 `make_clip.py --scaler area`, judged partly on file size and generation time,
@@ -120,12 +140,101 @@ load-bearing part, and that ports unchanged.)
 `mapper/orientation.py` is **cabling compensation**, applied at the wire-mapping
 stage. `CLAUDE.md` settles it as `identity`, permanently, and it stays settled.
 
-Setup's **Rotation** (0 / 90 / 180 / 270) is a **presentation transform**, so an
+Mapping's **Rotation** (0 / 90 / 180 / 270) is a **presentation transform**, so an
 operator can author a physically 80 × 96 portrait floor as a 96 × 80 landscape
 canvas. It lives in the final composite pass. The mapper receives an 80 × 96
 row-major RGB framebuffer at every rotation.
 
 **Zero changes to `mapper/`.** Do not merge the two concepts.
+
+Rotation lives on the **Mapping** surface, with the floor it presents. It is not
+in mockup 1a — that is an addition to the mockup, made deliberately, because
+leaving it in a PR named "generators" after Mapping moved out of that PR made no
+sense. It costs nothing: `onePass` already takes `rotation` and the rotate ×4
+gate already passes.
+
+## The Mapping surface
+
+**Mockup 1a is the target**, and 1a alone. 2a is the custom / L-shaped layout
+variant and is shelved (below). The surface has four parts:
+
+| Part | What it is |
+|---|---|
+| Wiring diagram | Controllers as boxes, their ports, and which tile columns each drives. Hovering a connector lights its two tile columns. Header reads `1 connector = 2 chains = 2 tile columns`. |
+| Floor panel | Type / Width / Height, all **dropdowns, never free text** — `mapper stream --type` accepts exactly `6x6_4P`, `6x6_8P`, `8x8_4P`, `8x8_8P`, and a typo in a tile count is a floor that does not light. |
+| Derived readout | Metres, feet-and-inches, tile count, pixels, controllers, packets and bytes per frame. **Every number derived, none entered.** A tile is 500 mm; imperial is computed from metric and is never the input. |
+| Network + navigation | The NIC picker, and **Open Player** — the first navigation in the app. |
+
+**The diagram's layout comes from the vendor, written down.** Ledset's mapper
+window is the one part of that application worth keeping, and
+`docs/MAPPING-DIAGRAM.md` specifies how it draws: the derivation chain from type
+and tile counts to controller count and canvas size, the element sizes, and the
+trick that makes a bundle of parallel wires readable — **each wire's drop height
+and colour are indexed by its port number within the controller**, so four ports
+travel at four heights and cross nothing. Unused ports are drawn and left
+unwired, which is exactly what controller 3 looks like on this rig. That
+document also records what we change (colours and sizes come from the design
+system), what we add (mockup 1a's hover highlighting, which the vendor does not
+have) and what we drop (the power-supply row, which 1a omits).
+
+**Nothing here re-derives what `mapper` already knows.** `mapper plan --type T
+--cols C --rows R` prints the controller, port, packet, `byte4`, length and
+port-offset of every packet in a frame, plus the summary line the readout needs.
+The diagram is a rendering of that table, and the gate below is that the two
+agree. A TypeScript reimplementation of the topology would be a second
+implementation of the thing under test — the same argument that makes the
+gradient24 gate shell out to `mapper/patterns.py` rather than port it.
+
+**The NIC picker needs no `mapper/` change.** `mapper stream --local-ip` already
+binds to a specific interface, and `Sidecar` already forwards `--address` and
+`--port`. `CLAUDE.md` records the sender NIC as `10.200.50.78/8`; the picker
+enumerates and chooses, it does not invent a mechanism.
+
+### Geometry becomes a runtime variable
+
+This is the load-bearing half of the PR and the part that is not visible in a
+mockup.
+
+- `show.floor` is the single source of truth. `App.tsx` and `main.ts` stop
+  naming `SHOP_RIG`.
+- Changing it **restarts the sidecar**: `stop()` writes black, ends stdin and
+  resolves on `exit`, then a new `Sidecar` spawns with the new `--cols`/`--rows`.
+  The window between them is a window in which the floor receives nothing, and
+  `CLAUDE.md` says controller 1 reverts to vendor content about five seconds
+  after packets stop. A restart that takes 200 ms is fine; one that hangs on a
+  Python process that will not exit is a floor showing someone else's content
+  mid-show. **That is why the wire gate below exists.**
+- The work canvas, the wire buffer, the preview buffer and `blackFrame` are all
+  sized from the floor and are all reallocated with it.
+- Re-fit costs nothing *in this PR* and will cost something in PR 5. A cue is
+  still a media file and a duration, drawn cover-fit, so a geometry change is a
+  re-render. Once PR 4 gives cues normalised layer transforms, mockup 1e's
+  re-fit sheet becomes real work. Do not build it here.
+
+### Gates, all off-hardware
+
+1. **The diagram agrees with `mapper plan`.** For a set of geometries including
+   10 × 5 and 10 × 12, shell out, parse the table, and assert the surface's
+   controller/port/tile-column assignment and its derived readout match it
+   field for field.
+2. **A geometry change is visible on the wire and never silent.** Extend
+   `test/e2e/wire.mjs`: set 10 × 12 in the running UI and watch packets per
+   frame go **20 → 50** and bytes per frame **9,700 → 23,290**, with **no gap in
+   the packet stream** across the restart and black — not silence — during it.
+3. **The job-rig digest becomes reachable.** `gate.digest.test.ts` already
+   grades both rigs. The new assertion is that the app, driven to 10 × 12
+   through the UI, produces the framebuffer that digest grades.
+
+### Cut from 1a, deliberately
+
+- **`Calibrate…` does not ship, in any state.** Colour calibration was built,
+  merged and reverted in full on 2026-08-11; `CLAUDE.md` records that a button
+  in a mockup is not permission to reopen it.
+- **`Open…` / `Save As…` ship visible and disabled**, captioned with the PR they
+  arrive in, exactly as PR 2 handled Speed and Direction. Project files and
+  crash recovery are PR 5 and pulling them forward doubles this PR. The cost is
+  named rather than hidden: **the floor is described once per launch.**
+- **Custom / L-shaped layouts** stay shelved — mockup 2a, and see below.
 
 ## The integration seam
 
@@ -161,8 +270,8 @@ onePass(src: Uint8ClampedArray, srcW, srcH, opts): Uint8Array   // pixel_count *
 opts = { rotation: 0|90|180|270, mirrorX, mirrorY, S, master }
 ```
 
-`S = 1` then needs no test-only backdoor — it is an argument, and the Setup UI
-simply offers 4 / 8 / 16. The gate runs under a plain unit-test runner with no
+`S = 1` then needs no test-only backdoor — it is an argument, and the settings UI
+simply offers 4 / 8 / 16 (PR 4 owns it, alongside the render-ms readout). The gate runs under a plain unit-test runner with no
 canvas, no `putImageData` and no headless-Electron harness, which is what makes
 it cheap enough to run on every change rather than once at review. The app feeds
 it `ctx.getImageData(...).data`; nothing else about the pipeline changes.
@@ -189,6 +298,50 @@ gates cover the transform algebra; a rotated input, and a master of 99 %, must
 each *fail* the digest; and a hand-computed 2 × 2 block grades the box filter,
 which `S = 1` never exercises.
 
+### Two harnesses, and no third
+
+Settled 2026-08-12, after PR 2 shipped 1,400 lines of UI with four tests on it.
+
+- **`vitest`, for pure logic.** No DOM. `onePass`, `geometry`, the player
+  engine, the show-file parser, the cue helpers, `Sidecar` over a fake process.
+  Cheap enough to run on every change, which is the only reason it grades
+  anything.
+- **`test/e2e/wire.mjs`, for the UI.** It launches the built app, drives the real
+  surface over the DevTools protocol, and reads UDP off the socket. It is not a
+  `vitest` test and must not become one: it costs Electron, Python and ffmpeg,
+  and a unit-test runner that sometimes needs those is one people stop trusting.
+
+**No jsdom, no testing-library.** The question is not which is more usual but
+which would have caught PR 2's three real defects, and the answer is measured
+rather than assumed: the blank production page (a `file://` base-path fault) —
+jsdom, no; `VideoSource.ready` never flipping (no decoder in jsdom) — no; the
+wrong cue armed by `addMedia` — possibly. `wire.mjs` caught all three, because
+all three lived in the seam between Chromium, Electron and a real socket, which
+is exactly the seam a DOM emulator replaces with a stub. A third harness that
+grades none of the failures this project actually produces is a cost with no
+gate attached to it.
+
+The consequence is that **UI work is graded by extending `wire.mjs`**, and that
+extending it is part of the scope of any PR that adds a surface.
+
+Two things learned while using it, both worth not relearning.
+
+**A fix can disarm the regression test for the bug it fixed.** The taint defect
+first showed up as an uncaught `SecurityError`, so the gate grew a "the page
+raised no uncaught exceptions" check. Fixing the render loop then made
+composition swallow that exception by design — correct behaviour, and it made
+the new check pass under a deliberately reintroduced taint. What actually grades
+the taint is a check that reads the **error banner**, because that is the
+operator-visible consequence and it survives the loop learning to cope. Only
+mutation-checking found this: the check was green against the mutant.
+
+**Assert on the wire, then confirm in the DOM with a bounded poll — never a bare
+read.** The React view is republished on the render loop's ≥250 ms sampling
+tick, while a packet check exits the instant the first matching packet lands. A
+single unretried `is-live` read against that is a race that fails about one run
+in two, and it is the gate flaking rather than the app. Every DOM assertion in
+`wire.mjs` polls.
+
 ## Build order
 
 One PR per gate. Branch from `main` each time, after the previous merges.
@@ -197,10 +350,11 @@ One PR per gate. Branch from `main` each time, after the previous merges.
 |---|---|---|---|
 | B | `mapper-stream` | `mapper stream`, `--emit-digest`, its test | stream digest == `send --dry-run` digest |
 | 1 | `app-shell` | Electron + Vite + React, sidecar supervision, **the one pass complete**, a minimal render host | gradient24 digest · rotate ×4 · mirror ×2 |
-| 2 | `app-player` | Play surface: cue stack, GO, transport, Live/Preview, BLACKOUT, Master. **A cue is a media file and a duration** | black frames on the wire for BLACKOUT, cue gaps and idle · gapless cue change · the socket never closes |
-| 3 | `app-compositor` | layer stack, normalised transforms, **colour adjustment (§4)**, timeline with start/end trim, per-cue speed and Loop N/∞ (§2), S setting | 4-layer cue identical preview vs wire at S = 4/8/16 |
-| 4 | `app-generators-setup` | generators (§6), **text generator (§5)**, Setup + Rotation, auto-fit, cue rotate/mirror, **project files + crash recovery** | 10 × 5 show re-fits to 10 × 12 · kill the app mid-edit and lose nothing |
-| 5 | `app-hardening` | packaging, codesign, notarize, failure drills | every drill survived |
+| 2 | `app-player` | Play surface: cue stack, GO, transport, Live/Preview, BLACKOUT, Master. **A cue is a media file and a duration** | black frames on the wire for BLACKOUT, cue gaps and idle · gapless cue change · the socket never closes · a cue that cannot play says so and does not stall the loop · only opened files are served |
+| 3 | `app-mapping` | **Mapping surface** (mockup 1a): floor Type / Width / Height, the wiring diagram, the derived readout, the NIC picker, Rotation, Mapping ↔ Play navigation. **Geometry becomes a runtime variable end to end** | the diagram agrees with `mapper plan` · a geometry change is visible on the wire as 20 → 50 packets/frame with no silence across it |
+| 4 | `app-compositor` | layer stack, normalised transforms, **colour adjustment (§4)**, timeline with start/end trim, per-cue speed and Loop N/∞ (§2), S setting | 4-layer cue identical preview vs wire at S = 4/8/16 |
+| 5 | `app-generators` | generators (§6), **text generator (§5)**, auto-fit, cue rotate/mirror, **project files + crash recovery** | 10 × 5 show re-fits to 10 × 12 · kill the app mid-edit and lose nothing |
+| 6 | `app-hardening` | packaging, codesign, notarize, failure drills | every drill survived |
 
 The floor session produces no PR. It produces a runsheet section, as §11 did.
 
@@ -211,7 +365,31 @@ Live/Preview, BLACKOUT, MASTER. A cue is a media file and a duration" — a whol
 surface, invisible in the canonical copy. Splitting it also fixes a dependency
 inversion the old order carried: the compositor PR built a four-layer stack
 before anything in the app could run a show at all. A cue is single-source in
-PR 2 and gains layers in PR 3, so each PR runs.
+PR 2 and gains layers in PR 4, so each PR runs.
+
+**PR 3 was added on 2026-08-12, and it restores something this plan lost.** The
+Mapping surface is mockup 1a and was always meant to come before the Play
+surface — you describe the floor you have, then you run a show on it. It went
+missing between the mockups and this file's build order, where PR 1 read "a
+minimal render host" and Setup was a phrase inside the generators PR. The
+consequence shipped: at the end of PR 2 the floor geometry is three hardcoded
+literals (`App.tsx`'s `FLOOR`, `main.ts`'s `Sidecar` construction, and a
+hand-typed `10 × 5 · 80 × 40` in the title bar), so **the app cannot be pointed
+at the job rig at all** — and the job rig is the whole reason it exists.
+
+It goes before the compositor for the same reason PR 2 went before it: a
+four-layer stack built against a compile-time constant floor is rewritten the
+day the floor becomes a variable. It is also smaller than it sounds, because
+three of its four dependencies already exist — `floorGeometry(type, cols, rows)`
+is general, `Sidecar` already takes `type`/`cols`/`rows` as options and already
+passes `--local-ip` through to `mapper stream`, and `gate.digest.test.ts`
+already grades the one pass at **both** rigs, including
+`12df0afcfb2c05be3b967822ae965dc251578b27f4813d372447c3d09d59352d`. That digest
+is written, passing, and currently unreachable from the running app.
+
+**Name it Mapping, not Setup.** The mockups say Mapping and so does the
+operator; this plan said Setup. Two names for one surface is how the two forms
+of this plan drifted about the Player. Settled 2026-08-12.
 
 **PR 2's gate is deliberately not a digest against `mapper play`.** Chromium's
 H.264 decoder and ffmpeg's do not agree byte for byte — chroma upsampling and
@@ -236,7 +414,7 @@ Two rules keep the renderer replaceable, and cost nothing today:
 
 - **Colour adjustment (§4) is `ctx.filter`, and nearly free.** Hue, saturation,
   contrast and brightness are one CSS filter string on the layer's draw; opacity
-  is `globalAlpha`; tint is one composite pass. All per layer, in PR 3. Scale and
+  is `globalAlpha`; tint is one composite pass. All per layer, in PR 4. Scale and
   rotation are the Xform panel, stored normalised like every other transform.
 - **Text is a scrolling marquee, not a static title.** At 80 px wide the floor
   fits about ten 8-px glyphs. Requirements §5's four scroll directions are the
@@ -250,12 +428,53 @@ Two rules keep the renderer replaceable, and cost nothing today:
 - **Brightness and Master are compositor-side.** `PROTOCOL.md` Q6 is closed:
   nothing in the vendor stack exposes colour or brightness over Ethernet for
   this controller.
+- **Media is loaded over `ddf-media://`, never over `file://`.** A `<video>`
+  whose `src` is a `file://` URL loads from a page served over `file://` and is
+  blocked from a page served over `http://`, and the app is served both ways —
+  `loadFile` when packaged, the Vite dev server when not. PR 2 shipped the
+  `file://` form, so **video worked in the packaged app and failed in `npm run
+  dev`**, which is the same defect as PR 1's asset base path with the sign
+  flipped: one environment broken, the other covered, and a gate that only ever
+  ran the covered one. The custom scheme removes the dependency on how the page
+  was served. Three things about it are settled and were each measured on
+  Electron 43 on 2026-08-12, not reasoned:
+  - **`corsEnabled: true` in `registerSchemesAsPrivileged` is load-bearing, and
+    the `Access-Control-Allow-Origin` header alone does nothing.** The scheme is
+    cross-origin to the page under either way of serving it, so without a
+    CORS-mode fetch the decoded video **taints the work canvas** and
+    `getImageData` throws `SecurityError` on every frame from the moment the
+    first cue goes live. Both halves are needed together: `corsEnabled` on the
+    scheme and `video.crossOrigin = 'anonymous'` set *before* `src`. With the
+    flag off, `crossOrigin` makes the element fail outright rather than taint.
+  - **The handler serves only files the operator opened.** Registering a scheme
+    hands the renderer a function it can call with a path of its choosing, and
+    the renderer is the untrusted side of `contextIsolation` by design.
+    `main.ts` keeps the paths the picker returned and 403s everything else, so
+    the operator's choice in a native dialog *is* the authorisation.
+  - **It does not serve range requests.** `net.fetch` over a `file://` URL
+    answers `Range: bytes=0-` with a plain `200` and the whole file. Seeking
+    works because Chromium buffers what it is given — fine for clips, and not
+    fine for a long file, since the whole thing sits in memory and the player
+    can hold three decoders at once. **See the normalisation bullet below: that
+    is where this gets settled, not here.**
 - **Import normalises, it does not downscale.** Transcode at *source*
   resolution — the Xform panel and the supersampled work canvas both need real
   pixels. Every clip in `test-patterns/Test Clips*` probes as H.264 yuv420p,
   25/30/50 fps. (Both that folder and the `ddf-loop-res-test` probe set the
   supersampling finding came from are gitignored source media — the finding is
   reproducible from `tools/dancefloor-loops.html`, not from this repo's tree.)
+
+  **Normalisation is also the answer to `ddf-media://` not serving ranges**, and
+  the two should be decided together. Range requests are a workaround for *an
+  unknown file, possibly enormous, that must be streamed in pieces*. Import
+  replaces the unknown: the app makes the file, so it knows its size before it
+  is ever played, chooses a keyframe-dense encoding with the `moov` atom at the
+  front, and is free to cap or split a long source. Once every file in a show is
+  one we produced at a resolution relevant to an 80 × 96 floor, streaming
+  fragments of it stops mattering. **If a legitimately long normalised file
+  turns out to be needed anyway, implement ranges in the handler** — read the
+  `Range` header, stream with an `fs` read stream, answer `206` with
+  `Content-Range`, roughly 25 lines — rather than reaching for it first.
 
 ## Shelved
 
@@ -279,12 +498,12 @@ Named so they do not creep back in.
   per-source and per-layer effects over a parameter set
   (speed/intensity/colour/scale/rotation/direction/opacity) plus an architecture
   that accepts more later. The Edit inspector's FX tab is in the mockups, so it
-  ships as a tab; **what is behind it is deferred**, because PR 4 already carries
-  text, generators, Setup, auto-fit and crash recovery, and an effects system on
+  ships as a tab; **what is behind it is deferred**, because PR 5 already carries
+  text, generators, auto-fit and crash recovery, and an effects system on
   top of that is not credible in the time. The colour half of §7's parameter set
   lands anyway as §4 above; the compositing half — per-layer post effects — is
-  the deferred part. Promote it into PR 3 if the schedule turns out to have room;
-  left deferred at the PR 1 review on 2026-08-11, to be decided when PR 3's real
+  the deferred part. Promote it into PR 4 if the schedule turns out to have room;
+  left deferred at the PR 1 review on 2026-08-11, to be decided when PR 4's real
   scope is known. Note that the deferral was originally a session's call and not
   the operator's — it is a scheduling judgement, not a scope decision they made.
 - **Sound-reactive.** Space held in the Play page's cue panel per §12.
@@ -308,7 +527,7 @@ Named so they do not creep back in.
   controller order. The white frame and per-column walk are not optional.
 - **Frame pacing matters more than measured.** The 7.8 %-of-a-frame worst case
   at 60 fps is documented and unexplained. Harmless at 30.
-- **The app must run unattended for hours.** Nothing here is soak-tested. PR 5's
+- **The app must run unattended for hours.** Nothing here is soak-tested. PR 6's
   drills are the minimum, not proof.
 
 ## Sources
