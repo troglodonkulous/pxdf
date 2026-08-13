@@ -20,13 +20,13 @@
     output silently stops matching what the harness expects -- the test catches
     that; nothing here re-derives the formula from first principles.
 
-    The AVI *container* writer (`Write-UncompressedAvi` below) is a byte-for-byte
-    copy of the proven, hardware-verified writer in `tools/New-PatternAvi.ps1`
-    (whose header comment states it mirrors `07-tilewalk.avi`, the file already
-    confirmed to load and play correctly in Ledset on this rig). Copied rather
-    than imported so this script has no dependency on a file another pair may be
-    editing concurrently; if `tools/New-PatternAvi.ps1` changes, that is not
-    silent here -- diff the two `Write-UncompressedAvi` bodies by hand.
+    The AVI *container* writer (`Write-UncompressedAvi` below) began as a
+    byte-for-byte copy of the writer in `tools/New-PatternAvi.ps1`, which
+    mirrored `07-tilewalk.avi` -- the file already confirmed to load and play
+    correctly in Ledset on this rig. That script generated the retired 64 x 40
+    set (`01`-`08`) and was deleted on 2026-08-13; this is now the only copy of
+    the writer, so the hand-diff the duplication used to require is gone with
+    it. `07-tilewalk.avi` remains the reference the layout was matched against.
 
 .EXAMPLE
     .\tools\oracle\make-gradient-avi.ps1 -Cols 10 -Rows 5 -TileSize 8 -Seconds 6 `
@@ -53,9 +53,10 @@ $Width = $Cols * $TileSize
 $Height = $Rows * $TileSize
 
 # ---------------------------------------------------------------- AVI writer
-# Verbatim copy of tools/New-PatternAvi.ps1's Write-UncompressedAvi (as of the
-# commit that added it) -- RIFF/AVI, single 'vids' stream, BI_RGB 24bpp
-# top-down, with an idx1 index, matching 07-tilewalk.avi's chunk layout.
+# RIFF/AVI, single 'vids' stream, BI_RGB 24bpp top-down, with an idx1 index,
+# matching 07-tilewalk.avi's chunk layout. Originally copied from
+# tools/New-PatternAvi.ps1, which was deleted on 2026-08-13 with the retired
+# 64 x 40 pattern set; this is the surviving copy.
 
 function Write-UncompressedAvi {
     param(

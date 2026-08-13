@@ -63,16 +63,20 @@ in Ledset — otherwise the new files show "Thumbnail Lost".
 
 ## Regenerating
 
-```powershell
-cd $HOME\OneDrive\Documents\ddf
-.\tools\New-PatternAvi.ps1 -All
-```
+**`01`–`08` cannot be regenerated, deliberately.** Their two generators —
+`tools/New-PatternAvi.ps1` and `tools/make_test_patterns.py` — were deleted on
+2026-08-13. They only ever emitted the retired 64 × 40 set, which `play`
+rejects on both the shop and the job rig, and two independent implementations
+of one dead asset set is twice the maintenance for none of the value. The
+`.avi` files themselves stay: `06-halves` and `07-tilewalk` are the source
+material for captures this project still cites as evidence, and
+`mapper/tests/test_oracle_capture.py` grades against `07-tilewalk.avi`.
 
-Single pattern, or a different size / frame rate:
+The live generator is `gradient24` at any geometry:
 
 ```powershell
-.\tools\New-PatternAvi.ps1 -Pattern red -OutFile .\test-patterns\03-red.avi
-.\tools\New-PatternAvi.ps1 -All -Width 112 -Height 40 -Fps 30
+.\tools\oracle\make-gradient-avi.ps1 -Cols 10 -Rows 5 -TileSize 8 -Seconds 6 `
+    -OutFile .\test-patterns\09-gradient24-8x8_4P-10x5.avi
 ```
 
 Note the writer requires `Width * 3` to be a multiple of 4 (DIB row alignment);

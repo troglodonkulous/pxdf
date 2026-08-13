@@ -43,6 +43,11 @@ is no longer typed — it is read out of `07-tilewalk.avi` by `mapper/avi.py`, a
 the capture is asserted to be a *prefix* of it. A complete capture simply makes
 the prefix 11 long instead of 8.
 
-This sheet is **generated** by `tools/make_test_patterns.py` from the same
-`positions` list that renders the video, so it is a description of the asset,
+This sheet was **generated** by `tools/make_test_patterns.py` from the same
+`positions` list that rendered the video, so it is a description of the asset,
 not independent evidence about it. Nothing in the test suite reads this file.
+That generator was deleted on 2026-08-13 with the retired 64 × 40 pattern set,
+so this sheet is now a frozen record rather than a regenerable one — which
+changes nothing about what it is worth, since it never was evidence. What
+grades `07-tilewalk.avi` is `mapper/tests/test_oracle_capture.py`, from the
+file itself.

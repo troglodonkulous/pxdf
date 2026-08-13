@@ -143,9 +143,13 @@ class TileWalkVideo(unittest.TestCase):
 
     `EXPECTED_WALK` is derived from this video rather than typed, which removes
     the hand-retyping path but not the risk that the *file* changes. These
-    assertions pin the asset's shape, so `tools/New-PatternAvi.ps1` rerun at a
-    different geometry — `tile_walk_positions(cols, rows)` emits a different
-    sequence — fails here rather than silently shortening the oracle.
+    assertions pin the asset's shape, so a swapped or truncated
+    `07-tilewalk.avi` fails here rather than silently shortening the oracle.
+
+    That risk is now the only one: the generator that wrote this file
+    (`tools/New-PatternAvi.ps1`) was deleted on 2026-08-13 along with the
+    retired 64 × 40 pattern set, so the asset can no longer be regenerated at a
+    different geometry. It is evidence, and these assertions are what say so.
     """
 
     def test_video_header(self):
