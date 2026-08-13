@@ -4,9 +4,23 @@ Geometry-independent sender for Symphonia LED dance floor. Replace vendor Ledset
 
 ## The one thing to internalise
 
-**This project has produced seven self-consistent-but-wrong conclusions.** "512-byte packet", "byte 4 always 0x00", frame counts low by one across all six captures, fps wrong both directions, oracle classifier that passed genuinely wrong mapping by laundering it as vendor defect, `oracle.harness --live` silently grading stored capture while live send on wire, app acceptance gate reporting green while dependency it existed to check never installed.
+**This project failure mode is not wrong conclusions. It is conclusions that survive their own disproof, because the disproof had nowhere to go.**
 
-Every measurement here taken through tooling this project also wrote. Error in instrument reproduces itself in result, look like confirmation. **Check provenance, never plausibility.** Result that look right is dangerous kind — ask which file it came from, when that file written. `docs/PRE-PROBE.md` §6 write up one instance full; `docs/RUNSHEET-10x5-4P.md` §11 write up most recent.
+Ten times now. Every one contradicted by something the system already knew: captures held the 458-byte packets, the classifier held the disproof and emitted it under a different label, the stored capture timestamp was on disk, `node_modules` was empty, the `SecurityError` was raised sixty times a second. None of it reached a reader. Full write-ups in `docs/POSTMORTEMS.md` — read it when a result looks right.
+
+Every fix that ever worked here added a **channel for bad news**. When you build or fix any instrument, ask what it does when it is broken, and make that answer loud, propagating, and distinguishable from success.
+
+- **Propagate to caller.** Fatal error sets non-zero exit. Script that print a failure and exit 0 is a green gate over a broken thing.
+- **Let exceptions escape.** Page, process or subprocess that *threw* must never read as one that *answered*. Check `exceptionDetails`, check exit status. `catch {}` on a path that decides something is how the render loop died silently for a whole session.
+- **Every measurement harness needs a positive control** — a row whose failure means *instrument broken, discard everything*. State it as refusal: print no table rather than a table of failures.
+- **Grade operator-visible consequence, never internal symptom.** Internal symptoms move when you fix things. Consequences do not.
+- **Silence must be distinguishable from success.** `allBlack([])` return `true`; a skipped test still report OK; zero packets pass a check written "all packets are black". Assert the count as well as the property.
+- **Correction propagates to everything built on the old claim** — the list, the table, the prose that argued for it, the test, and the comment citing the measurement.
+- **Cited evidence stays re-runnable and in repo.** Measurement whose instrument was thrown away is a claim, not evidence.
+- **Channel that cry wolf is a destroyed channel.** A leak warning fired on every clean teardown, because a signal-killed child report `signalCode` and leave `exitCode` null forever. One false positive train everyone to ignore the true one.
+- **Mutation-check.** Remove the fix, confirm red, restore. Only thing that catch a fix disarming the regression test for the bug it fixed.
+
+Every measurement here taken through tooling this project also wrote. Error in instrument reproduce itself in result, look like confirmation. **Check provenance, never plausibility** — ask which file it came from, when that file written. **Two findings from one instrument are one finding**; they cannot corroborate each other.
 
 Observation disagree with prediction: stop and diagnose. Do not rationalise.
 
@@ -25,8 +39,8 @@ Observation disagree with prediction: stop and diagnose. Do not rationalise.
 All run off-hardware. Run all before claiming anything done.
 
 ```bash
-python -m unittest discover -t . -s mapper/tests        # 70 tests, ~20 s
-python -m unittest discover -t . -s tools/oracle/tests  # 39 tests
+python -m unittest discover -t . -s mapper/tests        # ~20 s
+python -m unittest discover -t . -s tools/oracle/tests
 python -m mapper matrix                                 # 2400 configs
 python -m tools.oracle.harness run --configs tools/oracle/configs.acceptance.json
 python -m tools.oracle.harness run --configs tools/oracle/configs.appendix.json
@@ -45,8 +59,10 @@ python -m mapper send --type 8x8_4P --cols 10 --rows 12 --pattern gradient24 --d
 # the app. `npm ls` catches an unmet dependency; `electron --version` catches a
 # package whose binary never downloaded, which `npm ls` reports as fine.
 cd app && npm ls >/dev/null && npx electron --version >/dev/null \
-    && npm run typecheck && npm test   # 56 tests
+    && npm run typecheck && npm test
 ```
+
+Test counts are deliberately absent — they went stale in a day once. The runner prints them.
 
 ## The rig
 
@@ -63,7 +79,8 @@ Cabled left-to-right, monotonic. Sender NIC `10.200.50.78/8`; dumpcap interface 
 ## Settled — do not reopen
 
 - **Orientation is `identity`, permanently.** Floor cabled left-to-right. `mapper/orientation.py` is *cabling compensation* — exists to correct mis-patched floor, applied at wire-mapping stage. Do not add orientation features, do not give `mapper/` non-identity default.
-- **App's Rotation is not orientation, two must never merge.** Setup's Rotation (0/90/180/270) is *presentation* transform, so operator can author physically 80 × 96 portrait floor as 96 × 80 landscape canvas. Lives in app's final composite pass. `mapper/` still receives 80 × 96 row-major RGB framebuffer at every rotation, needs **zero** changes. Conflating two is how this become seventh self-consistent-but-wrong result.
+- **App's Rotation is not orientation, two must never merge.** Mapping's Rotation (0/90/180/270) is *presentation* transform, so operator can author physically 80 × 96 portrait floor as 96 × 80 landscape canvas. Lives in app's final composite pass. `mapper/` still receives 80 × 96 row-major RGB framebuffer at every rotation, needs **zero** changes. Conflating the two is a pre-written postmortem.
+- **Surface is called Mapping, never Setup.** Mockups say Mapping, operator says Mapping; old plan said Setup. Decided 2026-08-12. Same day, build order became PRs 1–6 with new **PR 3 `app-mapping`** inserted before compositor — `docs/APP-PLAN.md` build order is authority.
 - **macOS app is Electron + TypeScript + React driving `mapper/` as sidecar**, decided 2026-08-11. Not SwiftUI, and **mapper is not ported** — only hardware-graded code in repo. Read `docs/APP-PLAN.md` before writing app code; hold render pipeline, geometry rules, gates. Supersede `README.md` old plan steps 4–6.
 - **Composite at `floor_px × S`, downsample once at end.** Floor resolution is output format, never project format. Layer transforms stored normalised 0–1 however displayed. `docs/APP-PLAN.md` has the measurement this come from.
 - **Ledset is reference-only** since 2026-08-08. `mapper play` beat it on wire: 80/80 frames exact, 0 tolerated defects, against Ledset 68/72 with 4. See `docs/RUNSHEET-10x5-4P.md` §11.
@@ -81,17 +98,7 @@ Cabled left-to-right, monotonic. Sender NIC `10.200.50.78/8`; dumpcap interface 
 - `max_tolerated` budgets **measured per capture window and clip length**. Re-derive if either changes; budget carried over from different capture is exactly the unbounded tolerance the field exists to remove.
 - **Stopping the send does not black the floor.** Controller 1 reverts to local content ~5 s later while 2 and 3 hold last frame, so app BLACKOUT, cue gaps, idle must all send *black frames*. Socket opens with show file, never closes.
 - **`design/mockups.html` renders superset of what ships.** Direction (Fwd/Rev/Bounce), Custom layout, Calibrate… all appear in it, all shelved or scrapped. `docs/REQUIREMENTS-v1.pdf` wins over mockups, `docs/APP-PLAN.md` say what cut and why.
-- **Delegated builder acceptance command needs one leg that fails when dependency absent.** PR 1's was `typecheck && test && build`, run in sandbox without network where `npm install` silently no-op'd; gate reported green over the whole half of the PR it existed to check. No single leg buggy — externalising `electron` correct for bundler, `@ts-ignore` on unresolvable import normal local workaround, unit tests not spawning processes ordinary. Defect lived only in conjunction — why reading any one file would not show it. `typecheck` does catch it today, but only because no `@ts-ignore` masks the import any more — one re-added comment and that gone, so do not rely on it. `npm ls` is cheap unconditional check and **not** sufficient alone: `npm install` can report success while large binary payload never arrives, and `npm ls` call that healthy. Where deliverable is *process*, make something launch it. See **Delegating to Codex** below for sandbox mechanism this happened through and mitigations now in place.
-
-## Delegating to Codex
-
-Codex builder/critic pairs run through `codex` plugin `codex-companion.mjs`, which start every `--write` task in Codex CLI `workspace-write` sandbox. That sandbox network access controlled **only** by `[sandbox_workspace_write]` `network_access` in `.codex/config.toml` — never by anything in task prompt, because sandbox is process boundary Codex CLI enforces, not something Codex told about. PR 1's `npm install` silently no-op'd for exactly this reason: sandbox had no network and nothing in acceptance chain could see gap. Traps entry above is fix *around* that; this is mechanism it was never fix *of*.
-
-- **`network_access = true` set in this repo `.codex/config.toml`, scoped to `ddf` only** — not in `~/.codex/config.toml`, which would widen it to every trusted project on this machine. Decided 2026-08-12. Lets `npm install` run inside sandbox, but also means any future `--write` Codex run in this repo can reach network for anything, not just installs. Accepted scoped risk, not non-issue — do not copy setting into global config without deciding that tradeoff again.
-- **Network access does not remove need to verify.** Fixes "can sandbox reach npm," not "did install actually finish." After every Codex builder run touching dependencies, check `ls node_modules/<pkg>` (or run `npm ls`) yourself before trusting its acceptance report, and if deliverable is process, launch it. Green report not proof.
-- **Forbid `@ts-ignore` / `@ts-expect-error` on import that will not resolve**, explicitly, in every builder prompt. That is the specific move that blinded `tsc` in PR 1, and it reads as reasonable local workaround every time it happens.
-- **Stop-time review gate enabled** (`codex:setup
-  --enable-review-gate`, toggled 2026-08-12). Reviews *orchestrator's* own turn at Stop, not Codex sandboxed run — exists to catch orchestrator accepting Codex report too readily, not to catch Codex itself. `--disable-review-gate` turns back off; state local to this machine checkout path, not part of repo.
+- **App traps live in `docs/APP-PLAN.md`, not here** — `corsEnabled` and the render loop that dies silently, a fix disarming the regression test for its own bug, `wire.mjs` asserting on wire then polling the DOM. Read it before app code.
 
 ## Git
 
@@ -112,15 +119,18 @@ Large media (`test-patterns/Test Clips/`, ~188 MB) and `tools/oracle/out/` gitig
 
 ## Where the real documentation is
 
-| Read | For |
+| When | Read |
 |---|---|
-| `docs/APP-PLAN.md` | **The app, and canonical copy.** Stack, render pipeline, geometry rules, gates, build order, cut list. `docs/app-plan.html` is dated snapshot of same material, can lag — where differ, `.md` wins. |
-| `docs/REQUIREMENTS-v1.pdf` | Feature scope with operator annotations. Wins over mockups. |
-| `design/` | `mockups.html` is visual spec — open from disk, loads `support.js` and `design-system/` from this repo. `design-system/` holds tokens, spec, 20 components as readable source. |
-| `docs/PROTOCOL.md` | Wire format and mapping. §3–§4 closed. |
-| `docs/RUNSHEET-10x5-4P.md` | Floor-verified findings. §10 is gate-4 tables, §11 the Phase 4 media session. Authoritative. |
-| `mapper/README.md` | Module layout, how to run suites, frame-rate/scaler/fit rationale. |
-| `docs/PRE-PROBE.md` | §6 documents one instance of failure mode above. |
-| `docs/HARDWARE-TILE-DEFECT.md` | Orange-at-white tile defect: symptom, exclusions, vendor-stack sweep, rail-droop hypothesis and its falsifying test, why calibration abandoned. §1–§3 findings; §4 onward unverified. |
+| **A result looks right** — before believing it | `docs/POSTMORTEMS.md` |
+| **Delegating to Codex** — builder, critic, any `--write` task | `docs/DELEGATION.md` |
+| **Writing app code** — any of it | `docs/APP-PLAN.md`, **the app's only copy**. `docs/app-plan.html` deleted 2026-08-12; two forms of one plan drifted on load-bearing scope once already, do not recreate it |
+| Deciding whether a feature is in scope | `docs/REQUIREMENTS-v1.pdf`, operator-annotated, wins over mockups |
+| Building any UI | `design/mockups.html`, open from disk — loads `support.js` and `design-system/` from this repo |
+| Touching wire format or mapping | `docs/PROTOCOL.md`, §3–§4 closed |
+| Citing anything measured on hardware | `docs/RUNSHEET-10x5-4P.md` §10 gate-4 tables, §11 Phase 4 media |
+| Running or extending a mapper suite | `mapper/README.md` |
+| Building PR 3, the Mapping surface | `docs/MAPPING-DIAGRAM.md`, so nobody re-reads `decompiled/` for it |
+| Planning a hardware session | `docs/PRE-PROBE.md` |
+| Anyone raises the orange tiles again | `docs/HARDWARE-TILE-DEFECT.md`, §1–§3 findings, §4 onward unverified |
 
 Do not re-read decompiled Ledset source under `decompiled/` unless something specifically requires it; it is archaeology and has misled this project before.

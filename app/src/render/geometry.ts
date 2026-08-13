@@ -2,7 +2,7 @@
  * Floor geometry, derived the same way `mapper/floors.py` derives it.
  *
  * This module exists so that exactly one place in the app knows how many
- * pixels the floor is. PR 4 replaces its default with the Setup screen; until
+ * pixels the floor is. PR 3 replaces its default with the Mapping surface; until
  * then the shop rig is the default and the job rig is reachable by name, which
  * is what the digest gate needs in order to grade both.
  *
