@@ -37,6 +37,10 @@ interface PlayScreenProps {
   readonly applyShow: (next: Show) => void
   readonly refreshSnapshot: () => void
   readonly setSurface: (surface: 'mapping' | 'play') => void
+  readonly zoom: number
+  readonly onZoomIn: () => void
+  readonly onZoomOut: () => void
+  readonly onZoomFit: () => void
 }
 
 type IconName = 'plus' | 'up' | 'down' | 'trash' | 'pencil' | 'previous' | 'next' | 'play' | 'pause'
@@ -97,6 +101,10 @@ export function PlayScreen({
   applyShow,
   refreshSnapshot,
   setSurface,
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  onZoomFit,
 }: PlayScreenProps) {
   const [selectedCueId, setSelectedCueId] = useState<string | null>(null)
   const [renamingCueId, setRenamingCueId] = useState<string | null>(null)
@@ -358,6 +366,12 @@ export function PlayScreen({
                   <span className="segment-dot" />{mode === 'live' ? 'Live' : 'Preview'}
                 </button>
               ))}
+            </div>
+            <div className="segmented" aria-label="Zoom controls">
+              <button type="button" className="icon-button compact" title="Zoom out" aria-label="Zoom out" onClick={onZoomOut}>−</button>
+              <span>{Math.round(zoom * 100)}%</span>
+              <button type="button" className="icon-button compact" title="Zoom in" aria-label="Zoom in" onClick={onZoomIn}>+</button>
+              <button type="button" className="button ghost small" title="Zoom to fit" aria-label="Zoom to fit" onClick={onZoomFit}>Fit</button>
             </div>
           </div>
           <div className="preview-well">

@@ -7,6 +7,7 @@ import { composeFrame } from './player/compose.js'
 import { PlayerEngine, type EngineSnapshot } from './player/engine.js'
 import { emptyShow, type Show, type ShowFloor } from './player/show.js'
 import { VideoSource } from './player/videoSource.js'
+import { ZOOM_FIT, zoomIn, zoomOut } from './player/zoom.js'
 import { floorGeometry, SHOP_RIG, workSize, type Rotation } from './render/geometry.js'
 import { blackFrame } from './render/onePass.js'
 
@@ -47,6 +48,7 @@ export function App() {
 
   const [surface, setSurface] = useState<'mapping' | 'play'>('mapping')
   const [rotation, setRotation] = useState<Rotation>(0)
+  const [zoom, setZoom] = useState(ZOOM_FIT)
   const [show, setShow] = useState<Show>(INITIAL_SHOW)
   const [status, setStatus] = useState<SenderStatus>('restarting')
   const [snapshot, setSnapshot] = useState<EngineSnapshot>(() => engine.snapshot())
@@ -227,8 +229,8 @@ export function App() {
       const boxW = swapped ? floor.heightPx : floor.widthPx
       const boxH = swapped ? floor.widthPx : floor.heightPx
       const fitScale = Math.min(bounds.width / boxW, bounds.height / boxH)
-      const fittedW = boxW * fitScale
-      const fittedH = boxH * fitScale
+      const fittedW = boxW * fitScale * zoom
+      const fittedH = boxH * fitScale * zoom
       previewCanvas.style.left = `${bounds.left + bounds.width / 2}px`
       previewCanvas.style.top = `${bounds.top + bounds.height / 2}px`
       previewCanvas.style.width = `${swapped ? fittedH : fittedW}px`
@@ -244,7 +246,24 @@ export function App() {
       observer.disconnect()
       window.removeEventListener('resize', positionPreview)
     }
-  }, [surface, floor.widthPx, floor.heightPx, rotation])
+  }, [surface, floor.widthPx, floor.heightPx, rotation, zoom])
+
+  useEffect(() => {
+    if (surface !== 'play') return
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.metaKey && (event.key === '=' || event.key === '+')) {
+        event.preventDefault()
+        setZoom(zoomIn)
+      } else if (event.metaKey && event.key === '-') {
+        event.preventDefault()
+        setZoom(zoomOut)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [surface])
 
   const refreshSnapshot = (): void => setSnapshot(engine.snapshot())
 
@@ -287,6 +306,10 @@ export function App() {
           applyShow={applyShow}
           refreshSnapshot={refreshSnapshot}
           setSurface={setSurface}
+          zoom={zoom}
+          onZoomIn={() => setZoom(zoomIn)}
+          onZoomOut={() => setZoom(zoomOut)}
+          onZoomFit={() => setZoom(ZOOM_FIT)}
         />
       )}
       {/*
