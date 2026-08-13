@@ -496,6 +496,20 @@ input:disabled {
   text-align: center;
 }
 
+/* Same shape as .error-banner, deliberately not the same colour. A clamped
+   height is something the operator needs told, not something that went wrong,
+   and a surface that shouts danger at routine outcomes is one they stop
+   reading. */
+.notice-banner {
+  padding: var(--sp-4) var(--sp-6);
+  border: 1px solid var(--sem-info);
+  border-radius: var(--r-md);
+  color: var(--text-primary);
+  background: color-mix(in oklch, var(--sem-info) 16%, var(--surface-card));
+  font-size: var(--fs-caption);
+  text-align: center;
+}
+
 .inspector {
   display: flex;
   width: var(--w-inspector);
@@ -775,6 +789,330 @@ input:disabled {
   }
 
   .disabled-control small {
+    display: none;
+  }
+}
+
+select {
+  height: var(--h-control);
+  width: 100%;
+  padding: 0 var(--sp-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  font: inherit;
+  font-size: var(--fs-caption);
+  color-scheme: dark;
+}
+
+select:focus-visible {
+  outline: 2px solid var(--border-accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.persistent-preview-canvas {
+  position: fixed;
+  z-index: 2;
+  display: block;
+  visibility: hidden;
+  border-radius: var(--r-cell);
+  background: var(--ddf-ink);
+  image-rendering: pixelated;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.persistent-preview-canvas.is-visible {
+  visibility: visible;
+}
+
+.preview-canvas-host {
+  width: 100%;
+  max-width: 720px;
+  max-height: 100%;
+  flex: none;
+}
+
+.mapping-screen {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  min-height: 560px;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--text-body);
+  background: var(--surface-window);
+}
+
+.mapping-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+
+.mapping-stage {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--sp-7);
+  padding: var(--sp-11) var(--sp-12);
+}
+
+.mapping-heading,
+.mapping-badges,
+.show-file-controls {
+  display: flex;
+  align-items: center;
+}
+
+.mapping-heading {
+  justify-content: space-between;
+  gap: var(--sp-8);
+}
+
+.mapping-badges {
+  gap: var(--sp-4);
+}
+
+.mapping-badges span {
+  padding: var(--sp-2) var(--sp-5);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-pill);
+  color: var(--text-secondary);
+  background: var(--surface-raised);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+}
+
+.mapping-error-banner {
+  text-align: left;
+}
+
+.diagram-well {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: var(--sp-8);
+  border: 1px solid var(--border-well);
+  border-radius: var(--r-xl);
+  background: var(--surface-well);
+  box-shadow: var(--shadow-raised);
+}
+
+.mapping-diagram {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.diagram-placeholder {
+  color: var(--text-muted);
+  font-size: var(--fs-caption);
+  text-align: center;
+}
+
+.mapping-wire-color-0 {
+  --wire-color: var(--layer-1);
+}
+
+.mapping-wire-color-1 {
+  --wire-color: var(--layer-2);
+}
+
+.mapping-wire-color-2 {
+  --wire-color: var(--layer-3);
+}
+
+.mapping-wire-color-3 {
+  --wire-color: var(--layer-4);
+}
+
+.mapping-connector {
+  cursor: pointer;
+}
+
+.mapping-wire {
+  fill: none;
+  stroke: var(--wire-color);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: stroke;
+}
+
+.mapping-connector-end {
+  fill: var(--surface-accent-soft);
+  stroke: var(--wire-color);
+  stroke-width: 2;
+}
+
+.mapping-controller rect {
+  fill: var(--surface-raised);
+  stroke: var(--border-strong);
+}
+
+.mapping-controller text {
+  fill: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+}
+
+.mapping-port {
+  fill: var(--surface-well);
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+}
+
+.mapping-port.is-used {
+  fill: var(--surface-accent-soft);
+  stroke: var(--wire-color);
+}
+
+.mapping-edge {
+  fill: var(--surface-raised);
+  stroke: var(--border-strong);
+}
+
+.mapping-tile {
+  fill: var(--floor-cell-off);
+  stroke: var(--floor-tile-line);
+  transition:
+    fill var(--dur-fast) var(--ease-out),
+    stroke var(--dur-fast) var(--ease-out);
+}
+
+.mapping-tile.is-highlighted {
+  fill: var(--surface-accent-soft);
+  stroke: var(--border-accent);
+  stroke-width: 2;
+}
+
+.mapping-summary {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
+  text-align: center;
+}
+
+.mapping-summary strong {
+  color: var(--text-primary);
+}
+
+.mapping-inspector {
+  display: flex;
+  width: var(--w-inspector);
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-7);
+  overflow: auto;
+  padding: var(--sp-11) var(--sp-10);
+  border-left: 1px solid var(--border-hairline);
+}
+
+.mapping-fields,
+.mapping-fields label,
+.mapping-network,
+.mapping-readout {
+  display: flex;
+  flex-direction: column;
+}
+
+.mapping-fields {
+  gap: var(--sp-6);
+}
+
+.mapping-fields label,
+.mapping-network {
+  gap: var(--sp-3);
+}
+
+.mapping-fields label > span {
+  color: var(--text-muted);
+  font-size: var(--fs-label);
+}
+
+.mapping-readout {
+  gap: var(--sp-2);
+  padding: var(--sp-6);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-md);
+  color: var(--text-body);
+  background: var(--surface-well);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  line-height: var(--lh-prose);
+}
+
+.mapping-readout strong {
+  color: var(--text-primary);
+}
+
+.mapping-caption {
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+  line-height: var(--lh-prose);
+}
+
+.mapping-rule {
+  border-top: 1px solid var(--border-hairline);
+}
+
+.rotation-group {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-lg);
+  background: var(--surface-well);
+}
+
+.rotation-group button {
+  height: var(--h-control);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+}
+
+.rotation-group button.is-active {
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  box-shadow: inset 0 0 0 1px var(--border-accent);
+}
+
+.show-file-controls {
+  gap: var(--sp-4);
+}
+
+.show-file-controls .button {
+  min-width: 0;
+  flex: 1;
+  padding: 0 var(--sp-3);
+}
+
+.open-player {
+  margin-top: auto;
+}
+
+@media (max-width: 1000px) {
+  .mapping-stage {
+    padding-right: var(--sp-8);
+    padding-left: var(--sp-8);
+  }
+
+  .mapping-badges {
     display: none;
   }
 }

@@ -65,6 +65,19 @@ const HEADER_LEN = 5
 const PORT = 60_001
 const DEBUG_PORT = 9_333
 const APP_DIR = resolve(import.meta.dirname, '..', '..')
+const REPO_ROOT = resolve(APP_DIR, '..')
+const PYTHON = process.env.DDF_PYTHON ?? 'python3'
+
+/**
+ * How long the wire may go quiet across a sidecar restart.
+ *
+ * Not a performance target — a safety margin. `docs/APP-PLAN.md` calls a 200 ms
+ * restart fine; controller 1 reverts to the vendor's own content at about five
+ * seconds. Two seconds sits well inside that and still fails loudly on the case
+ * this bound exists for: a restart that hangs on a Python process which will
+ * not exit, which on the floor is somebody else's content mid-show.
+ */
+const MAX_RESTART_GAP_MS = 2_000
 
 const failures = []
 let stepNumber = 0
@@ -111,8 +124,29 @@ function makeUndecodableClip(directory) {
 class WireTap {
   constructor() {
     this.packets = []
+    /**
+     * Arrival time of `packets[i]`, kept in a parallel array rather than by
+     * boxing each packet.
+     *
+     * PR 3 restarts the sidecar whenever the floor's geometry changes, and a
+     * restart is a real process swap: the old `mapper stream` has to stop being
+     * the sender before the new one starts, or two processes interleave frames
+     * onto one floor. So some interval with no datagrams is structural, and the
+     * question a gate has to answer is *how long* — controller 1 reverts to the
+     * vendor's own content about five seconds after packets stop. Without
+     * timestamps that interval is unmeasurable and the gate can only assert it
+     * by feel.
+     *
+     * Parallel array because `packets` is a flat list of raw buffers that every
+     * predicate in this file already indexes into (`p.subarray`, `p[4]`).
+     * Boxing them would touch each of those and grade nothing new.
+     */
+    this.times = []
     this.socket = createSocket('udp4')
-    this.socket.on('message', (message) => this.packets.push(message))
+    this.socket.on('message', (message) => {
+      this.packets.push(message)
+      this.times.push(Date.now())
+    })
   }
 
   listen() {
@@ -126,8 +160,108 @@ class WireTap {
     return this.packets.slice(from)
   }
 
+  /**
+   * The longest silence between two consecutive packets, in milliseconds,
+   * spanning from the last packet captured *before* `from` to the newest one.
+   *
+   * **The `- 1` is the whole measurement.** Callers take `from` as
+   * `tap.packets.length` immediately before the action they are about to grade,
+   * so if that action stops the wire at once — which is exactly what a sidecar
+   * restart does — no packet arrives between `from` and the outage. Slicing at
+   * `from` would start the window on the first packet after *recovery*, put the
+   * entire blackout between `times[from - 1]` and `times[from]` where nothing
+   * looks at it, and report the ~1.6 ms spacing of healthy traffic. A gate that
+   * passes green through a thirty-second outage is worse than no gate: it is
+   * the instrument-broken-reads-as-success failure this repo keeps a
+   * postmortems file about. Anchoring one packet earlier makes the boundary
+   * itself part of the measurement.
+   *
+   * `null` when fewer than two timestamps are in range — which is not "no gap",
+   * it is *no measurement*, and the caller has to report it as such rather than
+   * as a pass. A sidecar that never came back lands here.
+   */
+  maxGapMs(from) {
+    const times = this.times.slice(Math.max(0, from - 1))
+    if (times.length < 2) return null
+    let worst = 0
+    for (let i = 1; i < times.length; i++) worst = Math.max(worst, times[i] - times[i - 1])
+    return worst
+  }
+
   close() {
     this.socket.close()
+  }
+}
+
+// Datagram header fields, as `mapper/frame.py:161` reads them back off the wire.
+const isEndOfFrame = (packet) => (packet[4] & 0x80) !== 0
+
+/**
+ * Packets and bytes per frame, **measured** from a captured window.
+ *
+ * `mapper` sets the high bit of byte 4 on the last packet of each controller,
+ * so one frame ends after every `controllerCount` flags. Counting between two
+ * frame ends — rather than over the whole window — is what keeps a clipped
+ * partial frame at either edge from reporting a packet count that is right
+ * about nothing.
+ *
+ * Returns `null` when the window did not contain two complete frames. That is a
+ * refusal, not a zero: a caller that treated it as a shape would be grading a
+ * capture that never happened.
+ */
+function frameShape(packets, controllerCount) {
+  if (packets.length === 0) return null
+
+  // Every controller flags its own last packet, so a frame ends at the flag
+  // belonging to the *highest-numbered* controller — the last one mapper sends
+  // in a frame. Reading the controller off the datagram makes this
+  // phase-independent, which "every controllerCount-th flag" was not: a capture
+  // window opens wherever it opens, so that grouping was offset by however far
+  // into a frame the window began and averaged across partial frames. It
+  // reported 19.5 and 48.8 packets per frame — plausible enough to look like a
+  // rounding quirk rather than a broken instrument.
+  const controllers = new Set(packets.map((packet) => packet[1]))
+  // A positive control on the window itself. Mid-restart it holds frames from
+  // two geometries at once, and averaging across that boundary is meaningless.
+  // Refuse rather than return a number nobody can interpret.
+  if (controllers.size !== controllerCount) return null
+  const lastController = Math.max(...controllers)
+
+  const frameEnds = []
+  for (let i = 0; i < packets.length; i++) {
+    if (isEndOfFrame(packets[i]) && packets[i][1] === lastController) frameEnds.push(i)
+  }
+  if (frameEnds.length < 2) return null
+
+  const body = packets.slice(frameEnds[0] + 1, frameEnds[frameEnds.length - 1] + 1)
+  const frames = frameEnds.length - 1
+  return {
+    frames,
+    packetsPerFrame: body.length / frames,
+    bytesPerFrame: body.reduce((n, p) => n + p.length, 0) / frames,
+  }
+}
+
+/**
+ * What `mapper plan` says a geometry's frames look like.
+ *
+ * The oracle for every geometry assertion below. Shelling out per step costs
+ * about 200 ms and buys the thing a hardcoded expectation cannot: if `mapper`'s
+ * packetisation ever changes, this gate moves with it instead of grading the
+ * app against a number nobody re-derived.
+ */
+function planShape(type, cols, rows) {
+  const stdout = execFileSync(
+    PYTHON,
+    ['-m', 'mapper', 'plan', '--type', type, '--cols', String(cols), '--rows', String(rows)],
+    { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1 << 24 },
+  )
+  const match = /(\d+) controller\(s\), (\d+) packets\/frame, (\d+) bytes\/frame/.exec(stdout)
+  if (match === null) throw new Error(`could not read mapper plan output:\n${stdout}`)
+  return {
+    controllerCount: Number(match[1]),
+    packetsPerFrame: Number(match[2]),
+    bytesPerFrame: Number(match[3]),
   }
 }
 
@@ -288,6 +422,45 @@ const typeDurationScript = (seconds) => `(() => {
   return input.value
 })()`
 
+/**
+ * Change a `<select>` the way the operator does.
+ *
+ * Same native-setter dance as the duration field above, and for the same
+ * reason — React tracks the last value it set on the element instance, so a
+ * direct `select.value = x` is recorded as "already seen" and the event that
+ * follows is discarded as a no-op. The event is `change`: that is what React
+ * maps `onChange` to for a select, where it uses `input` for a text field.
+ */
+const selectScript = (label, value) => `(() => {
+  const select = document.querySelector(${JSON.stringify(`[aria-label="${label}"]`)})
+  if (select === null) throw new Error('no select labelled ${label}')
+  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set
+  setter.call(select, ${JSON.stringify(String(value))})
+  select.dispatchEvent(new Event('change', { bubbles: true }))
+  return select.value
+})()`
+
+/**
+ * Hover a connector in the wiring diagram, and read back what lit up.
+ *
+ * Both event names are dispatched on purpose. React does not listen for
+ * `mouseenter`/`mouseleave` at all — it delegates `mouseover`/`mouseout` at the
+ * root container and synthesises `onMouseEnter`/`onMouseLeave` from them, so a
+ * bare `mouseenter` reaches a native `addEventListener` and nothing else. Firing
+ * both means this grades the highlight rather than the component's choice of
+ * handler, and a red here is a real missing highlight instead of a test that
+ * knew one framework detail and not the other.
+ */
+const hoverConnectorScript = (tileCol, leave = false) => `(() => {
+  const connector = document.querySelector('[data-connector-col="${tileCol}"]')
+  if (connector === null) throw new Error('no connector for tile column ${tileCol}')
+  for (const type of ${leave ? "['mouseout', 'mouseleave']" : "['mouseover', 'mouseenter']"}) {
+    connector.dispatchEvent(new MouseEvent(type, { bubbles: true, relatedTarget: null }))
+  }
+  return [...document.querySelectorAll('[data-tile-col].is-highlighted')]
+    .map((element) => Number(element.dataset.tileCol))
+})()`
+
 // -------------------------------------------------------------------- main
 
 const workspace = mkdtempSync(join(tmpdir(), 'ddf-e2e-'))
@@ -384,6 +557,117 @@ try {
   // the same way; this was the one that did not.
   check(idle.length > 0 && allBlack(idle), 'idle is black frames, not silence',
     `${idle.length} packets`)
+
+  // 1a. And it is sending from the *Mapping* surface, with no project loaded.
+  //
+  //     This says where the app was standing while the two checks above passed.
+  //     It is deliberately not claimed as the gate on the render loop, because
+  //     it measurably is not one. Unmounting the preview canvas while Mapping
+  //     is showing — the exact defect the restructure exists to prevent, since
+  //     the loop returns before `writeFrame` when that ref is null — leaves
+  //     checks 1, 2 and this one all green: `mapper stream` re-sends its last
+  //     frame forever when the renderer stalls, so a dead loop still puts 600
+  //     black packets a second on the wire at exactly the right size.
+  //
+  //     What catches it is every check downstream that needs real content. The
+  //     loop's effect is keyed on `[engine]`, so it never re-arms when the
+  //     canvas mounts later, and nothing the engine produces ever reaches the
+  //     wire. Measured: that mutation fails 14 of these checks, the first at
+  //     step 13. Recorded here because "black on the wire" reading as "the
+  //     renderer is alive" is precisely the inference this file exists to
+  //     refuse.
+  const onMapping = await waitFor('document.querySelector(".mapping-screen") !== null ? 1 : 0')
+  check(onMapping === 1, 'the app launches on the Mapping surface')
+  check(await page.evaluate('document.querySelector(".play-screen") === null'),
+    'Play is not mounted until it is opened')
+
+  // And the link indicator agrees with the wire it is describing.
+  //
+  // It did not. `Sidecar` publishes 'linked' when the child spawns and
+  // `main.ts` re-publishes on `did-finish-load`, and both land before React's
+  // effect has subscribed — so nothing re-published until the *next* spawn and
+  // the pill sat on its initial 'Reconnecting' while 600 packets a second were
+  // leaving the socket. Cosmetic only until you remember what the indicator is
+  // for: an operator who has seen it cry wolf once reads straight past it on
+  // the night it is right. Asserted against the same window that just proved
+  // packets are flowing, because that pairing is the whole claim.
+  const linkLabel = await waitFor(
+    'document.querySelector(".status-pill")?.textContent?.trim() === "Linked" ? "Linked" : null')
+  check(linkLabel === 'Linked', 'the link indicator says Linked while the wire is live',
+    String(await page.evaluate('document.querySelector(".status-pill")?.textContent?.trim() ?? null')))
+
+  const shop = planShape('8x8_4P', 10, 5)
+  const idleShape = frameShape(idle, shop.controllerCount)
+  check(idleShape !== null
+    && idleShape.packetsPerFrame === shop.packetsPerFrame
+    && idleShape.bytesPerFrame === shop.bytesPerFrame,
+    'Mapping idles at the shop rig frame shape mapper plan describes',
+    idleShape === null
+      ? 'no complete frame captured'
+      : `${idleShape.packetsPerFrame} packets / ${idleShape.bytesPerFrame} bytes per frame, ` +
+        `want ${shop.packetsPerFrame} / ${shop.bytesPerFrame}`)
+
+  // 1b. The NIC picker is populated from the host, not from a placeholder.
+  //
+  //     Only half of this is gradeable off-hardware, and the half that is not
+  //     is stated rather than quietly skipped: that choosing an interface
+  //     actually changes which NIC datagrams egress from needs a machine with
+  //     more than one, and nothing below claims it.
+  const nicCount = await waitFor(
+    'document.querySelectorAll(\'[aria-label="Network interface"] option\').length')
+  check(typeof nicCount === 'number' && nicCount > 0,
+    'the Network panel lists at least one interface', `${nicCount} options`)
+
+  // 1c. Rotation is presentation, not orientation — it must not restart anything.
+  //
+  //     `mapper/` receives the same row-major framebuffer at every rotation, so
+  //     a Rotation change has no business reaching the sidecar. If it ever
+  //     starts calling `setFloor`, the frame shape stays identical but the wire
+  //     goes quiet for a spawn — so the gap is what catches it, not the shape.
+  const beforeRotation = tap.packets.length
+  await page.evaluate(clickScript('[aria-label="Rotation 90 degrees"]'))
+  await sleep(800)
+  const rotated = tap.packets.slice(beforeRotation)
+  const rotatedShape = frameShape(rotated, shop.controllerCount)
+  const rotationGap = tap.maxGapMs(beforeRotation)
+  check(rotatedShape !== null && rotatedShape.bytesPerFrame === shop.bytesPerFrame,
+    'Rotation leaves the frame size alone',
+    rotatedShape === null ? 'no complete frame captured' : `${rotatedShape.bytesPerFrame} bytes`)
+  check(rotationGap !== null && rotationGap < 200,
+    'Rotation does not restart the sidecar',
+    rotationGap === null ? 'no measurement' : `largest silence ${rotationGap} ms`)
+  await page.evaluate(clickScript('[aria-label="Rotation 0 degrees"]'))
+
+  // 1d. Hovering a connector lights the tile columns it feeds.
+  //
+  //     Narrow on purpose. This is not a visual gate — it asserts the state the
+  //     highlight is driven from, and that it is released again, which is the
+  //     half that silently rots.
+  //     Dispatch, then *poll* for the result. The highlight is React state, so
+  //     the re-render lands after the event handler returns — a read taken
+  //     synchronously after `dispatchEvent` sees the DOM as it was before the
+  //     hover and grades a working component red. This file argues for polling
+  //     twice in its own comments and `APP-PLAN.md` states it as a rule; the
+  //     first version of this check did a bare read anyway.
+  await page.evaluate(hoverConnectorScript(3))
+  const hovered = await waitFor(`(() => {
+    const lit = [...document.querySelectorAll('[data-tile-col].is-highlighted')]
+      .map((element) => Number(element.dataset.tileCol))
+    return lit.length > 0 ? lit : null
+  })()`)
+  check(Array.isArray(hovered) && hovered.includes(3),
+    'hovering a connector highlights its tile column', JSON.stringify(hovered))
+
+  await page.evaluate(hoverConnectorScript(3, true))
+  const highlightCleared = await waitFor(
+    'document.querySelectorAll(\'[data-tile-col].is-highlighted\').length === 0 ? "cleared" : null')
+  check(highlightCleared === 'cleared', 'the highlight is released on hover-out',
+    `${await page.evaluate('document.querySelectorAll(\'[data-tile-col].is-highlighted\').length')} still lit`)
+
+  // 1e. Into Play, which is where the rest of this file has always run.
+  await page.evaluate(clickButtonScript('Open Player'))
+  const onPlay = await waitFor('document.querySelector(".play-screen") !== null ? 1 : 0')
+  check(onPlay === 1, 'Open Player reaches the Play surface')
 
   // 2. A cue reaches the wire. This is also the only place the readiness path
   //    is exercised for real: the video elements are detached from the
@@ -607,6 +891,133 @@ try {
   await sleep(400)
   const restored = await tap.window(700)
   check(anyLit(restored), 'releasing BLACKOUT restores the running cue without a reload')
+
+  // 4a. Back to Mapping, with a cue still running. Navigation must not gap the
+  //     wire: the render loop and the canvas it writes through live at the root
+  //     and are never unmounted, so there is nothing here that should even
+  //     briefly stop the send. Asserted rather than trusted by construction.
+  const beforeNav = tap.packets.length
+  await page.evaluate(clickButtonScript('Mapping'))
+  const backOnMapping = await waitFor('document.querySelector(".mapping-screen") !== null ? 1 : 0')
+  check(backOnMapping === 1, 'the Mapping button returns to the Mapping surface')
+  const navGap = tap.maxGapMs(beforeNav)
+  check(navGap !== null && navGap < 200, 'navigating between surfaces does not gap the wire',
+    navGap === null ? 'no measurement' : `largest silence ${navGap} ms`)
+
+  // 4b. Geometry becomes a runtime variable — the load-bearing half of PR 3.
+  //
+  //     Every step is graded against `mapper plan`'s own numbers for that
+  //     geometry rather than against a constant written here, so this gate
+  //     moves with `mapper` instead of drifting from it. Both Width and Height
+  //     are driven, not just Height: the app's default width is already 10, so
+  //     a gate that only ever changed Height would pass with the Width handler
+  //     wired to nothing at all.
+  const geometrySteps = [
+    // Type first, and specifically the one that was missing from `TILE_PX`.
+    // Selecting it used to throw *after* the running sidecar had been stopped,
+    // which left the floor with no sender and every later change a silent
+    // no-op. If that regresses, the frame shape below never arrives.
+    { label: 'Floor type', value: '6x6_8P', type: '6x6_8P', cols: 10, rows: 5 },
+    { label: 'Floor type', value: '8x8_4P', type: '8x8_4P', cols: 10, rows: 5 },
+    { label: 'Floor width in tiles', value: '12', type: '8x8_4P', cols: 12, rows: 5 },
+    { label: 'Floor width in tiles', value: '10', type: '8x8_4P', cols: 10, rows: 5 },
+    { label: 'Floor height in tiles', value: '12', type: '8x8_4P', cols: 10, rows: 12 },
+  ]
+
+  for (const step of geometrySteps) {
+    const want = planShape(step.type, step.cols, step.rows)
+    const from = tap.packets.length
+    await page.evaluate(selectScript(step.label, step.value))
+
+    // A *fresh* window each attempt, not a growing slice from `from`. The slice
+    // always contains the transition itself — old-geometry frames, the restart,
+    // then new ones — and averaging across that boundary describes neither
+    // geometry. Once the new sidecar settles, a short window holds only its
+    // frames. Polled rather than slept because a restart is a Python spawn and
+    // a wait long enough on a warm machine reads the old geometry on a cold one.
+    let got = null
+    for (let attempt = 0; attempt < 25; attempt++) {
+      got = frameShape(await tap.window(400), want.controllerCount)
+      if (got !== null && got.bytesPerFrame === want.bytesPerFrame) break
+    }
+
+    check(got !== null
+      && got.packetsPerFrame === want.packetsPerFrame
+      && got.bytesPerFrame === want.bytesPerFrame,
+      `${step.type} ${step.cols}x${step.rows} reaches the wire as mapper plan describes`,
+      got === null
+        ? 'no complete frame captured after the change'
+        : `${got.packetsPerFrame} packets / ${got.bytesPerFrame} bytes per frame, ` +
+          `want ${want.packetsPerFrame} / ${want.bytesPerFrame}`)
+
+    // The transport gap. A restart is a real process swap, so some silence is
+    // structural — the gate is that it stays far short of the ~5 s at which
+    // controller 1 gives up and shows the vendor's own content.
+    const gap = tap.maxGapMs(from)
+    check(gap !== null && gap < MAX_RESTART_GAP_MS,
+      `the restart to ${step.type} ${step.cols}x${step.rows} does not strand the floor`,
+      gap === null ? 'no measurement' : `largest silence ${gap} ms, budget ${MAX_RESTART_GAP_MS} ms`)
+  }
+
+  // 4c. The renderer adopted the new geometry — not just the sidecar's argv.
+  //
+  //     This is the check that separates "main.ts respawned Python with new
+  //     --cols/--rows" from "the decode -> compose -> wire path ran at 80 x 96".
+  //     An all-black assertion cannot: `mapper stream` emits black at startup
+  //     and `Sidecar` writes a black frame on spawn, so black at the right size
+  //     is exactly what a renderer stuck at the old geometry — or not running
+  //     at all — also produces. Real content at the new byte length cannot come
+  //     from anywhere but the real path.
+  const job = planShape('8x8_4P', 10, 12)
+  const atJobRig = await tap.window(1_000)
+  const jobShape = frameShape(atJobRig, job.controllerCount)
+  check(atJobRig.length > 0 && anyLit(atJobRig),
+    'the running cue is still on the wire after the geometry change',
+    `${atJobRig.length} packets, ${countTone(atJobRig, 'black')} of them all-zero`)
+  check(jobShape !== null && jobShape.bytesPerFrame === job.bytesPerFrame,
+    'that content is composed at the job rig, 50 packets and 23,290 bytes per frame',
+    jobShape === null ? 'no complete frame captured' : `${jobShape.bytesPerFrame} bytes per frame`)
+
+  // 4d. A type change that would make the current height illegal clamps it,
+  //     says so, and keeps sending.
+  //
+  //     The floor is 10 x 12 here, which `mapper` allows on 8x8_4P (max 22
+  //     rows) and refuses on 8x8_8P (max 11). Before the limits were per type,
+  //     picking 8x8_8P here stopped the running sidecar, spawned a `mapper
+  //     stream` that exited on startup with `tile_rows 12 outside 1..11`, and
+  //     left the floor with no sender at all — controller 1 reverting to the
+  //     vendor's own content five seconds later, mid-show. It was reachable
+  //     from a dropdown.
+  //
+  //     Graded on the consequence, not the symptom: the wire keeps carrying
+  //     frames, at the shape `mapper plan` gives for the clamped geometry.
+  const clamped = planShape('8x8_8P', 10, 11)
+  const beforeClamp = tap.packets.length
+  await page.evaluate(selectScript('Floor type', '8x8_8P'))
+
+  let clampedShape = null
+  for (let attempt = 0; attempt < 25; attempt++) {
+    clampedShape = frameShape(await tap.window(400), clamped.controllerCount)
+    if (clampedShape !== null && clampedShape.bytesPerFrame === clamped.bytesPerFrame) break
+  }
+  check(clampedShape !== null && clampedShape.bytesPerFrame === clamped.bytesPerFrame,
+    'a type whose row limit is lower clamps the height instead of stranding the floor',
+    clampedShape === null
+      ? 'no complete frame captured — the sender may be gone'
+      : `${clampedShape.packetsPerFrame} packets / ${clampedShape.bytesPerFrame} bytes per frame, ` +
+        `want ${clamped.packetsPerFrame} / ${clamped.bytesPerFrame}`)
+
+  const clampGap = tap.maxGapMs(beforeClamp)
+  check(clampGap !== null && clampGap < MAX_RESTART_GAP_MS,
+    'the clamped restart does not strand the floor either',
+    clampGap === null ? 'no measurement' : `largest silence ${clampGap} ms`)
+
+  // And the operator is told. Quietly shrinking a floor by a row is a silent
+  // success, which is the thing this repo refuses on principle.
+  const clampNotice = await waitFor(
+    'document.querySelector(".notice-banner")?.textContent ?? null')
+  check(typeof clampNotice === 'string' && clampNotice.includes('11'),
+    'the operator is told the height was reduced', String(clampNotice))
 
   // 5. Quitting leaves the floor black. Controllers 2 and 3 hold their last
   //    frame indefinitely, so the last frame sent is the one that stays lit.

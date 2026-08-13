@@ -11,12 +11,45 @@
  * a framebuffer whose size is `pixelCount * 3`.
  */
 
-/** Tile types, keyed as `mapper` names them on the command line. */
-export const TILE_PX: Record<string, number> = {
-  '8x8_4P': 8,
-  '8x8_8P': 8,
-  '6x6_4P': 6,
+/**
+ * The tile types `mapper` accepts, with the limits it enforces on each.
+ *
+ * `maxTileRows` is not decoration and not a UI nicety. `main.ts`'s
+ * `doSetFloor` stops the running sidecar and spawns a replacement, and it
+ * validates through `floorGeometry` *first* precisely so an impossible
+ * selection rejects while the old sender is still alive. That guard is only as
+ * strong as this table: a row count this file waves through and
+ * `mapper/floors.py` refuses means the old sidecar is stopped, `mapper stream`
+ * exits on startup, and the floor has no sender at all — controller 1 reverts
+ * to the vendor's own content about five seconds later, mid-show.
+ *
+ * The limits are per type because the packet budget is: an 8-port type spends
+ * its ports twice as fast down a chain, so `8x8_8P` tops out at 11 rows where
+ * `6x6_4P` reaches 25. `mapping.test.ts` reads `FLOOR_TYPES` and
+ * `MAX_TILE_COLS` out of `mapper/floors.py` and asserts these match, so this
+ * is a copy that cannot drift silently — which is the only kind worth having.
+ */
+export interface FloorTypeLimits {
+  readonly tilePx: number;
+  readonly maxTileRows: number;
+}
+
+export const TILE_PX: Record<string, FloorTypeLimits> = {
+  '8x8_4P': { tilePx: 8, maxTileRows: 22 },
+  '8x8_8P': { tilePx: 8, maxTileRows: 11 },
+  '6x6_4P': { tilePx: 6, maxTileRows: 25 },
+  '6x6_8P': { tilePx: 6, maxTileRows: 17 },
 };
+
+/** `mapper/floors.py`'s `MAX_TILE_COLS`, the same for every type. */
+export const MAX_TILE_COLS = 32;
+
+/** How many tile rows this type may have. Throws on a type `mapper` has not. */
+export function maxTileRows(type: string): number {
+  const limits = TILE_PX[type];
+  if (limits === undefined) throw new Error(`unknown floor type: ${type}`);
+  return limits.maxTileRows;
+}
 
 export type Rotation = 0 | 90 | 180 | 270;
 
@@ -35,9 +68,15 @@ export interface FloorGeometry {
 }
 
 export function floorGeometry(type: string, tileCols: number, tileRows: number): FloorGeometry {
-  const tilePx = TILE_PX[type];
-  if (tilePx === undefined) throw new Error(`unknown floor type: ${type}`);
-  if (tileCols < 1 || tileRows < 1) throw new Error(`illegal tile counts: ${tileCols}x${tileRows}`);
+  const limits = TILE_PX[type];
+  if (limits === undefined) throw new Error(`unknown floor type: ${type}`);
+  const tilePx = limits.tilePx;
+  if (!Number.isInteger(tileCols) || tileCols < 1 || tileCols > MAX_TILE_COLS) {
+    throw new Error(`tile columns ${tileCols} outside 1..${MAX_TILE_COLS}`);
+  }
+  if (!Number.isInteger(tileRows) || tileRows < 1 || tileRows > limits.maxTileRows) {
+    throw new Error(`tile rows ${tileRows} outside 1..${limits.maxTileRows} for ${type}`);
+  }
 
   const widthPx = tileCols * tilePx;
   const heightPx = tileRows * tilePx;
