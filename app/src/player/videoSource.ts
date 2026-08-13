@@ -45,7 +45,15 @@ export function rotatedTargetSize(width: number, height: number, rotation: Rotat
 /** A detached, muted video decoder that satisfies the player's frame-source contract. */
 export class VideoSource implements FrameSource {
   private readonly video: HTMLVideoElement
-  private readonly rotation: Rotation
+  /**
+   * Mutable, unlike `path`. A decoder stays bound to its file for its whole
+   * lifetime (see `PlayerEngine.reseat`'s "same decoder, new metadata"), but
+   * rotation is presentation, not identity — the operator expects a live cue
+   * to rotate in place, not restart, when they change it. `reseat` is what
+   * calls `setRotation` on an already-playing source; the constructor value
+   * below is only the rotation a freshly armed cue starts with.
+   */
+  private rotation: Rotation
   /** Ready / failed / disposed, and the ordering between them. */
   private readonly state = new SourceReadiness()
   private frameCallbackId: number | null = null
@@ -133,6 +141,11 @@ export class VideoSource implements FrameSource {
    */
   fail(): void {
     this.state.fail()
+  }
+
+  /** Called by `PlayerEngine.reseat` when the cue's rotation changes under an already-armed source. */
+  setRotation(rotation: Rotation): void {
+    this.rotation = rotation
   }
 
   get positionMs(): number {

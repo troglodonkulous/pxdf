@@ -25,6 +25,7 @@ import { describe, it, expect } from 'vitest';
 import { PlayerEngine, type FrameSource, type Target } from '../src/player/engine';
 import type { Cue, Show } from '../src/player/show';
 import { SHOW_FILE_VERSION } from '../src/player/show';
+import type { Rotation } from '../src/render/geometry';
 
 /**
  * A source with every state transition under the test's control.
@@ -43,6 +44,8 @@ class FakeSource implements FrameSource {
   disposed = false;
   /** Set to make teardown throw, as a real element's can. */
   disposeThrows = false;
+  rotation: Rotation = 0;
+  rotationSets = 0;
 
   constructor(readonly cueId: string) {}
 
@@ -57,6 +60,11 @@ class FakeSource implements FrameSource {
   dispose(): void {
     this.disposed = true;
     if (this.disposeThrows) throw new Error(`teardown of ${this.cueId} failed`);
+  }
+
+  setRotation(rotation: Rotation): void {
+    this.rotation = rotation;
+    this.rotationSets += 1;
   }
 }
 
@@ -612,6 +620,39 @@ describe('editing a cue reaches the slot already playing it', () => {
     rig.engine.tick();
     // The edit is only real if the advance actually fires on it.
     expect(rig.engine.snapshot().pendingCueId).toBe('b');
+  });
+
+  /**
+   * Rotation cannot lean on `reseat`'s usual trick of leaving the field alone
+   * and letting the engine read it fresh off `Cue` next time it is needed —
+   * nothing downstream ever asks the engine for it. It has to reach the
+   * decoder itself, or a live cue's Rotate control would take the click,
+   * update the show file, and visibly do nothing until the operator fired the
+   * cue again. See `VideoSource.setRotation`.
+   */
+  it('pushes an edited rotation into the source already playing the live cue', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    expect(rig.source('a').rotation).toBe(0);
+
+    rig.engine.setShow(show({ ...cue('a'), rotation: 90 }, cue('b')));
+    expect(rig.source('a').rotation).toBe(90);
+    expect(rig.source('a').rotationSets).toBe(1);
+    // Same decoder, not a fresh one -- a rotation edit rotates in place rather
+    // than restarting the clip, exactly like the duration edit above.
+    expect(rig.created('a')).toBe(1);
+  });
+
+  it('does not touch the source when nothing about the cue actually changed', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.engine.setShow(show({ ...cue('a'), name: 'still a' }, cue('b')));
+    expect(rig.source('a').rotationSets).toBe(0);
   });
 
   it('advances on the next tick when the new duration is already spent', () => {
