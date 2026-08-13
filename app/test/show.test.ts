@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import { emptyShow, nextCueId, parseShow, serializeShow, SHOW_FILE_VERSION } from '../src/player/show';
 import type { Cue, Show } from '../src/player/show';
-import { cueNameFromPath, insertCue, renameCue, setCueDuration } from '../src/player/playHelpers';
+import { cueNameFromPath, insertCue, renameCue, setCueDuration, setCueRotation } from '../src/player/playHelpers';
 
 const SHOP_FLOOR = { type: '8x8_4P', tileCols: 10, tileRows: 5 };
 
@@ -19,8 +19,8 @@ const SHOW: Show = {
   name: 'saturday-wedding',
   floor: SHOP_FLOOR,
   cues: [
-    { id: 'cue-1', name: 'Doors / Warm', source: { kind: 'video', path: '/media/warm.mp4' }, durationMs: null },
-    { id: 'cue-2', name: 'First Dance', source: { kind: 'video', path: '/media/dance.mp4' }, durationMs: 120_000 },
+    { id: 'cue-1', name: 'Doors / Warm', source: { kind: 'video', path: '/media/warm.mp4' }, durationMs: null, rotation: 0 },
+    { id: 'cue-2', name: 'First Dance', source: { kind: 'video', path: '/media/dance.mp4' }, durationMs: 120_000, rotation: 90 },
   ],
 };
 
@@ -80,9 +80,11 @@ describe('show file', () => {
         name: cueNameFromPath(path),
         source: { kind: 'video', path },
         durationMs: null,
+        rotation: 0,
       });
     }
     cues = setCueDuration(cues, 'cue-2', 120_000);
+    cues = setCueRotation(cues, 'cue-3', 270);
     cues = renameCue(cues, 'cue-3', 'Last Song');
 
     const built: Show = { ...emptyShow(SHOP_FLOOR, 'Untitled show'), cues };
@@ -96,7 +98,7 @@ describe('show file', () => {
     // is a delimiter-split string, and a stray trailing delimiter yields ''.
     for (const path of ['/media/clip.mp4', 'C:\\clips\\a.mov', '.mp4', 'noext', '/media/', '']) {
       const name = cueNameFromPath(path);
-      const cue: Cue = { id: 'cue-1', name, source: { kind: 'video', path: path || '/x.mp4' }, durationMs: null };
+      const cue: Cue = { id: 'cue-1', name, source: { kind: 'video', path: path || '/x.mp4' }, durationMs: null, rotation: 0 };
       expect(() => parseShow({ ...emptyShow(SHOP_FLOOR), cues: [cue] })).not.toThrow();
     }
   });
@@ -147,5 +149,28 @@ describe('show file', () => {
     const { durationMs, ...withoutDuration } = SHOW.cues[0];
     expect(durationMs).toBe(null);
     expect(parseJson({ ...SHOW, cues: [withoutDuration] }).cues[0].durationMs).toBe(null);
+  });
+
+  /**
+   * Cue rotation compensates a cue's own video for the floor Rotation set in
+   * Mapping — see `render/geometry.ts`'s `Rotation`. It is per-cue, stored next
+   * to `durationMs`, and unrelated to `mapper/orientation.py`.
+   */
+  it('defaults a missing rotation to 0, so shows saved before this field exists still open', () => {
+    const { rotation, ...withoutRotation } = SHOW.cues[0];
+    expect(rotation).toBe(0);
+    expect(parseJson({ ...SHOW, cues: [withoutRotation] }).cues[0].rotation).toBe(0);
+  });
+
+  it('accepts every rotation Mapping offers', () => {
+    for (const rotation of [0, 90, 180, 270]) {
+      expect(parseJson({ ...SHOW, cues: [{ ...SHOW.cues[0], rotation }] }).cues[0].rotation).toBe(rotation);
+    }
+  });
+
+  it('refuses a rotation that is not 0, 90, 180 or 270', () => {
+    for (const rotation of [45, -90, 360, 'ninety', Number.NaN]) {
+      expect(() => parseShow({ ...SHOW, cues: [{ ...SHOW.cues[0], rotation }] })).toThrow(/rotation/);
+    }
   });
 });

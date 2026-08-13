@@ -9,6 +9,7 @@ import {
   removeCue,
   renameCue,
   setCueDuration,
+  setCueRotation,
 } from '../src/player/playHelpers'
 import type { Cue } from '../src/player/show'
 
@@ -17,6 +18,7 @@ const cue = (id: string): Cue => ({
   name: `Cue ${id}`,
   source: { kind: 'video', path: `/media/${id}.mp4` },
   durationMs: null,
+  rotation: 0,
 })
 
 describe('Play helpers', () => {
@@ -113,5 +115,24 @@ describe('setCueDuration', () => {
 
   it('writes null for a cue that holds until GO', () => {
     expect(setCueDuration([{ ...cue('a'), durationMs: 4_000 }], 'a', null)[0].durationMs).toBe(null)
+  })
+})
+
+describe('setCueRotation', () => {
+  it('sets one cue and leaves the array it was given alone', () => {
+    const original = [cue('a'), cue('b')]
+    const edited = setCueRotation(original, 'b', 90)
+    expect(edited[1].rotation).toBe(90)
+    expect(edited[0].rotation).toBe(original[0].rotation)
+    expect(original[1].rotation).not.toBe(90)
+  })
+
+  it('is independent of the floor Rotation set in Mapping', () => {
+    // Cue rotation compensates one cue's own video; it is stored on the cue and
+    // has no dependency on, or interaction with, App.tsx's floor `rotation`
+    // state. Setting it on one cue must not touch any other cue's rotation.
+    const cues = [cue('a'), cue('b'), cue('c')]
+    const edited = setCueRotation(cues, 'b', 180)
+    expect(edited.map((c) => c.rotation)).toEqual([0, 180, 0])
   })
 })

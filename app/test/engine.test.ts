@@ -61,7 +61,7 @@ class FakeSource implements FrameSource {
 }
 
 function cue(id: string, durationMs: number | null = null): Cue {
-  return { id, name: `Cue ${id}`, source: { kind: 'video', path: `/media/${id}.mp4` }, durationMs };
+  return { id, name: `Cue ${id}`, source: { kind: 'video', path: `/media/${id}.mp4` }, durationMs, rotation: 0 };
 }
 
 function show(...cues: Cue[]): Show {
