@@ -3,6 +3,7 @@ import { delimiter, dirname, join, resolve } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, net, powerSaveBlocker, protocol } from 'electron'
 import { SHOP_RIG } from '../src/render/geometry.js'
 import { blackFrame } from '../src/render/onePass.js'
+import { PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
 import { MEDIA_SCHEME, mediaPath } from '../src/player/mediaUrl.js'
 import { Sidecar, type LinkStatus } from './sidecar.js'
 
@@ -144,7 +145,9 @@ async function chooseMedia(): Promise<string[]> {
     filters: [
       {
         name: 'Video files',
-        extensions: ['mp4', 'm4v', 'mov', 'avi', 'mkv', 'webm', 'mpg', 'mpeg'],
+        // Narrower than what `mapper play` can decode, and deliberately so —
+        // playback here is Chromium's, not ffmpeg's. See `mediaFormats.ts`.
+        extensions: [...PICKER_EXTENSIONS],
       },
     ],
   })
