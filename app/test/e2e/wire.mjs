@@ -377,15 +377,26 @@ try {
   const idle = await tap.window(1_000)
   check(idle.length > 0, 'the sidecar sends while the player is idle',
     `${idle.length} packets in 1 s (expect ~600/s at 30 fps x 20 packets)`)
-  check(allBlack(idle), 'idle is black frames, not silence')
+  // The count is re-asserted here rather than borrowed from the check above.
+  // `allBlack([])` is true, so on a run where nothing was captured this line
+  // would report a cheerful PASS next to the FAIL that explains it — and a
+  // green line is what gets read. Every other black check in this file guards
+  // the same way; this was the one that did not.
+  check(idle.length > 0 && allBlack(idle), 'idle is black frames, not silence',
+    `${idle.length} packets`)
 
   // 2. A cue reaches the wire. This is also the only place the readiness path
   //    is exercised for real: the video elements are detached from the
   //    document, and if `ready` never flipped, GO would silently do nothing.
   await page.evaluate(clickScript('[aria-label="Add cue"]'))
-  await sleep(400)
-  const cueCount = await page.evaluate('document.querySelectorAll(".cue-row").length')
-  check(cueCount === 3, 'all three seeded cues land in the stack', `saw ${cueCount}`)
+  // Polled, not slept. The picker is an IPC round trip and the rows are a React
+  // render behind it, and a fixed wait that is long enough on a warm machine
+  // reads zero cues on a cold one — grading a healthy app red. This file argues
+  // for polling twice in its own comments and then did this.
+  const cueCount = await waitFor(
+    'document.querySelectorAll(".cue-row").length === 3 ? 3 : 0')
+  check(cueCount === 3, 'all three seeded cues land in the stack',
+    `saw ${await page.evaluate('document.querySelectorAll(".cue-row").length')}`)
 
   // 2a. A cue that cannot decode, fired from idle.
   //
@@ -433,9 +444,17 @@ try {
   // It is also the check that the banner *clears*. It was up a moment ago, put
   // there by the undecodable cue above, and the only thing that takes it down
   // is a cue actually reaching the wire. Pressing GO does not, and used to.
-  const banner = await page.evaluate(
-    'document.querySelector(".error-banner")?.textContent ?? null')
-  check(banner === null, 'a successful cue clears the previous failure', String(banner))
+  //
+  // Polled, and it has to be. Making this check mean something is what exposed
+  // that: while no failure had ever been raised, a single read saw `null`
+  // whatever the timing, and the check passed without waiting for anything. Now
+  // that a banner is genuinely up when this runs, clearing it has to travel
+  // through the same >=250 ms sampling tick as every other piece of engine
+  // state, and an unpolled read here reports a healthy app red.
+  const cleared = await waitFor(
+    'document.querySelector(".error-banner") === null ? "cleared" : ""')
+  check(cleared === 'cleared', 'a successful cue clears the previous failure',
+    String(await page.evaluate('document.querySelector(".error-banner")?.textContent ?? null')))
 
   // 2b. The media handler serves opened files and nothing else. Registering a
   //     custom scheme hands the renderer a function it can call with a path of
@@ -451,12 +470,17 @@ try {
       v.crossOrigin = 'anonymous'
       v.addEventListener('error', () => done('refused'))
       v.addEventListener('loadeddata', () => done('SERVED'))
-      setTimeout(() => done('refused'), 4000)
+      // A distinct outcome, not a third vote for 'refused'. Counting the
+      // timeout as a refusal made this check pass for a handler that never
+      // answered at all — a hung protocol handler and a correct 403 were the
+      // same green line, and "not served" is a claim about a decision rather
+      // than about waiting long enough.
+      setTimeout(() => done('TIMEOUT'), 4000)
       v.src = ${JSON.stringify(unpickedUrl)}
       v.load()
     })
   `)
-  check(refused === 'refused', 'a file the operator never opened is not served',
+  check(refused === 'refused', 'a file the operator never opened is refused, not merely slow',
     `handler returned ${refused}`)
 
   // 3. A cue change. The first two checks establish that the change actually

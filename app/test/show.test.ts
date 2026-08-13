@@ -39,7 +39,7 @@ describe('show file', () => {
   it('holds nothing measured in floor pixels', () => {
     // Geometry is an output format. A stored floor-pixel value would have to be
     // migrated when a show authored on the shop rig opens on the job rig, and
-    // PR 4's auto-fit is a re-render only because nothing here is in floor units.
+    // PR 5's auto-fit is a re-render only because nothing here is in floor units.
     expect(JSON.stringify(SHOW)).not.toMatch(/\b(80|40|96)\b/);
   });
 

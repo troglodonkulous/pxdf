@@ -4,7 +4,7 @@ import { app, BrowserWindow, dialog, ipcMain, net, powerSaveBlocker, protocol } 
 import { SHOP_RIG } from '../src/render/geometry.js'
 import { blackFrame } from '../src/render/onePass.js'
 import { PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
-import { MEDIA_SCHEME, mediaPath } from '../src/player/mediaUrl.js'
+import { MEDIA_SCHEME, mediaPath, mediaUrl } from '../src/player/mediaUrl.js'
 import { Sidecar, type LinkStatus } from './sidecar.js'
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
@@ -120,15 +120,32 @@ const allowedMedia = new Set<string>()
 
 ipcMain.handle('ddf:pick-media', async (): Promise<string[]> => {
   const chosen = await chooseMedia()
-  // Exactly the strings the renderer will hand back through `mediaUrl`, so the
-  // membership test below is an equality check on the same value rather than a
-  // second opinion about what two paths mean. `mediaUrl` and `mediaPath` are an
-  // inverse pair and `mediaUrl.test.ts` is what holds them to it — if that ever
-  // stopped being true, every cue would 403 rather than the wrong file being
-  // served, which is the direction this should fail in.
-  for (const path of chosen) allowedMedia.add(path)
+  for (const path of chosen) allowedMedia.add(servedForm(path))
   return chosen
 })
+
+/**
+ * A chosen path in exactly the form the handler will see it come back.
+ *
+ * The membership test has to be an equality check on the same value, not a
+ * second opinion about what two paths mean — but `mediaUrl` and `mediaPath` are
+ * not quite inverses, and an earlier version of this comment claimed they were.
+ * `mediaUrl` normalises `\` to `/` and `mediaPath` never puts it back, so on
+ * Windows the dialog hands over `C:\clips\loop.mp4`, the renderer asks for
+ * `C:/clips/loop.mp4`, and the raw string is not in the set: a 403 on every
+ * file the operator legitimately opened. `mediaUrl.test.ts` asserts that
+ * round-trip, so the disproof was already sitting in the repo.
+ *
+ * Dormant today — the app is macOS, where the two forms are identical — and
+ * fixed here rather than left for whoever packages for Windows to rediscover
+ * as "the app refuses every clip". Running the path through the same pair the
+ * renderer will means the set holds whatever the handler is going to compute,
+ * whatever that pair does to it. `pathToFileURL` accepts the forward-slash form
+ * on Windows, so serving is unaffected.
+ */
+function servedForm(path: string): string {
+  return mediaPath(mediaUrl(path)) ?? path
+}
 
 async function chooseMedia(): Promise<string[]> {
   // A test seam, in the same family as the DDF_ADDRESS / DDF_PORT / DDF_PYTHON

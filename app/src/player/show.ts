@@ -11,10 +11,10 @@
  *     can only be read by the renderer that wrote it makes that a rewrite.
  *   - **Nothing here is measured in floor pixels.** Geometry lives in
  *     `render/geometry.ts` and is an output format. A show authored on the shop
- *     rig has to open on the job rig, and PR 4's auto-fit is a re-render rather
+ *     rig has to open on the job rig, and PR 5's auto-fit is a re-render rather
  *     than a migration only if no stored number is in floor units.
  *
- * A cue in PR 2 is a media file and a duration. PR 3 gives it a layer stack;
+ * A cue in PR 2 is a media file and a duration. PR 4 gives it a layer stack;
  * the parser below is written so that adding `layers` later is an additive
  * change to `Cue` and a version bump, not a reinterpretation of what exists.
  */
@@ -28,10 +28,10 @@
 export const SHOW_FILE_VERSION = 1;
 
 export interface CueSource {
-  /** Only `video` in PR 2. Generators and text are PR 4. */
+  /** Only `video` in PR 2. Generators and text are PR 5. */
   readonly kind: 'video';
   /**
-   * Path to the media file, as the operator's machine sees it. PR 4 owns
+   * Path to the media file, as the operator's machine sees it. PR 5 owns
    * project files and will make this relative to the show file; until then it
    * is stored verbatim and a missing file surfaces as a failed cue at GO
    * rather than as a parse error, because a show that will not open is worse
@@ -52,7 +52,9 @@ export interface Cue {
    * duration means the cue ends on its own and the stack advances; the last
    * cue ending that way leaves the player idle, which puts black on the wire.
    *
-   * Loop N is Requirements §2 and lands in PR 3 with per-cue speed and trim.
+   * Loop N is Requirements §2 and lands in PR 4 with per-cue speed and trim.
+   * PR 3 is the Mapping surface and owns none of them — see `APP-PLAN.md`'s
+   * build order, which is the authority.
    */
   readonly durationMs: number | null;
 }

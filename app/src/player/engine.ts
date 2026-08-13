@@ -169,8 +169,20 @@ export class PlayerEngine<S extends FrameSource> {
   private liveStartedAt = 0;
   /** Time already elapsed on the live cue before the last pause. */
   private elapsedBeforePause = 0;
-  private lastError: string | null = null;
-  private lastErrorSurface: ErrorSurface | null = null;
+  /**
+   * One error per surface, rather than one error and a tag.
+   *
+   * The tagged version had a hole exactly the shape of the defect it was built
+   * to prevent. Tagging stopped a preview *success* from clearing a live error
+   * and did nothing about a preview *failure* overwriting it — so a dead floor,
+   * followed by a preview that also would not decode, left the banner owned by
+   * the preview, and leaving preview took it down. Black floor, no banner.
+   *
+   * Two slots cannot be overwritten by each other, which removes the class
+   * rather than the instance.
+   */
+  private liveError: string | null = null;
+  private previewError: string | null = null;
 
   constructor(options: EngineOptions<S>) {
     this.show = options.show;
@@ -432,15 +444,25 @@ export class PlayerEngine<S extends FrameSource> {
   }
 
   private fail(surface: ErrorSurface, message: string): void {
-    this.lastError = message;
-    this.lastErrorSurface = surface;
+    if (surface === 'live') this.liveError = message;
+    else this.previewError = message;
   }
 
-  /** Take the banner down, but only if it is about the surface that recovered. */
+  /** Take down one surface's error. The other is not this one's to clear. */
   private resolve(surface: ErrorSurface): void {
-    if (this.lastErrorSurface !== surface) return;
-    this.lastError = null;
-    this.lastErrorSurface = null;
+    if (surface === 'live') this.liveError = null;
+    else this.previewError = null;
+  }
+
+  /**
+   * The one line the banner shows.
+   *
+   * Live wins when both surfaces have failed. Both are true and only one fits,
+   * and the floor is the show — an operator reading "could not preview" while
+   * the floor is dark has been told the less useful of two true things.
+   */
+  private get lastError(): string | null {
+    return this.liveError ?? this.previewError;
   }
 
   private promotePending(): void {
@@ -481,13 +503,39 @@ export class PlayerEngine<S extends FrameSource> {
     // to prevent.
     if (duration === null || this.pending !== null || this.elapsedMs() < duration) return;
 
-    const next = this.cueById(this.standbyCueId);
+    // Standby is what fires next, and a timed cue is an automatic GO — but not
+    // when Standby *is* the cue that is playing. Selecting a cue is how Standby
+    // is armed, and selecting the live cue is exactly what an operator does to
+    // edit its length in the inspector, so firing Standby here restarted the
+    // running clip every N seconds for ever. Restarting on a timer is Loop, it
+    // is PR 4, and it is not what a control labelled Duration promises. The cue
+    // after the live one is what "the cue ends and the stack advances" means.
+    const standby = this.cueById(this.standbyCueId);
+    const next = standby !== null && standby.id === live.cue.id
+      ? this.cueAfter(live.cue.id)
+      : standby;
+
     if (next === null) {
       // End of the stack. Idle is black, and the send continues.
       this.clearLive();
       return;
     }
-    this.pending = this.arm(next);
+
+    // `arm` builds a decoder, and this is the only place it runs on the tick
+    // path — which is the render loop. An exception escaping here skips that
+    // frame's `writeFrame`, and because the duration stays expired it skips
+    // every frame after it too, while `Sidecar` re-sends its last frame to a
+    // floor nobody is driving any more. So a decoder that cannot be built is
+    // black plus a banner, like every other failure, rather than a silent stall.
+    try {
+      this.pending = this.arm(next);
+    } catch {
+      this.fail('live', `cue ${JSON.stringify(next.name)} could not be started`);
+      // Going idle is also what stops this retrying: with no live cue there is
+      // no duration left to expire, so the next tick does not try again.
+      this.clearLive();
+      return;
+    }
     this.standbyPinned = false;
   }
 

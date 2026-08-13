@@ -88,10 +88,16 @@ function build(s: Show) {
   const created = new Map<string, number>();
   let clock = 0;
 
+  let sourceThrows = false;
+
   const engine = new PlayerEngine<FakeSource>({
     show: s,
     now: () => clock,
     createSource: (c) => {
+      if (sourceThrows) {
+        sourceThrows = false;
+        throw new Error(`no decoder for ${c.id}`);
+      }
       const source = new FakeSource(c.id);
       sources.set(c.id, source);
       created.set(c.id, (created.get(c.id) ?? 0) + 1);
@@ -102,6 +108,17 @@ function build(s: Show) {
   return {
     engine,
     sources,
+    /**
+     * Make the next `createSource` throw, once.
+     *
+     * A real one can: `createSource` is `new VideoSource(path)` and the
+     * constructor touches the DOM. What matters is not how likely that is but
+     * where it lands — `arm` runs on the tick path once a cue has a duration,
+     * and the tick path is the render loop.
+     */
+    failNextSourceOnce: (): void => {
+      sourceThrows = true;
+    },
     created: (id: string): number => created.get(id) ?? 0,
     source: (id: string): FakeSource => {
       const found = sources.get(id);
@@ -633,6 +650,69 @@ describe('editing a cue reaches the slot already playing it', () => {
     expect(preview.created('a')).toBe(1);
   });
 
+  it('advances past the live cue when Standby is the live cue', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    // Selecting a cue is how Standby is armed, and selecting the *live* cue is
+    // exactly what an operator does to edit its length in the inspector. A
+    // timed advance fires Standby, so this used to re-arm the cue that was
+    // already playing: the clip restarted every N seconds, for ever, with
+    // nothing to say why. Restarting on a timer is Loop, it is PR 4, and it is
+    // not what a control labelled Duration promises.
+    rig.engine.selectCue('a');
+    rig.engine.setShow(show({ ...cue('a'), durationMs: 1_000 }, cue('b')));
+    rig.advance(1_000);
+    rig.engine.tick();
+
+    expect(rig.engine.snapshot().pendingCueId).toBe('b');
+    expect(rig.created('a')).toBe(1);
+  });
+
+  it('goes black rather than looping when the live cue is the only one left', () => {
+    const rig = build(show(cue('a')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    rig.engine.selectCue('a');
+    rig.engine.setShow(show({ ...cue('a'), durationMs: 1_000 }));
+    rig.advance(1_000);
+
+    // Nothing after it, so the stack has ended. Idle is black and the send
+    // continues; re-arming itself would be a one-cue show that never stops.
+    expect(onWire(rig.engine.tick().wire)).toBe(null);
+    expect(rig.created('a')).toBe(1);
+  });
+
+  it('does not throw out of tick when a decoder cannot be built', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    rig.engine.setShow(show({ ...cue('a'), durationMs: 1_000 }, cue('b')));
+    rig.advance(1_000);
+
+    // `arm` runs on the tick path here, and the tick path is the render loop.
+    // An exception out of `tick()` skips that frame's `writeFrame` — and since
+    // the duration stays expired, it skips every frame after it too, while
+    // `Sidecar` re-sends its last frame to a floor nobody is driving. The
+    // engine must turn this into black plus a banner, like any other failure.
+    rig.failNextSourceOnce();
+    expect(() => rig.engine.tick()).not.toThrow();
+    expect(onWire(rig.engine.tick().wire)).toBe(null);
+    expect(rig.engine.snapshot().lastError).toContain('Cue b');
+
+    // And it must not spin: having gone idle, there is no duration left to
+    // expire, so no further decoders are attempted.
+    const attempts = rig.created('b');
+    rig.advance(5_000);
+    rig.engine.tick();
+    rig.engine.tick();
+    expect(rig.created('b')).toBe(attempts);
+  });
+
   it('still tears down a slot whose cue was deleted', () => {
     const rig = build(show(cue('a'), cue('b')));
     rig.engine.goTo('a');
@@ -760,6 +840,37 @@ describe('the error banner tracks the failure, not the button press', () => {
     // take the banner down and leave the operator reading a healthy preview as
     // if it were the floor.
     expect(onWire(rig.engine.tick().wire)).toBe(null);
+    expect(rig.engine.snapshot().lastError).toContain('Cue a');
+  });
+
+  it('does not let a preview failure erase an error about a black floor', () => {
+    const rig = liveFailure();
+
+    // One error slot and two surfaces was the first shape of this, and it had
+    // a hole the size of the defect it was built to prevent: tagging the error
+    // stopped a preview *success* from clearing a live error, and did nothing
+    // about a preview *failure* overwriting it. The floor is black from `a`,
+    // the operator previews `b` to find something to put up, `b` will not
+    // decode either -- and leaving preview then cleared a banner that was, by
+    // that point, the only thing saying the floor was dark.
+    rig.engine.setMode('preview');
+    rig.engine.selectCue('b');
+    rig.source('b').failed = true;
+    rig.engine.tick();
+
+    rig.engine.setMode('live');
+    expect(onWire(rig.engine.tick().wire)).toBe(null);
+    expect(rig.engine.snapshot().lastError).toContain('Cue a');
+  });
+
+  it('shows the live failure first when both surfaces have one', () => {
+    const rig = liveFailure();
+    rig.engine.setMode('preview');
+    rig.engine.selectCue('b');
+    rig.source('b').failed = true;
+    rig.engine.tick();
+
+    // Both are true; only one fits on the banner. The floor is the show.
     expect(rig.engine.snapshot().lastError).toContain('Cue a');
   });
 
