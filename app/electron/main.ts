@@ -1,15 +1,17 @@
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { delimiter, dirname, join, resolve } from 'node:path'
+import { networkInterfaces } from 'node:os'
 import { app, BrowserWindow, dialog, ipcMain, net, powerSaveBlocker, protocol } from 'electron'
-import { SHOP_RIG } from '../src/render/geometry.js'
+import { floorGeometry, SHOP_RIG } from '../src/render/geometry.js'
 import { blackFrame } from '../src/render/onePass.js'
 import { PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
 import { MEDIA_SCHEME, mediaPath, mediaUrl } from '../src/player/mediaUrl.js'
+import type { ShowFloor } from '../src/player/show.js'
+import { runMapperPlan } from './mapperPlan.js'
 import { Sidecar, type LinkStatus } from './sidecar.js'
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(currentDirectory, '../..')
-const BLACK_FRAME = blackFrame(SHOP_RIG)
 
 // Must run before the app is ready, which is why it is at module scope rather
 // than inside `whenReady`. `standard` gives media URLs a real origin, `secure`
@@ -48,12 +50,65 @@ protocol.registerSchemesAsPrivileged([
 let mainWindow: BrowserWindow | null = null
 let sidecar: Sidecar | null = null
 let currentStatus: LinkStatus = 'reconnecting'
+let currentFloor: ShowFloor = { type: SHOP_RIG.type, tileCols: SHOP_RIG.tileCols, tileRows: SHOP_RIG.tileRows }
+let currentBlackFrame: Uint8Array = blackFrame(SHOP_RIG)
 let quitAfterStop = false
 let stopInProgress = false
 
 function publishStatus(status: LinkStatus): void {
   currentStatus = status
   mainWindow?.webContents.send('ddf:status', status)
+}
+
+// One queue for every operation that touches sidecar's lifecycle: floor
+// changes, NIC changes, and quit. Two independent callers racing to stop and
+// replace the same instance is exactly the hazard sidecar.ts documents for
+// crash respawn — unifying them here is what stops before-quit and a
+// mid-flight setFloor from touching sidecar out of order.
+let sidecarQueue: Promise<void> = Promise.resolve()
+
+function withSidecar<T>(fn: () => Promise<T>): Promise<T> {
+  const result = sidecarQueue.then(fn)
+  // Swallow so one failed operation does not wedge the queue for the next one.
+  // The caller still sees its own rejection through result.
+  sidecarQueue = result.then(() => undefined, () => undefined)
+  return result
+}
+
+async function doSetFloor(next: ShowFloor): Promise<void> {
+  // Validate BEFORE touching anything live. floorGeometry throws on an
+  // unknown type or an illegal tile count, and that must reject setFloor's
+  // promise WITHOUT having stopped the running sidecar — otherwise a bad
+  // selection leaves the floor with no sender at all.
+  const geometry = floorGeometry(next.type, next.tileCols, next.tileRows)
+
+  await sidecar?.stop()          // last frame on the wire is black, at the OLD size
+  const black = blackFrame(geometry)
+  sidecar = new Sidecar({
+    isPackaged: app.isPackaged,
+    repoRoot,
+    type: next.type,
+    cols: next.tileCols,
+    rows: next.tileRows,
+    blackFrame: black,
+    onStatus: publishStatus,
+  })
+  sidecar.start()
+  currentFloor = next
+  currentBlackFrame = black
+}
+
+function setFloor(next: ShowFloor): Promise<void> {
+  return withSidecar(() => doSetFloor(next))
+}
+
+function setLocalIp(address: string | undefined): Promise<void> {
+  if (address !== undefined && address.length > 0) process.env.DDF_LOCAL_IP = address
+  else delete process.env.DDF_LOCAL_IP
+  // Re-spawns at the current geometry so the new env var takes effect.
+  // Sidecar's spawn reads process.env.DDF_LOCAL_IP fresh on every call;
+  // there is simply no path that rebinds a live child.
+  return withSidecar(() => doSetFloor(currentFloor))
 }
 
 function createWindow(): void {
@@ -84,7 +139,7 @@ function createWindow(): void {
     // Black is the only safe frame to leave behind; the socket stays open,
     // because stopping the send is what makes controller 1 revert to the
     // vendor's own content.
-    if (BrowserWindow.getAllWindows().length === 0) sidecar?.writeFrame(BLACK_FRAME)
+    if (BrowserWindow.getAllWindows().length === 0) sidecar?.writeFrame(currentBlackFrame)
   })
   window.webContents.on('did-finish-load', () => publishStatus(currentStatus))
 
@@ -99,6 +154,21 @@ function createWindow(): void {
 ipcMain.on('ddf:frame', (_event: unknown, frame: Uint8Array) => {
   sidecar?.writeFrame(frame)
 })
+
+ipcMain.handle('ddf:mapper-plan', (_event, type: string, cols: number, rows: number) => {
+  return runMapperPlan(type, cols, rows)
+})
+
+ipcMain.handle('ddf:list-interfaces', () => {
+  return Object.entries(networkInterfaces()).flatMap(([name, addresses]) =>
+    (addresses ?? [])
+      .filter(({ family, internal }) => family === 'IPv4' && !internal)
+      .map(({ address }) => ({ name, address })),
+  )
+})
+
+ipcMain.handle('ddf:set-floor', (_event, floor: ShowFloor) => setFloor(floor))
+ipcMain.handle('ddf:set-local-ip', (_event, address: string | undefined) => setLocalIp(address))
 
 /**
  * Every path the operator has chosen this session, and the only paths the media
@@ -207,10 +277,10 @@ void app.whenReady().then(() => {
   sidecar = new Sidecar({
     isPackaged: app.isPackaged,
     repoRoot,
-    type: SHOP_RIG.type,
-    cols: SHOP_RIG.tileCols,
-    rows: SHOP_RIG.tileRows,
-    blackFrame: BLACK_FRAME,
+    type: currentFloor.type,
+    cols: currentFloor.tileCols,
+    rows: currentFloor.tileRows,
+    blackFrame: currentBlackFrame,
     onStatus: publishStatus,
   })
   sidecar.start()
@@ -233,7 +303,7 @@ app.on('before-quit', (event) => {
   stopInProgress = true
 
   void (async () => {
-    await sidecar?.stop()
+    await withSidecar(async () => { await sidecar?.stop() })
     quitAfterStop = true
     app.quit()
   })()
