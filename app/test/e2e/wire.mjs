@@ -210,9 +210,27 @@ const isEndOfFrame = (packet) => (packet[4] & 0x80) !== 0
  * capture that never happened.
  */
 function frameShape(packets, controllerCount) {
-  const flags = []
-  for (let i = 0; i < packets.length; i++) if (isEndOfFrame(packets[i])) flags.push(i)
-  const frameEnds = flags.filter((_, k) => (k + 1) % controllerCount === 0)
+  if (packets.length === 0) return null
+
+  // Every controller flags its own last packet, so a frame ends at the flag
+  // belonging to the *highest-numbered* controller — the last one mapper sends
+  // in a frame. Reading the controller off the datagram makes this
+  // phase-independent, which "every controllerCount-th flag" was not: a capture
+  // window opens wherever it opens, so that grouping was offset by however far
+  // into a frame the window began and averaged across partial frames. It
+  // reported 19.5 and 48.8 packets per frame — plausible enough to look like a
+  // rounding quirk rather than a broken instrument.
+  const controllers = new Set(packets.map((packet) => packet[1]))
+  // A positive control on the window itself. Mid-restart it holds frames from
+  // two geometries at once, and averaging across that boundary is meaningless.
+  // Refuse rather than return a number nobody can interpret.
+  if (controllers.size !== controllerCount) return null
+  const lastController = Math.max(...controllers)
+
+  const frameEnds = []
+  for (let i = 0; i < packets.length; i++) {
+    if (isEndOfFrame(packets[i]) && packets[i][1] === lastController) frameEnds.push(i)
+  }
   if (frameEnds.length < 2) return null
 
   const body = packets.slice(frameEnds[0] + 1, frameEnds[frameEnds.length - 1] + 1)
@@ -542,18 +560,41 @@ try {
 
   // 1a. And it is sending from the *Mapping* surface, with no project loaded.
   //
-  //     This is the check the whole render-loop restructure exists for. The
-  //     loop returns before it ever reaches `writeFrame` if the preview canvas
-  //     ref is null, and that canvas used to live only inside Play's JSX — so
-  //     an app that launches on Mapping with the canvas unmounted sends
-  //     *nothing*, and controller 1 reverts to the vendor's own content about
-  //     five seconds later. The two checks above cannot tell that apart from a
-  //     healthy idle on their own; this one names where the app was standing
-  //     while they passed.
+  //     This says where the app was standing while the two checks above passed.
+  //     It is deliberately not claimed as the gate on the render loop, because
+  //     it measurably is not one. Unmounting the preview canvas while Mapping
+  //     is showing — the exact defect the restructure exists to prevent, since
+  //     the loop returns before `writeFrame` when that ref is null — leaves
+  //     checks 1, 2 and this one all green: `mapper stream` re-sends its last
+  //     frame forever when the renderer stalls, so a dead loop still puts 600
+  //     black packets a second on the wire at exactly the right size.
+  //
+  //     What catches it is every check downstream that needs real content. The
+  //     loop's effect is keyed on `[engine]`, so it never re-arms when the
+  //     canvas mounts later, and nothing the engine produces ever reaches the
+  //     wire. Measured: that mutation fails 14 of these checks, the first at
+  //     step 13. Recorded here because "black on the wire" reading as "the
+  //     renderer is alive" is precisely the inference this file exists to
+  //     refuse.
   const onMapping = await waitFor('document.querySelector(".mapping-screen") !== null ? 1 : 0')
   check(onMapping === 1, 'the app launches on the Mapping surface')
   check(await page.evaluate('document.querySelector(".play-screen") === null'),
     'Play is not mounted until it is opened')
+
+  // And the link indicator agrees with the wire it is describing.
+  //
+  // It did not. `Sidecar` publishes 'linked' when the child spawns and
+  // `main.ts` re-publishes on `did-finish-load`, and both land before React's
+  // effect has subscribed — so nothing re-published until the *next* spawn and
+  // the pill sat on its initial 'Reconnecting' while 600 packets a second were
+  // leaving the socket. Cosmetic only until you remember what the indicator is
+  // for: an operator who has seen it cry wolf once reads straight past it on
+  // the night it is right. Asserted against the same window that just proved
+  // packets are flowing, because that pairing is the whole claim.
+  const linkLabel = await waitFor(
+    'document.querySelector(".status-pill")?.textContent?.trim() === "Linked" ? "Linked" : null')
+  check(linkLabel === 'Linked', 'the link indicator says Linked while the wire is live',
+    String(await page.evaluate('document.querySelector(".status-pill")?.textContent?.trim() ?? null')))
 
   const shop = planShape('8x8_4P', 10, 5)
   const idleShape = frameShape(idle, shop.controllerCount)
@@ -602,12 +643,26 @@ try {
   //     Narrow on purpose. This is not a visual gate — it asserts the state the
   //     highlight is driven from, and that it is released again, which is the
   //     half that silently rots.
-  const hovered = await page.evaluate(hoverConnectorScript(3))
+  //     Dispatch, then *poll* for the result. The highlight is React state, so
+  //     the re-render lands after the event handler returns — a read taken
+  //     synchronously after `dispatchEvent` sees the DOM as it was before the
+  //     hover and grades a working component red. This file argues for polling
+  //     twice in its own comments and `APP-PLAN.md` states it as a rule; the
+  //     first version of this check did a bare read anyway.
+  await page.evaluate(hoverConnectorScript(3))
+  const hovered = await waitFor(`(() => {
+    const lit = [...document.querySelectorAll('[data-tile-col].is-highlighted')]
+      .map((element) => Number(element.dataset.tileCol))
+    return lit.length > 0 ? lit : null
+  })()`)
   check(Array.isArray(hovered) && hovered.includes(3),
     'hovering a connector highlights its tile column', JSON.stringify(hovered))
-  const unhovered = await page.evaluate(hoverConnectorScript(3, true))
-  check(Array.isArray(unhovered) && unhovered.length === 0,
-    'the highlight is released on hover-out', JSON.stringify(unhovered))
+
+  await page.evaluate(hoverConnectorScript(3, true))
+  const highlightCleared = await waitFor(
+    'document.querySelectorAll(\'[data-tile-col].is-highlighted\').length === 0 ? "cleared" : null')
+  check(highlightCleared === 'cleared', 'the highlight is released on hover-out',
+    `${await page.evaluate('document.querySelectorAll(\'[data-tile-col].is-highlighted\').length')} still lit`)
 
   // 1e. Into Play, which is where the rest of this file has always run.
   await page.evaluate(clickButtonScript('Open Player'))
@@ -874,13 +929,15 @@ try {
     const from = tap.packets.length
     await page.evaluate(selectScript(step.label, step.value))
 
-    // Poll for the new shape rather than sleeping a fixed amount: a restart is
-    // a Python spawn, and a wait long enough on a warm machine reads the old
-    // geometry on a cold one — grading a healthy app red.
+    // A *fresh* window each attempt, not a growing slice from `from`. The slice
+    // always contains the transition itself — old-geometry frames, the restart,
+    // then new ones — and averaging across that boundary describes neither
+    // geometry. Once the new sidecar settles, a short window holds only its
+    // frames. Polled rather than slept because a restart is a Python spawn and
+    // a wait long enough on a warm machine reads the old geometry on a cold one.
     let got = null
     for (let attempt = 0; attempt < 25; attempt++) {
-      await sleep(200)
-      got = frameShape(tap.packets.slice(from), want.controllerCount)
+      got = frameShape(await tap.window(400), want.controllerCount)
       if (got !== null && got.bytesPerFrame === want.bytesPerFrame) break
     }
 
