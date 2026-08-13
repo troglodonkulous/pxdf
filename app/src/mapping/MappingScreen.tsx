@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import type { LinkStatus } from '../../electron/sidecar.js'
+import type { SenderStatus } from '../../electron/sidecar.js'
 import type { ShowFloor } from '../player/show.js'
 import {
+  canvasSize,
   MAX_TILE_COLS,
   maxTileRows,
   TILE_PX,
@@ -15,11 +16,12 @@ import {
   type DiagramModel,
 } from './diagramLayout.js'
 import { parsePlanTable, type PlanTable } from './mapperPlan.js'
+import { StatusPill } from '../StatusPill.js'
 
 interface MappingScreenProps {
   readonly floor: FloorGeometry
   readonly rotation: Rotation
-  readonly status: LinkStatus
+  readonly status: SenderStatus
   readonly changeFloor: (
     patch: Partial<Pick<ShowFloor, 'type' | 'tileCols' | 'tileRows'>>,
   ) => Promise<void>
@@ -62,14 +64,6 @@ function rowCounts(type: string): readonly number[] {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
-}
-
-function statusLabel(status: LinkStatus): string {
-  switch (status) {
-    case 'linked': return 'Linked'
-    case 'reconnecting': return 'Reconnecting'
-    case 'dropped': return 'Dropped'
-  }
 }
 
 export function MappingScreen({
@@ -170,20 +164,46 @@ export function MappingScreen({
     ? diagramState
     : null
 
+  // Rotation is applied here, at render time, and never reaches `buildDiagram`.
+  // It is a *presentation* transform — the operator authoring a portrait floor
+  // on a landscape canvas — not `mapper/orientation.py`, which is cabling
+  // compensation and is settled at `identity` permanently. Keeping it out of the
+  // model is what stops the two ever merging: `buildDiagram` is graded against
+  // `mapper plan`, and a rotation argument would put a presentation choice
+  // inside the thing that gate measures.
+  const turned = rotation === 90 || rotation === 270
+  const canvasW = readyState?.diagram.canvasWidth ?? 0
+  const canvasH = readyState?.diagram.canvasHeight ?? 0
+  const viewBox = turned ? `0 0 ${canvasH} ${canvasW}` : `0 0 ${canvasW} ${canvasH}`
+  const rotateDiagram = rotation === 90 ? `translate(${canvasH} 0) rotate(90)`
+    : rotation === 180 ? `translate(${canvasW} ${canvasH}) rotate(180)`
+    : rotation === 270 ? `translate(0 ${canvasW}) rotate(270)`
+    : undefined
+  /**
+   * Keeps a label readable inside a rotated diagram.
+   *
+   * Only at 180°, and the asymmetry is the point. A controller box is 80 x 50,
+   * so its label fits along the long axis. At 90° and 270° that axis is vertical
+   * and the label turns with it, which is where it fits; forcing it upright
+   * there made it overlap the jacks and spill out of a 50px-wide box. At 180°
+   * the box is still landscape, so upright fits — and upside-down text is the
+   * one case that is simply unreadable rather than merely turned.
+   */
+  const readableAt = (x: number, y: number): string | undefined =>
+    rotation === 180 ? `rotate(180 ${x} ${y})` : undefined
+  const authorCanvas = canvasSize(floor, rotation)
+
   return (
     <main className="mapping-screen">
       <header className="title-bar">
         <span className="show-title">DDF Setup — Mapping</span>
-        <span className={`status-pill status-${status}`}>
-          <span className="status-dot" aria-hidden="true" />
-          {statusLabel(status)}
-        </span>
+        <StatusPill status={status} />
       </header>
 
       <div className="mapping-body">
         <section className="mapping-stage" aria-label="Floor wiring diagram">
           <div className="mapping-heading">
-            <span className="section-label">Wiring · one connector per tile column</span>
+            <span className="section-label">Wiring · one connector = 2 ports = 2 tile columns</span>
             <div className="mapping-badges">
               <span>{floor.type}</span>
               {readyState !== null && <span>{readyState.plan.controllerCount} controllers</span>}
@@ -201,16 +221,20 @@ export function MappingScreen({
             {readyState !== null ? (
               <svg
                 className="mapping-diagram"
-                viewBox={`0 0 ${readyState.diagram.canvasWidth} ${readyState.diagram.canvasHeight}`}
+                viewBox={viewBox}
                 role="img"
                 aria-label="Controller wiring to floor tile columns"
               >
+                <g transform={rotateDiagram}>
                 {readyState.diagram.wires.map((wire) => (
                   <g
-                    key={`wire-${wire.controller}-${wire.port}`}
+                    key={`wire-${wire.controller}-${wire.jack}`}
                     className={`mapping-connector mapping-wire-color-${wire.colorIndex}`}
-                    data-connector-col={wire.tileCol}
-                    onMouseEnter={() => setHighlightedCols([wire.tileCol])}
+                    // Space-separated, because one cable feeds up to two
+                    // columns. A single `data-connector-col` could only ever
+                    // name one of the pair.
+                    data-connector-cols={wire.tileCols.join(' ')}
+                    onMouseEnter={() => setHighlightedCols(wire.tileCols)}
                     onMouseLeave={() => setHighlightedCols([])}
                   >
                     <path
@@ -230,17 +254,22 @@ export function MappingScreen({
                       height={controller.height}
                       rx={6}
                     />
-                    <text x={controller.x + controller.width / 2} y={controller.y + 17} textAnchor="middle">
+                    <text
+                      x={controller.x + controller.width / 2}
+                      y={controller.y + 17}
+                      textAnchor="middle"
+                      transform={readableAt(controller.x + controller.width / 2, controller.y + 17)}
+                    >
                       {controller.label}
                     </text>
-                    {controller.ports.map((port) => (
+                    {controller.jacks.map((jack) => (
                       <circle
-                        key={port.port}
-                        className={port.used
-                          ? `mapping-port is-used mapping-wire-color-${port.port % 4}`
+                        key={jack.jack}
+                        className={jack.used
+                          ? `mapping-port is-used mapping-wire-color-${jack.jack}`
                           : 'mapping-port'}
-                        cx={port.x}
-                        cy={port.y}
+                        cx={jack.x}
+                        cy={jack.y}
                         r={5}
                       />
                     ))}
@@ -271,6 +300,7 @@ export function MappingScreen({
                     rx={3}
                   />
                 ))}
+                </g>
               </svg>
             ) : (
               <div className="diagram-placeholder" role="status">
@@ -336,6 +366,16 @@ export function MappingScreen({
               </strong>
               <span>{readyState.readout.widthM.toFixed(2)} × {readyState.readout.depthM.toFixed(2)} m · {readyState.readout.tileCount} tiles</span>
               <span>{readyState.readout.widthPx} × {readyState.readout.heightPx} px</span>
+              {/*
+                The floor's own size never changes — it is bolted to the ground.
+                What Rotation changes is the canvas the operator authors on, so
+                that is what gets a second line, and only when there is a
+                difference to state. Reuses `canvasSize`; a second swap written
+                out here would be a second implementation of the render's.
+              */}
+              {rotation !== 0 && (
+                <span>{authorCanvas.width} × {authorCanvas.height} px canvas at {rotation}°</span>
+              )}
               <span>{readyState.readout.controllerCount} controllers</span>
               <span>{readyState.readout.packetsPerFrame} packets · {readyState.readout.bytesPerFrame.toLocaleString()} B/frame</span>
             </div>

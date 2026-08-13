@@ -62,6 +62,8 @@ import { setTimeout as sleep } from 'node:timers/promises'
 
 /** `mapper`'s packet header. Five bytes, not eight — see `docs/PROTOCOL.md`. */
 const HEADER_LEN = 5
+/** The shop rig's tile rows. Named because the hover check counts tiles, not columns. */
+const SHOP_RIG_ROWS = 5
 const PORT = 60_001
 const DEBUG_PORT = 9_333
 const APP_DIR = resolve(import.meta.dirname, '..', '..')
@@ -452,8 +454,9 @@ const selectScript = (label, value) => `(() => {
  * knew one framework detail and not the other.
  */
 const hoverConnectorScript = (tileCol, leave = false) => `(() => {
-  const connector = document.querySelector('[data-connector-col="${tileCol}"]')
-  if (connector === null) throw new Error('no connector for tile column ${tileCol}')
+  const connector = [...document.querySelectorAll('[data-connector-cols]')].find(
+    (element) => element.dataset.connectorCols.split(' ').includes('${tileCol}'))
+  if (connector === undefined) throw new Error('no connector for tile column ${tileCol}')
   for (const type of ${leave ? "['mouseout', 'mouseleave']" : "['mouseover', 'mouseenter']"}) {
     connector.dispatchEvent(new MouseEvent(type, { bubbles: true, relatedTarget: null }))
   }
@@ -581,22 +584,27 @@ try {
   check(await page.evaluate('document.querySelector(".play-screen") === null'),
     'Play is not mounted until it is opened')
 
-  // And the link indicator agrees with the wire it is describing.
+  // And the sender indicator agrees with the wire it is describing.
   //
-  // It did not. `Sidecar` publishes 'linked' when the child spawns and
+  // It did not. `Sidecar` publishes its live status when the child spawns and
   // `main.ts` re-publishes on `did-finish-load`, and both land before React's
   // effect has subscribed — so nothing re-published until the *next* spawn and
-  // the pill sat on its initial 'Reconnecting' while 600 packets a second were
+  // the pill sat on its initial 'Restarting' while 600 packets a second were
   // leaving the socket. Cosmetic only until you remember what the indicator is
   // for: an operator who has seen it cry wolf once reads straight past it on
   // the night it is right. Asserted against the same window that just proved
   // packets are flowing, because that pairing is the whole claim.
+  //
+  // Note what this does *not* assert, and cannot: that the floor is receiving.
+  // The pill used to read "Linked" and this check used to grade that word. It
+  // was never earned — `mapper` broadcasts UDP and never reads a reply, so no
+  // instrument in this repo can tell a live floor from an unplugged one.
   const linkLabel = await waitFor(
-    'document.querySelector(".status-pill")?.textContent?.trim() === "Linked" ? "Linked" : null')
-  check(linkLabel === 'Linked', 'the link indicator says Linked while the wire is live',
+    'document.querySelector(".status-pill")?.textContent?.trim() === "Sending" ? "Sending" : null')
+  check(linkLabel === 'Sending', 'the sender indicator says Sending while the wire is live',
     String(await page.evaluate('document.querySelector(".status-pill")?.textContent?.trim() ?? null')))
 
-  const shop = planShape('8x8_4P', 10, 5)
+  const shop = planShape('8x8_4P', 10, SHOP_RIG_ROWS)
   const idleShape = frameShape(idle, shop.controllerCount)
   check(idleShape !== null
     && idleShape.packetsPerFrame === shop.packetsPerFrame
@@ -624,8 +632,23 @@ try {
   //     a Rotation change has no business reaching the sidecar. If it ever
   //     starts calling `setFloor`, the frame shape stays identical but the wire
   //     goes quiet for a spawn — so the gap is what catches it, not the shape.
+  //     It must, however, do something the operator can see. Rotation shipped
+  //     changing nothing on this surface at all: the diagram's `viewBox` came
+  //     back byte-identical and only `aria-pressed` moved. A control that is
+  //     graded solely on what it must *not* disturb passes just as green when
+  //     it does nothing whatsoever, so the visible half is asserted too — the
+  //     canvas turns, which at 90° means the viewBox swaps its axes.
+  const uprightViewBox = await page.evaluate(
+    'document.querySelector(".mapping-diagram")?.getAttribute("viewBox") ?? null')
   const beforeRotation = tap.packets.length
   await page.evaluate(clickScript('[aria-label="Rotation 90 degrees"]'))
+  const turnedViewBox = await waitFor(`(() => {
+    const box = document.querySelector('.mapping-diagram')?.getAttribute('viewBox') ?? null
+    return box !== null && box !== ${JSON.stringify(uprightViewBox)} ? box : null
+  })()`)
+  check(typeof uprightViewBox === 'string' && typeof turnedViewBox === 'string'
+      && turnedViewBox.split(' ').slice(2).reverse().join(' ') === uprightViewBox.split(' ').slice(2).join(' '),
+    'Rotation turns the diagram', `${uprightViewBox} -> ${turnedViewBox}`)
   await sleep(800)
   const rotated = tap.packets.slice(beforeRotation)
   const rotatedShape = frameShape(rotated, shop.controllerCount)
@@ -655,8 +678,21 @@ try {
       .map((element) => Number(element.dataset.tileCol))
     return lit.length > 0 ? lit : null
   })()`)
-  check(Array.isArray(hovered) && hovered.includes(3),
-    'hovering a connector highlights its tile column', JSON.stringify(hovered))
+  //     Exactly columns 2 and 3, not merely "includes 3". One cable carries two
+  //     ports to two adjacent columns, so a jack that lit only the column it was
+  //     asked about would be the port model surviving inside the jack one, and
+  //     `includes` would pass it green.
+  //
+  //     Both the columns and the tile count, because `hovered` is one entry per
+  //     *tile*: two columns of a five-row floor is ten of them. Asserting the
+  //     distinct columns alone would pass a highlight that lit only the top row,
+  //     and asserting the count alone would pass one that lit the wrong pair.
+  const litColumns = Array.isArray(hovered) ? [...new Set(hovered)].sort((a, b) => a - b) : null
+  check(litColumns !== null && litColumns.length === 2
+      && litColumns[0] === 2 && litColumns[1] === 3
+      && hovered.length === 2 * SHOP_RIG_ROWS,
+    'hovering a connector highlights both tile columns it feeds',
+    `columns ${JSON.stringify(litColumns)} over ${hovered?.length ?? 0} tiles`)
 
   await page.evaluate(hoverConnectorScript(3, true))
   const highlightCleared = await waitFor(
@@ -896,10 +932,20 @@ try {
   //     wire: the render loop and the canvas it writes through live at the root
   //     and are never unmounted, so there is nothing here that should even
   //     briefly stop the send. Asserted rather than trusted by construction.
+  //
+  //     The window is held open deliberately. `maxGapMs` needs two packets to
+  //     measure anything, and the surface switch can complete inside a single
+  //     CDP round trip — so measuring only for as long as the switch took
+  //     reported "no measurement" on the fast runs, which is indistinguishable
+  //     from the wire having died. Both readings failed, so nothing was
+  //     laundered green, but a check that flaps is a check people learn to
+  //     re-run. Half a second at 600 packets/s is ~300 packets: null now means
+  //     silence, and silence is the thing being tested for.
   const beforeNav = tap.packets.length
   await page.evaluate(clickButtonScript('Mapping'))
   const backOnMapping = await waitFor('document.querySelector(".mapping-screen") !== null ? 1 : 0')
   check(backOnMapping === 1, 'the Mapping button returns to the Mapping surface')
+  await sleep(500)
   const navGap = tap.maxGapMs(beforeNav)
   check(navGap !== null && navGap < 200, 'navigating between surfaces does not gap the wire',
     navGap === null ? 'no measurement' : `largest silence ${navGap} ms`)

@@ -19,7 +19,7 @@ const spawn = vi.hoisted(() => vi.fn());
 vi.mock('node:child_process', () => ({ spawn }));
 
 const { Sidecar } = await import('../electron/sidecar');
-import type { LinkStatus } from '../electron/sidecar';
+import type { SenderStatus } from '../electron/sidecar';
 
 /** A child process that behaves like a pipe: writable until told otherwise. */
 class FakeChild extends EventEmitter {
@@ -73,7 +73,7 @@ function makeSidecar() {
     return child;
   });
 
-  const statuses: LinkStatus[] = [];
+  const statuses: SenderStatus[] = [];
   const sidecar = new Sidecar({
     isPackaged: false,
     repoRoot: '/repo',
@@ -334,17 +334,74 @@ describe('respawn', () => {
     expect(children.length).toBe(51);
   });
 
-  it('reports dropped, then reconnecting, then linked', () => {
+  it('reports stopped, then restarting, then sending', () => {
     const { sidecar, children, statuses } = makeSidecar();
     sidecar.start();
     children[0].goLive();
+    vi.advanceTimersByTime(500);
     statuses.length = 0;
 
     children[0].die();
-    expect(statuses).toEqual(['dropped', 'reconnecting']);
+    // `restarting` waits for the ladder's delay to elapse and a child to
+    // actually be started. Nothing is coming up during the delay, and `stopped`
+    // is the accurate word for that.
+    expect(statuses).toEqual(['stopped']);
     vi.advanceTimersByTime(0);
+    expect(statuses).toEqual(['stopped', 'restarting']);
     children[1].goLive();
-    expect(statuses).toEqual(['dropped', 'reconnecting', 'linked']);
+    // Not yet. `spawn` fires on process creation, so a status published here
+    // would say nothing more than the old 'linked' did.
+    expect(statuses).toEqual(['stopped', 'restarting']);
+    vi.advanceTimersByTime(500);
+    expect(statuses).toEqual(['stopped', 'restarting', 'sending']);
+  });
+
+  it('does not leave a replaced sidecar reading sending', () => {
+    // `main.ts` swaps the whole instance for a floor or NIC change, and
+    // `stop()` publishes nothing — so whatever the previous child last said
+    // stands until the new one speaks. While that was `spawn` the gap was
+    // negligible; with the promotion deferred it is a window in which the
+    // indicator claims a process that has already been killed is sending.
+    const first = makeSidecar();
+    first.sidecar.start();
+    first.children[0].goLive();
+    vi.advanceTimersByTime(500);
+    expect(first.statuses.at(-1)).toBe('sending');
+
+    // The replacement instance. Its first published word has to displace the
+    // stale one, and it must not be `sending`.
+    const replacement = makeSidecar();
+    replacement.sidecar.start();
+    expect(replacement.statuses).toEqual(['restarting']);
+
+    // And it still reaches sending on its own account, so this is a correction
+    // rather than a mute.
+    replacement.children[0].goLive();
+    vi.advanceTimersByTime(500);
+    expect(replacement.statuses).toEqual(['restarting', 'sending']);
+  });
+
+  it('never says sending for a child that dies on startup', () => {
+    // The crash loop this exists for: an illegal geometry, or a --local-ip
+    // naming an interface that has gone away, makes `mapper stream` exit on its
+    // next tick. The retry ladder's first rung is 0 ms, so publishing from
+    // `spawn` strobed the indicator through Sending several times a second
+    // while nothing was leaving the machine — and an indicator that cries wolf
+    // once is one an operator reads straight past on the night it is right.
+    const { sidecar, children, statuses } = makeSidecar();
+    sidecar.start();
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      children[attempt].goLive();
+      children[attempt].die();
+      vi.advanceTimersByTime(1_000);
+    }
+
+    expect(statuses).not.toContain('sending');
+    // The positive control. An assertion that something is absent passes just
+    // as well when nothing happened at all, so prove the loop ran.
+    expect(children.length).toBeGreaterThan(4);
+    expect(statuses.filter((status) => status === 'stopped').length).toBe(4);
   });
 });
 

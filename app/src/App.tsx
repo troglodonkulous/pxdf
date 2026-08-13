@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { LinkStatus } from '../electron/sidecar.js'
+import type { SenderStatus } from '../electron/sidecar.js'
 import { MappingScreen } from './mapping/MappingScreen.js'
 import { applyFloorSelection } from './mapping/floorSelection.js'
 import { PlayScreen } from './PlayScreen.js'
@@ -48,7 +48,7 @@ export function App() {
   const [surface, setSurface] = useState<'mapping' | 'play'>('mapping')
   const [rotation, setRotation] = useState<Rotation>(0)
   const [show, setShow] = useState<Show>(INITIAL_SHOW)
-  const [status, setStatus] = useState<LinkStatus>('reconnecting')
+  const [status, setStatus] = useState<SenderStatus>('restarting')
   const [snapshot, setSnapshot] = useState<EngineSnapshot>(() => engine.snapshot())
   const [stats, setStats] = useState<RenderStats>({ fps: 0, passMs: 0 })
 

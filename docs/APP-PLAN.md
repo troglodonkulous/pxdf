@@ -160,7 +160,7 @@ variant and is shelved (below). The surface has four parts:
 
 | Part | What it is |
 |---|---|
-| Wiring diagram | Controllers as boxes, their ports, and which tile columns each drives. Hovering a connector lights its two tile columns. Header reads `1 connector = 2 chains = 2 tile columns`. |
+| Wiring diagram | Controllers as boxes, their four physical jacks, and which tile columns each drives. Hovering a connector lights its two tile columns. Header reads `1 connector = 2 ports = 2 tile columns`. |
 | Floor panel | Type / Width / Height, all **dropdowns, never free text** — `mapper stream --type` accepts exactly `6x6_4P`, `6x6_8P`, `8x8_4P`, `8x8_8P`, and a typo in a tile count is a floor that does not light. |
 | Derived readout | Metres, feet-and-inches, tile count, pixels, controllers, packets and bytes per frame. **Every number derived, none entered.** A tile is 500 mm; imperial is computed from metric and is never the input. |
 | Network + navigation | The NIC picker, and **Open Player** — the first navigation in the app. |
@@ -214,9 +214,20 @@ mockup.
 ### Gates, all off-hardware
 
 1. **The diagram agrees with `mapper plan`.** For a set of geometries including
-   10 × 5 and 10 × 12, shell out, parse the table, and assert the surface's
-   controller/port/tile-column assignment and its derived readout match it
-   field for field.
+   10 × 5, 10 × 12, an `_8P` type and an odd column count, shell out, parse the
+   table, and assert the surface's controller/port/tile-column assignment and
+   its derived readout match it field for field.
+
+   Extended 2026-08-13 to grade the *jack* layer that sits on top of it. `mapper
+   plan` emits no connector column, so the two-ports-per-jack constant is
+   hardware-cited (`docs/PROTOCOL.md:75-79`, gate 4; the cable trace at
+   `docs/RUNSHEET-10x5-4P.md:1546-1560`) rather than mapper-derived — but
+   everything downstream of it is graded against mapper: one cable per used
+   jack, `ceil(ports-in-use / 2)` per controller; every tile column fed exactly
+   once, with paired columns adjacent; four jacks drawn per controller with
+   every socket inside the box; and no two cables on one controller sharing a
+   colour or a drop height. The odd-column rig exists so the trailing
+   single-port jack is executed rather than reasoned about.
 2. **A geometry change is visible on the wire, with no gap in the content.**
    Extend `test/e2e/wire.mjs`: set 10 × 12 in the running UI and watch packets
    per frame go **20 → 50** and bytes per frame **9,700 → 23,290**. No *content*

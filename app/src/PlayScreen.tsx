@@ -1,5 +1,6 @@
 import { useState, type ReactNode, type RefObject } from 'react'
-import type { LinkStatus } from '../electron/sidecar.js'
+import type { SenderStatus } from '../electron/sidecar.js'
+import { StatusPill } from './StatusPill.js'
 import type { EngineSnapshot, PlayerEngine, PlayerMode } from './player/engine.js'
 import { probeDurationMs } from './player/mediaDuration.js'
 import {
@@ -27,7 +28,7 @@ interface PlayScreenProps {
   readonly show: Show
   readonly showRef: RefObject<Show>
   readonly floor: FloorGeometry
-  readonly status: LinkStatus
+  readonly status: SenderStatus
   readonly snapshot: EngineSnapshot
   readonly stats: RenderStats
   readonly engine: PlayerEngine<VideoSource>
@@ -71,14 +72,6 @@ function Icon({ name, size = 16 }: { readonly name: IconName; readonly size?: nu
       return <svg {...common}><path d="m8 5 11 7-11 7V5Z" /></svg>
     case 'pause':
       return <svg {...common}><path d="M9 5v14M15 5v14" /></svg>
-  }
-}
-
-function statusLabel(status: LinkStatus): string {
-  switch (status) {
-    case 'linked': return 'Linked'
-    case 'reconnecting': return 'Reconnecting'
-    case 'dropped': return 'Dropped'
   }
 }
 
@@ -267,10 +260,7 @@ export function PlayScreen({
           {floor.tileCols} × {floor.tileRows} · {floor.widthPx} × {floor.heightPx}
         </span>
         <button type="button" className="button ghost small" onClick={() => setSurface('mapping')}>Mapping…</button>
-        <span className={`status-pill status-${status}`}>
-          <span className="status-dot" aria-hidden="true" />
-          {statusLabel(status)}
-        </span>
+        <StatusPill status={status} />
       </header>
 
       <div className="player-body">
