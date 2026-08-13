@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { LinkStatus } from '../../electron/sidecar.js'
 import type { ShowFloor } from '../player/show.js'
 import {
+  canvasSize,
   MAX_TILE_COLS,
   maxTileRows,
   TILE_PX,
@@ -170,6 +171,35 @@ export function MappingScreen({
     ? diagramState
     : null
 
+  // Rotation is applied here, at render time, and never reaches `buildDiagram`.
+  // It is a *presentation* transform — the operator authoring a portrait floor
+  // on a landscape canvas — not `mapper/orientation.py`, which is cabling
+  // compensation and is settled at `identity` permanently. Keeping it out of the
+  // model is what stops the two ever merging: `buildDiagram` is graded against
+  // `mapper plan`, and a rotation argument would put a presentation choice
+  // inside the thing that gate measures.
+  const turned = rotation === 90 || rotation === 270
+  const canvasW = readyState?.diagram.canvasWidth ?? 0
+  const canvasH = readyState?.diagram.canvasHeight ?? 0
+  const viewBox = turned ? `0 0 ${canvasH} ${canvasW}` : `0 0 ${canvasW} ${canvasH}`
+  const rotateDiagram = rotation === 90 ? `translate(${canvasH} 0) rotate(90)`
+    : rotation === 180 ? `translate(${canvasW} ${canvasH}) rotate(180)`
+    : rotation === 270 ? `translate(0 ${canvasW}) rotate(270)`
+    : undefined
+  /**
+   * Keeps a label readable inside a rotated diagram.
+   *
+   * Only at 180°, and the asymmetry is the point. A controller box is 80 x 50,
+   * so its label fits along the long axis. At 90° and 270° that axis is vertical
+   * and the label turns with it, which is where it fits; forcing it upright
+   * there made it overlap the jacks and spill out of a 50px-wide box. At 180°
+   * the box is still landscape, so upright fits — and upside-down text is the
+   * one case that is simply unreadable rather than merely turned.
+   */
+  const readableAt = (x: number, y: number): string | undefined =>
+    rotation === 180 ? `rotate(180 ${x} ${y})` : undefined
+  const authorCanvas = canvasSize(floor, rotation)
+
   return (
     <main className="mapping-screen">
       <header className="title-bar">
@@ -201,10 +231,11 @@ export function MappingScreen({
             {readyState !== null ? (
               <svg
                 className="mapping-diagram"
-                viewBox={`0 0 ${readyState.diagram.canvasWidth} ${readyState.diagram.canvasHeight}`}
+                viewBox={viewBox}
                 role="img"
                 aria-label="Controller wiring to floor tile columns"
               >
+                <g transform={rotateDiagram}>
                 {readyState.diagram.wires.map((wire) => (
                   <g
                     key={`wire-${wire.controller}-${wire.jack}`}
@@ -233,7 +264,12 @@ export function MappingScreen({
                       height={controller.height}
                       rx={6}
                     />
-                    <text x={controller.x + controller.width / 2} y={controller.y + 17} textAnchor="middle">
+                    <text
+                      x={controller.x + controller.width / 2}
+                      y={controller.y + 17}
+                      textAnchor="middle"
+                      transform={readableAt(controller.x + controller.width / 2, controller.y + 17)}
+                    >
                       {controller.label}
                     </text>
                     {controller.jacks.map((jack) => (
@@ -274,6 +310,7 @@ export function MappingScreen({
                     rx={3}
                   />
                 ))}
+                </g>
               </svg>
             ) : (
               <div className="diagram-placeholder" role="status">
@@ -339,6 +376,16 @@ export function MappingScreen({
               </strong>
               <span>{readyState.readout.widthM.toFixed(2)} × {readyState.readout.depthM.toFixed(2)} m · {readyState.readout.tileCount} tiles</span>
               <span>{readyState.readout.widthPx} × {readyState.readout.heightPx} px</span>
+              {/*
+                The floor's own size never changes — it is bolted to the ground.
+                What Rotation changes is the canvas the operator authors on, so
+                that is what gets a second line, and only when there is a
+                difference to state. Reuses `canvasSize`; a second swap written
+                out here would be a second implementation of the render's.
+              */}
+              {rotation !== 0 && (
+                <span>{authorCanvas.width} × {authorCanvas.height} px canvas at {rotation}°</span>
+              )}
               <span>{readyState.readout.controllerCount} controllers</span>
               <span>{readyState.readout.packetsPerFrame} packets · {readyState.readout.bytesPerFrame.toLocaleString()} B/frame</span>
             </div>

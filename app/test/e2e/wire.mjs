@@ -62,6 +62,8 @@ import { setTimeout as sleep } from 'node:timers/promises'
 
 /** `mapper`'s packet header. Five bytes, not eight — see `docs/PROTOCOL.md`. */
 const HEADER_LEN = 5
+/** The shop rig's tile rows. Named because the hover check counts tiles, not columns. */
+const SHOP_RIG_ROWS = 5
 const PORT = 60_001
 const DEBUG_PORT = 9_333
 const APP_DIR = resolve(import.meta.dirname, '..', '..')
@@ -597,7 +599,7 @@ try {
   check(linkLabel === 'Linked', 'the link indicator says Linked while the wire is live',
     String(await page.evaluate('document.querySelector(".status-pill")?.textContent?.trim() ?? null')))
 
-  const shop = planShape('8x8_4P', 10, 5)
+  const shop = planShape('8x8_4P', 10, SHOP_RIG_ROWS)
   const idleShape = frameShape(idle, shop.controllerCount)
   check(idleShape !== null
     && idleShape.packetsPerFrame === shop.packetsPerFrame
@@ -625,8 +627,23 @@ try {
   //     a Rotation change has no business reaching the sidecar. If it ever
   //     starts calling `setFloor`, the frame shape stays identical but the wire
   //     goes quiet for a spawn — so the gap is what catches it, not the shape.
+  //     It must, however, do something the operator can see. Rotation shipped
+  //     changing nothing on this surface at all: the diagram's `viewBox` came
+  //     back byte-identical and only `aria-pressed` moved. A control that is
+  //     graded solely on what it must *not* disturb passes just as green when
+  //     it does nothing whatsoever, so the visible half is asserted too — the
+  //     canvas turns, which at 90° means the viewBox swaps its axes.
+  const uprightViewBox = await page.evaluate(
+    'document.querySelector(".mapping-diagram")?.getAttribute("viewBox") ?? null')
   const beforeRotation = tap.packets.length
   await page.evaluate(clickScript('[aria-label="Rotation 90 degrees"]'))
+  const turnedViewBox = await waitFor(`(() => {
+    const box = document.querySelector('.mapping-diagram')?.getAttribute('viewBox') ?? null
+    return box !== null && box !== ${JSON.stringify(uprightViewBox)} ? box : null
+  })()`)
+  check(typeof uprightViewBox === 'string' && typeof turnedViewBox === 'string'
+      && turnedViewBox.split(' ').slice(2).reverse().join(' ') === uprightViewBox.split(' ').slice(2).join(' '),
+    'Rotation turns the diagram', `${uprightViewBox} -> ${turnedViewBox}`)
   await sleep(800)
   const rotated = tap.packets.slice(beforeRotation)
   const rotatedShape = frameShape(rotated, shop.controllerCount)
@@ -656,13 +673,21 @@ try {
       .map((element) => Number(element.dataset.tileCol))
     return lit.length > 0 ? lit : null
   })()`)
-  //     Exactly 2 and 3, not merely "includes 3". One cable carries two ports
-  //     to two adjacent columns, so a jack that lit only the column it was
+  //     Exactly columns 2 and 3, not merely "includes 3". One cable carries two
+  //     ports to two adjacent columns, so a jack that lit only the column it was
   //     asked about would be the port model surviving inside the jack one, and
   //     `includes` would pass it green.
-  check(Array.isArray(hovered) && hovered.length === 2
-      && hovered.includes(2) && hovered.includes(3),
-    'hovering a connector highlights both tile columns it feeds', JSON.stringify(hovered))
+  //
+  //     Both the columns and the tile count, because `hovered` is one entry per
+  //     *tile*: two columns of a five-row floor is ten of them. Asserting the
+  //     distinct columns alone would pass a highlight that lit only the top row,
+  //     and asserting the count alone would pass one that lit the wrong pair.
+  const litColumns = Array.isArray(hovered) ? [...new Set(hovered)].sort((a, b) => a - b) : null
+  check(litColumns !== null && litColumns.length === 2
+      && litColumns[0] === 2 && litColumns[1] === 3
+      && hovered.length === 2 * SHOP_RIG_ROWS,
+    'hovering a connector highlights both tile columns it feeds',
+    `columns ${JSON.stringify(litColumns)} over ${hovered?.length ?? 0} tiles`)
 
   await page.evaluate(hoverConnectorScript(3, true))
   const highlightCleared = await waitFor(
@@ -902,10 +927,20 @@ try {
   //     wire: the render loop and the canvas it writes through live at the root
   //     and are never unmounted, so there is nothing here that should even
   //     briefly stop the send. Asserted rather than trusted by construction.
+  //
+  //     The window is held open deliberately. `maxGapMs` needs two packets to
+  //     measure anything, and the surface switch can complete inside a single
+  //     CDP round trip — so measuring only for as long as the switch took
+  //     reported "no measurement" on the fast runs, which is indistinguishable
+  //     from the wire having died. Both readings failed, so nothing was
+  //     laundered green, but a check that flaps is a check people learn to
+  //     re-run. Half a second at 600 packets/s is ~300 packets: null now means
+  //     silence, and silence is the thing being tested for.
   const beforeNav = tap.packets.length
   await page.evaluate(clickButtonScript('Mapping'))
   const backOnMapping = await waitFor('document.querySelector(".mapping-screen") !== null ? 1 : 0')
   check(backOnMapping === 1, 'the Mapping button returns to the Mapping surface')
+  await sleep(500)
   const navGap = tap.maxGapMs(beforeNav)
   check(navGap !== null && navGap < 200, 'navigating between surfaces does not gap the wire',
     navGap === null ? 'no measurement' : `largest silence ${navGap} ms`)
