@@ -669,6 +669,15 @@ describe('editing a cue reaches the slot already playing it', () => {
 
     expect(rig.engine.snapshot().pendingCueId).toBe('b');
     expect(rig.created('a')).toBe(1);
+
+    // Graded on the wire and not only on the slot. `pendingCueId === 'b'` is an
+    // internal symptom, and it stays true for an advance that takes the floor
+    // black on its way — arming `b` while dropping `a` satisfies every
+    // assertion above and gaps the floor for as long as `b` takes to decode.
+    // What the operator sees is `a`, then `b`, and never black between them.
+    expect(onWire(rig.engine.tick().wire)).toBe('a');
+    rig.source('b').ready = true;
+    expect(onWire(rig.engine.tick().wire)).toBe('b');
   });
 
   it('goes black rather than looping when the live cue is the only one left', () => {
@@ -890,5 +899,77 @@ describe('the error banner tracks the failure, not the button press', () => {
     // the banner here, one frame after it was set, with `b` still not playing.
     expect(onWire(rig.engine.tick().wire)).toBe('a');
     expect(rig.engine.snapshot().lastError).toContain('Cue b');
+  });
+
+  it('retires a failure when its cue is deleted, and keeps the floor running', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.engine.goTo('b');
+    rig.source('b').failed = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().lastError).toContain('Cue b');
+
+    // Deleting the clip that would not play is what an operator does next, and
+    // the banner then names a cue that is not in the stack: unactionable, and
+    // up until the next successful GO over a floor that is working perfectly.
+    rig.engine.setShow(show(cue('a')));
+    expect(rig.engine.snapshot().lastError).toBe(null);
+    expect(onWire(rig.engine.tick().wire)).toBe('a');
+  });
+
+  it('keeps a failure up while its cue is still in the stack', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.engine.goTo('b');
+    rig.source('b').failed = true;
+    rig.engine.tick();
+
+    // The other half of the check above. Retiring on any `setShow` at all would
+    // erase a live failure the moment the operator renamed an unrelated cue —
+    // the deletion of *this* cue is the event, not the edit.
+    rig.engine.setShow(show(cue('a'), { ...cue('b'), name: 'Renamed' }));
+    expect(rig.engine.snapshot().lastError).toContain('Cue b');
+  });
+});
+
+describe('a cue whose media changed is not the cue that is playing', () => {
+  it('tears down the live slot rather than keeping the old decoder', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    expect(onWire(rig.engine.tick().wire)).toBe('a');
+
+    // Same id, different file. Reseating the slot here would leave the decoder
+    // for `/media/a.mp4` running under a cue that now names another file: the
+    // floor shows the old clip, the UI shows the new cue, and nothing anywhere
+    // reports a problem. It just looks like the wrong clip, which is the one
+    // failure mode with no channel at all.
+    const replaced: Cue = { ...cue('a'), source: { kind: 'video', path: '/media/other.mp4' } };
+    rig.engine.setShow(show(replaced, cue('b')));
+
+    expect(onWire(rig.engine.tick().wire)).toBe(null);
+    expect(rig.source('a').disposed).toBe(true);
+  });
+
+  it('leaves a cue whose media is unchanged on the wire', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    // The positive control for the check above: an ordinary edit must not tear
+    // anything down, or the guard would be indistinguishable from `setShow`
+    // always going idle.
+    rig.engine.setShow(show({ ...cue('a'), name: 'Renamed' }, cue('b')));
+    expect(onWire(rig.engine.tick().wire)).toBe('a');
+    expect(rig.source('a').disposed).toBe(false);
+    expect(rig.created('a')).toBe(1);
   });
 });

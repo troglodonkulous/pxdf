@@ -139,6 +139,12 @@ interface Slot<S extends FrameSource> {
  */
 type ErrorSurface = 'live' | 'preview';
 
+/** A failure, and the cue it is about, so it can be retired with that cue. */
+interface SurfaceError {
+  readonly cueId: string;
+  readonly message: string;
+}
+
 export class PlayerEngine<S extends FrameSource> {
   private show: Show;
   private readonly createSource: (cue: Cue) => S;
@@ -180,9 +186,15 @@ export class PlayerEngine<S extends FrameSource> {
    *
    * Two slots cannot be overwritten by each other, which removes the class
    * rather than the instance.
+   *
+   * Each carries the cue it is about, so that `setShow` can retire an error
+   * whose cue has been deleted. A message naming a cue that is no longer in the
+   * stack cannot be acted on, and the operator's usual response to a clip that
+   * will not decode is to remove it — which would otherwise leave the banner up
+   * for the rest of the show, over a floor that is working.
    */
-  private liveError: string | null = null;
-  private previewError: string | null = null;
+  private liveError: SurfaceError | null = null;
+  private previewError: SurfaceError | null = null;
 
   constructor(options: EngineOptions<S>) {
     this.show = options.show;
@@ -222,6 +234,7 @@ export class PlayerEngine<S extends FrameSource> {
       this.standbyCueId = this.cueAfter(this.live?.cue.id ?? null)?.id ?? null;
       this.standbyPinned = false;
     }
+    this.retireErrorsForDeletedCues();
   }
 
   setMode(mode: PlayerMode): void {
@@ -412,18 +425,18 @@ export class PlayerEngine<S extends FrameSource> {
 
   private reapFailures(): void {
     if (this.pending?.source.failed === true) {
-      this.fail('live', `cue ${JSON.stringify(this.pending.cue.name)} failed to play`);
+      this.fail('live', this.pending.cue, `cue ${JSON.stringify(this.pending.cue.name)} failed to play`);
       this.pending = this.release(this.pending);
     }
     if (this.live?.source.failed === true) {
       // The floor goes black rather than to the next cue. An automatic advance
       // here would put unrelated content up at the moment something is already
       // wrong, with nothing on screen to say why.
-      this.fail('live', `cue ${JSON.stringify(this.live.cue.name)} stopped playing`);
+      this.fail('live', this.live.cue, `cue ${JSON.stringify(this.live.cue.name)} stopped playing`);
       this.clearLive();
     }
     if (this.preview?.source.failed === true) {
-      this.fail('preview', `cue ${JSON.stringify(this.preview.cue.name)} failed to preview`);
+      this.fail('preview', this.preview.cue, `cue ${JSON.stringify(this.preview.cue.name)} failed to preview`);
       this.preview = this.release(this.preview);
     }
   }
@@ -436,16 +449,29 @@ export class PlayerEngine<S extends FrameSource> {
    * source and start the clip from zero, so trimming a running cue's length
    * would also jump the floor back to its first frame — an edit doing visibly
    * more than it was asked to.
+   *
+   * Except when the media itself changed. The decoder is bound to a path, so
+   * keeping it across a path change leaves the old clip on the floor under the
+   * new cue's name, with nothing anywhere reporting a problem — it simply looks
+   * like the wrong clip, which is the one kind of failure this project has no
+   * channel for. Treated as a removal instead: the slot is torn down, and if it
+   * was live the floor goes black until the operator fires the cue again.
+   *
+   * Unreachable from PR 2's UI, where every edit is add, move, delete, rename
+   * or duration and `nextCueId` never reuses an id. PR 5 opens show files, and
+   * that is where a cue's path changes underneath a running player.
    */
   private reseat(slot: Slot<S> | null): Slot<S> | null {
     if (slot === null) return null;
     const cue = this.cueById(slot.cue.id);
-    return cue === null ? null : { cue, source: slot.source };
+    if (cue === null || cue.source.path !== slot.cue.source.path) return null;
+    return { cue, source: slot.source };
   }
 
-  private fail(surface: ErrorSurface, message: string): void {
-    if (surface === 'live') this.liveError = message;
-    else this.previewError = message;
+  private fail(surface: ErrorSurface, cue: Cue, message: string): void {
+    const error: SurfaceError = { cueId: cue.id, message };
+    if (surface === 'live') this.liveError = error;
+    else this.previewError = error;
   }
 
   /** Take down one surface's error. The other is not this one's to clear. */
@@ -462,7 +488,23 @@ export class PlayerEngine<S extends FrameSource> {
    * the floor is dark has been told the less useful of two true things.
    */
   private get lastError(): string | null {
-    return this.liveError ?? this.previewError;
+    return (this.liveError ?? this.previewError)?.message ?? null;
+  }
+
+  /**
+   * Drop an error whose cue is no longer in the show.
+   *
+   * The cue that would not decode is the one the operator deletes, and the
+   * banner naming it then describes something that is not there — unactionable,
+   * and up until the next successful GO, over a floor that may be perfectly
+   * healthy. A channel that keeps talking after the fact is one that gets
+   * ignored when it matters.
+   */
+  private retireErrorsForDeletedCues(): void {
+    const gone = (error: SurfaceError | null): boolean =>
+      error !== null && this.cueById(error.cueId) === null;
+    if (gone(this.liveError)) this.liveError = null;
+    if (gone(this.previewError)) this.previewError = null;
   }
 
   private promotePending(): void {
@@ -530,7 +572,7 @@ export class PlayerEngine<S extends FrameSource> {
     try {
       this.pending = this.arm(next);
     } catch {
-      this.fail('live', `cue ${JSON.stringify(next.name)} could not be started`);
+      this.fail('live', next, `cue ${JSON.stringify(next.name)} could not be started`);
       // Going idle is also what stops this retrying: with no live cue there is
       // no duration left to expire, so the next tick does not try again.
       this.clearLive();

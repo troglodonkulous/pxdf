@@ -425,6 +425,13 @@ try {
   // Back to cue 1 for the rest of the run. This also arms the check below: the
   // banner is up right now, and `no cue reported a failure` only means
   // something because of it — a successful promotion is what clears it.
+  //
+  // Read here rather than relied on from thirty lines up. A check whose meaning
+  // comes from a *different* check passing is the `allBlack([])` shape again: an
+  // app that rendered no banner at all would fail that one and sail through this
+  // one, which would then be reporting a clear that never happened.
+  const bannerBeforeGo = await page.evaluate(
+    'document.querySelector(".error-banner")?.textContent ?? null')
   await page.evaluate(clickRowScript(0))
   await page.evaluate(clickButtonScript('GO'))
   let lit = []
@@ -453,8 +460,10 @@ try {
   // state, and an unpolled read here reports a healthy app red.
   const cleared = await waitFor(
     'document.querySelector(".error-banner") === null ? "cleared" : ""')
-  check(cleared === 'cleared', 'a successful cue clears the previous failure',
-    String(await page.evaluate('document.querySelector(".error-banner")?.textContent ?? null')))
+  check(typeof bannerBeforeGo === 'string' && cleared === 'cleared',
+    'a successful cue clears the previous failure',
+    `before ${JSON.stringify(bannerBeforeGo)} · after ${JSON.stringify(
+      await page.evaluate('document.querySelector(".error-banner")?.textContent ?? null'))}`)
 
   // 2b. The media handler serves opened files and nothing else. Registering a
   //     custom scheme hands the renderer a function it can call with a path of
