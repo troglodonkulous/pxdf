@@ -942,6 +942,26 @@ describe('the error banner tracks the failure, not the button press', () => {
     expect(banner).toContain('Intro');
     expect(banner).not.toContain('Cue b');
   });
+
+  it('retires a failure when the cue is given different media', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.engine.goTo('b');
+    rig.source('b').failed = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().lastError).toContain('Cue b');
+
+    // Swapping a working clip in is the other thing an operator does about a
+    // cue that will not play, and the failure is about a cue *and a file*. Kept
+    // here, the banner condemns media nothing has tried yet — it reports the
+    // new clip broken on the strength of the old one.
+    const replaced: Cue = { ...cue('b'), source: { kind: 'video', path: '/media/fixed.mp4' } };
+    rig.engine.setShow(show(cue('a'), replaced));
+    expect(rig.engine.snapshot().lastError).toBe(null);
+  });
 });
 
 describe('a cue whose media changed is not the cue that is playing', () => {

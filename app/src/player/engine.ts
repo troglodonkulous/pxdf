@@ -152,6 +152,15 @@ type ErrorSurface = 'live' | 'preview';
  */
 interface SurfaceError {
   readonly cueId: string;
+  /**
+   * The media the failure was about.
+   *
+   * A failure is about a cue *and a file*, not a cue. Replacing the media under
+   * a cue that would not play is the operator fixing the problem, and an error
+   * that survives it condemns a file nothing has tried yet — the banner says
+   * the new clip is broken on the strength of the old one.
+   */
+  readonly path: string;
   /** Verb phrase completing `cue "<name>" …`. */
   readonly reason: string;
 }
@@ -245,7 +254,7 @@ export class PlayerEngine<S extends FrameSource> {
       this.standbyCueId = this.cueAfter(this.live?.cue.id ?? null)?.id ?? null;
       this.standbyPinned = false;
     }
-    this.retireErrorsForDeletedCues();
+    this.retireStaleErrors();
   }
 
   setMode(mode: PlayerMode): void {
@@ -480,7 +489,7 @@ export class PlayerEngine<S extends FrameSource> {
   }
 
   private fail(surface: ErrorSurface, cue: Cue, reason: string): void {
-    const error: SurfaceError = { cueId: cue.id, reason };
+    const error: SurfaceError = { cueId: cue.id, path: cue.source.path, reason };
     if (surface === 'live') this.liveError = error;
     else this.previewError = error;
   }
@@ -517,11 +526,17 @@ export class PlayerEngine<S extends FrameSource> {
    * healthy. A channel that keeps talking after the fact is one that gets
    * ignored when it matters.
    */
-  private retireErrorsForDeletedCues(): void {
-    const gone = (error: SurfaceError | null): boolean =>
-      error !== null && this.cueById(error.cueId) === null;
-    if (gone(this.liveError)) this.liveError = null;
-    if (gone(this.previewError)) this.previewError = null;
+  private retireStaleErrors(): void {
+    const stale = (error: SurfaceError | null): boolean => {
+      if (error === null) return false;
+      const cue = this.cueById(error.cueId);
+      // Deleted, or pointed at different media. Both are "the thing that failed
+      // is not in the show any more", and both are what the operator does about
+      // a clip that will not play: remove it, or swap a working one in.
+      return cue === null || cue.source.path !== error.path;
+    };
+    if (stale(this.liveError)) this.liveError = null;
+    if (stale(this.previewError)) this.previewError = null;
   }
 
   private promotePending(): void {
