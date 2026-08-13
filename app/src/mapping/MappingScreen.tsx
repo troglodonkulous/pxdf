@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { LinkStatus } from '../../electron/sidecar.js'
 import type { ShowFloor } from '../player/show.js'
-import { TILE_PX, type FloorGeometry, type Rotation } from '../render/geometry.js'
+import {
+  MAX_TILE_COLS,
+  maxTileRows,
+  TILE_PX,
+  type FloorGeometry,
+  type Rotation,
+} from '../render/geometry.js'
 import {
   buildDiagram,
   deriveReadout,
@@ -36,8 +42,23 @@ type DiagramState =
       readonly readout: DerivedReadout
     }
 
-const TILE_COUNTS = Array.from({ length: 32 }, (_, index) => index + 1)
+const COLUMN_COUNTS = Array.from({ length: MAX_TILE_COLS }, (_, index) => index + 1)
 const ROTATIONS = [0, 90, 180, 270] as const
+
+/**
+ * The row counts this type can actually take.
+ *
+ * Per type, because `mapper` allows 22 rows of `8x8_4P` and only 11 of
+ * `8x8_8P`. Offering a flat 1..32 for every type let the operator pick a floor
+ * `mapper` refuses: `floorGeometry` waved it through, `doSetFloor` stopped the
+ * running sidecar, and the replacement `mapper stream` exited on startup —
+ * leaving the floor with no sender at all. Not offering the illegal value is
+ * the first of the three guards; `floorGeometry` refusing it is the second, and
+ * `doSetFloor` validating before it stops anything is the third.
+ */
+function rowCounts(type: string): readonly number[] {
+  return Array.from({ length: maxTileRows(type) }, (_, index) => index + 1)
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -64,6 +85,7 @@ export function MappingScreen({
   const [interfaces, setInterfaces] = useState<readonly NetworkInterface[]>([])
   const [selectedAddress, setSelectedAddress] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -100,13 +122,35 @@ export function MappingScreen({
 
   const selectFloor = async (
     patch: Partial<Pick<ShowFloor, 'type' | 'tileCols' | 'tileRows'>>,
+    notice: string | null = null,
   ): Promise<void> => {
     setActionError(null)
+    setNotice(notice)
     try {
       await changeFloor(patch)
     } catch (error) {
       setActionError(`Floor change failed: ${errorMessage(error)}`)
+      setNotice(null)
     }
+  }
+
+  /**
+   * Changing type can invalidate a height nobody touched — 12 rows is legal on
+   * `8x8_4P` and not on `8x8_8P`. Clamp rather than refuse, because refusing
+   * makes the Type dropdown appear broken, but say so: quietly shrinking an
+   * operator's floor by a third is the kind of silent success this project
+   * keeps a postmortems file about.
+   */
+  const selectType = (type: string): void => {
+    const limit = maxTileRows(type)
+    if (floor.tileRows <= limit) {
+      void selectFloor({ type })
+      return
+    }
+    void selectFloor(
+      { type, tileRows: limit },
+      `Height reduced to ${limit}: ${type} allows at most ${limit} tile rows.`,
+    )
   }
 
   const selectInterface = async (address: string): Promise<void> => {
@@ -148,6 +192,9 @@ export function MappingScreen({
 
           {actionError !== null && (
             <div className="error-banner mapping-error-banner" role="alert">{actionError}</div>
+          )}
+          {actionError === null && notice !== null && (
+            <div className="notice-banner mapping-error-banner" role="status">{notice}</div>
           )}
 
           <div className="diagram-well">
@@ -254,7 +301,7 @@ export function MappingScreen({
               <select
                 aria-label="Floor type"
                 value={floor.type}
-                onChange={(event) => void selectFloor({ type: event.currentTarget.value })}
+                onChange={(event) => selectType(event.currentTarget.value)}
               >
                 {Object.keys(TILE_PX).map((type) => <option key={type} value={type}>{type}</option>)}
               </select>
@@ -266,7 +313,7 @@ export function MappingScreen({
                 value={floor.tileCols}
                 onChange={(event) => void selectFloor({ tileCols: Number(event.currentTarget.value) })}
               >
-                {TILE_COUNTS.map((count) => <option key={count} value={count}>{count}</option>)}
+                {COLUMN_COUNTS.map((count) => <option key={count} value={count}>{count}</option>)}
               </select>
             </label>
             <label>
@@ -276,7 +323,7 @@ export function MappingScreen({
                 value={floor.tileRows}
                 onChange={(event) => void selectFloor({ tileRows: Number(event.currentTarget.value) })}
               >
-                {TILE_COUNTS.map((count) => <option key={count} value={count}>{count}</option>)}
+                {rowCounts(floor.type).map((count) => <option key={count} value={count}>{count}</option>)}
               </select>
             </label>
           </div>

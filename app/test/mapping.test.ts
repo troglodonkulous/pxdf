@@ -146,7 +146,7 @@ describe.each(RIGS)('gate 1 — $name topology comes from mapper plan', (rig) =>
 
   it('gives every tile its floor-pixel origin', () => {
     const diagram = buildDiagram(rig.type, rig.cols, rig.rows, plan);
-    const tilePx = TILE_PX[rig.type];
+    const tilePx = TILE_PX[rig.type].tilePx;
     expect(diagram.tiles.length).toBe(rig.cols * rig.rows);
     for (const tile of diagram.tiles) {
       expect(tile.originXPx).toBe(tile.col * tilePx);
@@ -170,6 +170,68 @@ describe.each(RIGS)('gate 1 — $name topology comes from mapper plan', (rig) =>
     // Feet come from the metres, not from a second conversion of the tile count.
     expect(readout.widthFt + readout.widthIn / 12).toBeCloseTo(readout.widthM / 0.3048, 2);
     expect(readout.depthFt + readout.depthIn / 12).toBeCloseTo(readout.depthM / 0.3048, 2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The floor limits the app offers must be the ones mapper will accept
+// ---------------------------------------------------------------------------
+
+/** `mapper/floors.py`'s own limits, read from `mapper`, never transcribed. */
+function mapperLimits(): { maxTileCols: number; maxTileRows: Record<string, number> } {
+  const stdout = execFileSync(
+    PYTHON,
+    ['-c', 'import json;from mapper.floors import FLOOR_TYPES,MAX_TILE_COLS;'
+      + 'print(json.dumps({"maxTileCols":MAX_TILE_COLS,'
+      + '"maxTileRows":{k:v.max_tile_rows for k,v in FLOOR_TYPES.items()}}))'],
+    { cwd: REPO_ROOT, encoding: 'utf8' },
+  );
+  return JSON.parse(stdout);
+}
+
+describe('the floor limits agree with mapper', () => {
+  const limits = mapperLimits();
+
+  it('offers exactly the types mapper has', () => {
+    expect(Object.keys(TILE_PX).sort()).toEqual(Object.keys(limits.maxTileRows).sort());
+  });
+
+  it.each(Object.keys(limits.maxTileRows))('accepts %s up to mapper\'s row limit', (type) => {
+    const maxRows = limits.maxTileRows[type];
+    expect(maxRows).toBeGreaterThan(0);
+    expect(() => floorGeometry(type, 1, maxRows)).not.toThrow();
+    expect(() => floorGeometry(type, limits.maxTileCols, maxRows)).not.toThrow();
+  });
+
+  it.each(Object.keys(limits.maxTileRows))('refuses %s past mapper\'s row limit', (type) => {
+    // The reason this matters is not tidiness. `doSetFloor` stops the running
+    // sidecar and spawns a replacement, and it validates through
+    // `floorGeometry` *first* precisely so an impossible selection rejects with
+    // the old sender still alive. That guard is only as strong as this
+    // validator: a row count `floorGeometry` waves through but `mapper` refuses
+    // means the old sidecar is stopped, `mapper stream` exits on startup, and
+    // the floor has no sender at all — controller 1 reverts to the vendor's own
+    // content about five seconds later, mid-show.
+    //
+    // Per-type, and read from mapper rather than written here: the limits are
+    // 25 / 17 / 22 / 11 today, and a table copied into TypeScript is a table
+    // that drifts silently the first time `mapper` changes one.
+    expect(() => floorGeometry(type, 1, limits.maxTileRows[type] + 1)).toThrow();
+  });
+
+  it('refuses more tile columns than mapper allows', () => {
+    expect(() => floorGeometry('8x8_4P', limits.maxTileCols + 1, 1)).toThrow();
+  });
+
+  it('refuses the same geometries through the selection path the UI runs', () => {
+    const base: ShowFloor = { type: '8x8_8P', tileCols: 10, tileRows: 5 };
+    expect(() => applyFloorSelection(base, { tileRows: limits.maxTileRows['8x8_8P'] + 1 })).toThrow();
+    expect(() => applyFloorSelection(base, { tileCols: limits.maxTileCols + 1 })).toThrow();
+    // And a type change that makes the *existing* row count illegal. 12 rows is
+    // legal on 8x8_4P (max 22) and not on 8x8_8P (max 11), so switching type
+    // alone can invalidate a floor nobody edited the height of.
+    const tall: ShowFloor = { type: '8x8_4P', tileCols: 10, tileRows: 12 };
+    expect(() => applyFloorSelection(tall, { type: '8x8_8P' })).toThrow();
   });
 });
 

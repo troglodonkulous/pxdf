@@ -978,6 +978,47 @@ try {
     'that content is composed at the job rig, 50 packets and 23,290 bytes per frame',
     jobShape === null ? 'no complete frame captured' : `${jobShape.bytesPerFrame} bytes per frame`)
 
+  // 4d. A type change that would make the current height illegal clamps it,
+  //     says so, and keeps sending.
+  //
+  //     The floor is 10 x 12 here, which `mapper` allows on 8x8_4P (max 22
+  //     rows) and refuses on 8x8_8P (max 11). Before the limits were per type,
+  //     picking 8x8_8P here stopped the running sidecar, spawned a `mapper
+  //     stream` that exited on startup with `tile_rows 12 outside 1..11`, and
+  //     left the floor with no sender at all — controller 1 reverting to the
+  //     vendor's own content five seconds later, mid-show. It was reachable
+  //     from a dropdown.
+  //
+  //     Graded on the consequence, not the symptom: the wire keeps carrying
+  //     frames, at the shape `mapper plan` gives for the clamped geometry.
+  const clamped = planShape('8x8_8P', 10, 11)
+  const beforeClamp = tap.packets.length
+  await page.evaluate(selectScript('Floor type', '8x8_8P'))
+
+  let clampedShape = null
+  for (let attempt = 0; attempt < 25; attempt++) {
+    clampedShape = frameShape(await tap.window(400), clamped.controllerCount)
+    if (clampedShape !== null && clampedShape.bytesPerFrame === clamped.bytesPerFrame) break
+  }
+  check(clampedShape !== null && clampedShape.bytesPerFrame === clamped.bytesPerFrame,
+    'a type whose row limit is lower clamps the height instead of stranding the floor',
+    clampedShape === null
+      ? 'no complete frame captured — the sender may be gone'
+      : `${clampedShape.packetsPerFrame} packets / ${clampedShape.bytesPerFrame} bytes per frame, ` +
+        `want ${clamped.packetsPerFrame} / ${clamped.bytesPerFrame}`)
+
+  const clampGap = tap.maxGapMs(beforeClamp)
+  check(clampGap !== null && clampGap < MAX_RESTART_GAP_MS,
+    'the clamped restart does not strand the floor either',
+    clampGap === null ? 'no measurement' : `largest silence ${clampGap} ms`)
+
+  // And the operator is told. Quietly shrinking a floor by a row is a silent
+  // success, which is the thing this repo refuses on principle.
+  const clampNotice = await waitFor(
+    'document.querySelector(".notice-banner")?.textContent ?? null')
+  check(typeof clampNotice === 'string' && clampNotice.includes('11'),
+    'the operator is told the height was reduced', String(clampNotice))
+
   // 5. Quitting leaves the floor black. Controllers 2 and 3 hold their last
   //    frame indefinitely, so the last frame sent is the one that stays lit.
   const beforeQuit = tap.packets.length

@@ -496,6 +496,20 @@ input:disabled {
   text-align: center;
 }
 
+/* Same shape as .error-banner, deliberately not the same colour. A clamped
+   height is something the operator needs told, not something that went wrong,
+   and a surface that shouts danger at routine outcomes is one they stop
+   reading. */
+.notice-banner {
+  padding: var(--sp-4) var(--sp-6);
+  border: 1px solid var(--sem-info);
+  border-radius: var(--r-md);
+  color: var(--text-primary);
+  background: color-mix(in oklch, var(--sem-info) 16%, var(--surface-card));
+  font-size: var(--fs-caption);
+  text-align: center;
+}
+
 .inspector {
   display: flex;
   width: var(--w-inspector);
