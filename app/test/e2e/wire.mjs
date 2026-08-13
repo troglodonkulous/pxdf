@@ -30,6 +30,12 @@
  * packet of a non-black frame is then non-zero, and a single all-zero packet
  * body means a black frame rather than a dark corner of a real one.
  *
+ * It can also see that the page threw, which it could not until 2026-08-12 and
+ * which cost a session. Every check here reads a *wire* symptom, and a renderer
+ * that raises the same exception every frame produces wire symptoms that look
+ * like six unrelated failures. The last check is the only one that names a
+ * cause; see `open` for why `Log.entryAdded` alone was not enough.
+ *
  * ## Why the two clips are red and white rather than red and blue
  *
  * The cue-change check has to prove the change *happened* before "no black
@@ -151,28 +157,63 @@ function open(url) {
   return new Promise((resolvePage, rejectPage) => {
     const socket = new WebSocket(url)
     const pending = new Map()
+    /**
+     * Every uncaught exception the page raised, deduplicated by message.
+     *
+     * This listener is the instrument this file was missing, and its absence is
+     * most of why the defect it was written against took a session to find. The
+     * render loop reschedules its next frame on its first line — deliberately,
+     * so a decoder failure cannot stop future writes — so an exception in the
+     * middle of the loop body killed the wire write and every React update
+     * behind it while the loop itself carried on. From outside there was no
+     * error, no banner and no log entry: just a floor that stayed black and a
+     * cue stack frozen mid-change. Sixty exceptions a second, none of them
+     * visible to anything that was watching.
+     *
+     * `Log.entryAdded` is not enough on its own. The CORS refusal that caused it
+     * did arrive as a log entry, but the `SecurityError` it led to arrives only
+     * here, and it is the one that names the failing step.
+     */
+    const exceptions = new Map()
     let nextId = 0
+
+    const send = (method, params) => {
+      const id = (nextId += 1)
+      return new Promise((settle) => {
+        pending.set(id, settle)
+        socket.send(JSON.stringify({ id, method, params }))
+      })
+    }
 
     socket.addEventListener('message', (event) => {
       const message = JSON.parse(event.data)
+      if (message.method === 'Runtime.exceptionThrown') {
+        const details = message.params.exceptionDetails
+        const text = String(details.exception?.description ?? details.text).split('\n')[0]
+        const frame = details.stackTrace?.callFrames?.[0]
+        exceptions.set(text, {
+          text,
+          count: (exceptions.get(text)?.count ?? 0) + 1,
+          where: frame === undefined ? '' : `${frame.url}:${frame.lineNumber + 1}`,
+        })
+        return
+      }
       const waiter = pending.get(message.id)
       if (waiter === undefined) return
       pending.delete(message.id)
       waiter(message)
     })
     socket.addEventListener('error', rejectPage)
-    socket.addEventListener('open', () => {
+    socket.addEventListener('open', async () => {
+      await send('Runtime.enable', {})
       resolvePage({
+        exceptions,
         /** Evaluate an expression in the page and return its JSON value. */
         async evaluate(expression) {
-          const id = (nextId += 1)
-          const reply = await new Promise((settle) => {
-            pending.set(id, settle)
-            socket.send(JSON.stringify({
-              id,
-              method: 'Runtime.evaluate',
-              params: { expression, returnByValue: true, awaitPromise: true },
-            }))
+          const reply = await send('Runtime.evaluate', {
+            expression,
+            returnByValue: true,
+            awaitPromise: true,
           })
           if (reply.result?.exceptionDetails !== undefined) {
             throw new Error(`page threw: ${reply.result.exceptionDetails.text}`)
@@ -215,6 +256,11 @@ try {
   }
 
   const clips = [makeClip(workspace, 'red'), makeClip(workspace, 'white')]
+  // Never seeded into the picker, and therefore never in `main.ts`'s
+  // `allowedMedia`. Identical in every other respect to the two above, which is
+  // the point: the only thing that decides whether it is served is whether a
+  // human chose it.
+  const unpicked = makeClip(workspace, 'green')
   await tap.listen()
 
   electron = spawn(
@@ -255,6 +301,39 @@ try {
   check(countTone(lit, 'red') > 0, 'the frame on the wire is the first cue',
     `red ${countTone(lit, 'red')} · white ${countTone(lit, 'white')} · black ${countTone(lit, 'black')}`)
 
+  // The banner is the operator's only view of a cue that could not play, and it
+  // is the check that survives the render loop learning to swallow a per-frame
+  // throw. Before that fix a tainted work canvas showed up here as an uncaught
+  // `SecurityError`; after it, the loop catches it, marks the source failed and
+  // the engine names the cue — correct behaviour, and completely silent to a
+  // check that only watches for exceptions. So both are graded, and this is the
+  // one that would still be red if the media stopped being CORS-clean.
+  const banner = await page.evaluate(
+    'document.querySelector(".error-banner")?.textContent ?? null')
+  check(banner === null, 'no cue reported a failure', String(banner))
+
+  // 2b. The media handler serves opened files and nothing else. Registering a
+  //     custom scheme hands the renderer a function it can call with a path of
+  //     its choosing, so `main.ts` keeps the paths the picker returned and
+  //     refuses everything else. `unpicked` is the same kind of file, made the
+  //     same way, differing only in never having been chosen — so a pass here
+  //     cannot be explained by the clip being unplayable.
+  const unpickedUrl = `ddf-media://file${unpicked.split('/').map(encodeURIComponent).join('/')}`
+  const refused = await page.evaluate(`
+    new Promise((done) => {
+      const v = document.createElement('video')
+      v.muted = true
+      v.crossOrigin = 'anonymous'
+      v.addEventListener('error', () => done('refused'))
+      v.addEventListener('loadeddata', () => done('SERVED'))
+      setTimeout(() => done('refused'), 4000)
+      v.src = ${JSON.stringify(unpickedUrl)}
+      v.load()
+    })
+  `)
+  check(refused === 'refused', 'a file the operator never opened is not served',
+    `handler returned ${refused}`)
+
   // 3. A cue change. The first two checks establish that the change actually
   //    happened — without them, a second cue that never decodes leaves the
   //    first on the wire and "no black appeared" grades nothing at all. Only
@@ -263,7 +342,36 @@ try {
   //    because `Sidecar` re-sends. `engine.test.ts` owns that half.
   const liveIndex = '[...document.querySelectorAll(".cue-row")]' +
     '.findIndex((row) => row.classList.contains("is-live"))'
-  check(await page.evaluate(liveIndex) === 0, 'cue 1 is the live cue before the change')
+
+  /**
+   * Wait for the cue stack to show a row as live, or give up after 5 s.
+   *
+   * The wait is not politeness, and the check below used to do without it. The
+   * `is-live` class is React's *mirror* of engine state, and the render loop
+   * republishes that mirror on a sampling tick of at least 250 ms — so the wire
+   * carries a cue for up to a quarter of a second before the class appears. The
+   * lit-packet check above exits the instant the first lit packet lands, which
+   * drops the next line inside that window often enough to fail roughly one run
+   * in two on this machine: a healthy app graded red by an instrument reading a
+   * stale copy of the thing it was asking about.
+   *
+   * That is the same shape of error as everything in `CLAUDE.md`'s opening
+   * paragraph, pointed the other way round, and it is worth naming: an
+   * intermittent red here means "ask again", never "the app is broken". Both
+   * live-cue checks now poll; neither may assume.
+   */
+  const waitForLive = async (want) => {
+    let index = -1
+    for (let attempt = 0; attempt < 25 && index !== want; attempt++) {
+      index = await page.evaluate(liveIndex)
+      if (index !== want) await sleep(200)
+    }
+    return index
+  }
+
+  const liveBefore = await waitForLive(0)
+  check(liveBefore === 0, 'cue 1 is the live cue before the change',
+    `live row index ${liveBefore}`)
 
   const fromChange = tap.packets.length
   await page.evaluate(`(() => {
@@ -272,11 +380,7 @@ try {
     return true
   })()`)
 
-  let movedTo = -1
-  for (let attempt = 0; attempt < 25 && movedTo !== 1; attempt++) {
-    await sleep(200)
-    movedTo = await page.evaluate(liveIndex)
-  }
+  const movedTo = await waitForLive(1)
   check(movedTo === 1, 'the second cue actually became live', `live row index ${movedTo}`)
 
   const across = tap.packets.slice(fromChange)
@@ -309,6 +413,15 @@ try {
 } catch (error) {
   check(false, 'the run completed', String(error))
 } finally {
+  // Graded on every path, including an aborted run, because a page that threw
+  // is the most useful thing this script can report and it is precisely what
+  // the checks above cannot say. Each of them describes a wire symptom six
+  // steps downstream of the throw that caused it.
+  if (page !== null) {
+    const raised = [...page.exceptions.values()]
+    check(raised.length === 0, 'the page raised no uncaught exceptions',
+      raised.map((e) => `x${e.count}  ${e.text}  ${e.where}`).join('\n          '))
+  }
   page?.close()
   if (electron !== null && electron.exitCode === null) electron.kill('SIGKILL')
   tap.close()

@@ -1,4 +1,5 @@
 import type { FrameSource } from './engine'
+import { mediaUrl } from './mediaUrl'
 
 export interface DrawRect {
   readonly x: number
@@ -33,17 +34,6 @@ export function coverRect(srcW: number, srcH: number, dstW: number, dstH: number
     width,
     height,
   }
-}
-
-function fileUrl(path: string): string {
-  const normalized = path.replaceAll('\\', '/')
-  const encoded = normalized
-    .split('/')
-    .map((part, index) => (index === 0 && /^[A-Za-z]:$/.test(part) ? part : encodeURIComponent(part)))
-    .join('/')
-
-  if (encoded.startsWith('//')) return `file://${encoded.slice(2)}`
-  return `file://${encoded.startsWith('/') ? '' : '/'}${encoded}`
 }
 
 /** A detached, muted video decoder that satisfies the player's frame-source contract. */
@@ -92,7 +82,21 @@ export class VideoSource implements FrameSource {
     }
 
     try {
-      this.video.src = fileUrl(path)
+      // Before `src`, not after: the request mode is fixed when the load
+      // starts, and setting `crossOrigin` afterwards would apply to the next
+      // load rather than this one.
+      //
+      // This is not optional and it is not hygiene. `ddf-media://` is a
+      // different origin from the page however the page was served, so without
+      // a CORS-mode fetch the media taints any canvas it is drawn into and the
+      // render loop's `getImageData` throws on every frame — see the long note
+      // in `electron/main.ts`. It only works paired with `corsEnabled` on the
+      // scheme; alone it makes the element fail to load at all.
+      this.video.crossOrigin = 'anonymous'
+      // Never `file://`. The page is served over `file://` when packaged and
+      // over `http://` under the dev server, and Chromium blocks a `file://`
+      // subresource from the second — see `mediaUrl.ts`.
+      this.video.src = mediaUrl(path)
       this.video.load()
       this.requestDecodedFrame()
     } catch {
@@ -106,6 +110,25 @@ export class VideoSource implements FrameSource {
 
   get failed(): boolean {
     return this.failedValue
+  }
+
+  /**
+   * Mark the media unplayable from outside the element.
+   *
+   * `draw` only sees the failures `drawImage` itself raises, and the step after
+   * it — reading the composited pixels back off the work canvas — fails for
+   * reasons that belong to this source just as much. A tainted canvas is a
+   * property of what was drawn into it.
+   *
+   * The engine has exactly one channel for that news, `failed`, and it does the
+   * right things with it: an error the operator can read, and black on the
+   * floor rather than a held frame of a cue that is broken. Without this seam
+   * the render loop rediscovers the same dead source sixty times a second for
+   * ever, with nothing on screen to say so — which is precisely how the taint
+   * defect stayed invisible.
+   */
+  fail(): void {
+    if (!this.disposed) this.failedValue = true
   }
 
   get positionMs(): number {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LinkStatus } from '../electron/sidecar.js'
+import { composeFrame } from './player/compose.js'
 import { PlayerEngine, type EngineSnapshot, type PlayerMode } from './player/engine.js'
 import {
   cueNameFromPath,
@@ -12,7 +13,7 @@ import {
 import { emptyShow, nextCueId, type Cue, type Show } from './player/show.js'
 import { VideoSource } from './player/videoSource.js'
 import { SHOP_RIG, workSize } from './render/geometry.js'
-import { blackFrame, onePass } from './render/onePass.js'
+import { blackFrame } from './render/onePass.js'
 
 const S = 8
 const WORK = workSize(SHOP_RIG, 0, S)
@@ -145,25 +146,41 @@ export function App() {
     let sampledPasses = 0
     let sampledPassTime = 0
 
+    // Composition is the one step here that touches a decoder, a canvas and
+    // cross-origin media, so it is the one that is allowed to fail — and
+    // `composeFrame` guarantees it fails by returning black rather than by
+    // throwing. That guarantee is what makes the `writeFrame` below
+    // unconditional. See `player/compose.ts` for what happened without it.
+    const compose = (source: VideoSource, master: number, into: Uint8Array): Uint8Array => {
+      const composed = composeFrame({
+        source,
+        context: workContext,
+        workWidth: WORK.width,
+        workHeight: WORK.height,
+        floor: FLOOR,
+        pass: { ...PASS, master },
+        into,
+        fallback: BLACK_FRAME,
+      })
+      if (composed.passMs !== null) {
+        sampledPassTime += composed.passMs
+        sampledPasses += 1
+      }
+      return composed.bytes
+    }
+
     const render = (now: number): void => {
       // Schedule first: a decoder or preview failure must not stop future writes.
       animationFrame = requestAnimationFrame(render)
       const tick = engine.tick()
-      let wireBytes: Uint8Array
 
-      // The floor.
-      if (tick.wire.kind === 'black') {
-        wireBytes = BLACK_FRAME
-        window.ddf.writeFrame(BLACK_FRAME)
-      } else {
-        tick.wire.source.draw(workContext, WORK.width, WORK.height)
-        const pixels = workContext.getImageData(0, 0, WORK.width, WORK.height)
-        const passStartedAt = performance.now()
-        wireBytes = onePass(pixels.data, FLOOR, { ...PASS, master: tick.master }, wireBufferRef.current)
-        sampledPassTime += performance.now() - passStartedAt
-        sampledPasses += 1
-        window.ddf.writeFrame(wireBytes)
-      }
+      // The floor. Exactly one write per animation frame, on every path —
+      // stopping the send is what makes controller 1 revert to the vendor's own
+      // content, so there is no branch here that may skip it.
+      const wireBytes = tick.wire.kind === 'black'
+        ? BLACK_FRAME
+        : compose(tick.wire.source, tick.master, wireBufferRef.current)
+      window.ddf.writeFrame(wireBytes)
 
       // The on-screen floor preview. Live mode reuses exactly what was sent.
       let screenBytes: Uint8Array
@@ -172,12 +189,7 @@ export function App() {
       } else if (tick.screen.kind === 'black') {
         screenBytes = BLACK_FRAME
       } else {
-        tick.screen.source.draw(workContext, WORK.width, WORK.height)
-        const pixels = workContext.getImageData(0, 0, WORK.width, WORK.height)
-        const passStartedAt = performance.now()
-        screenBytes = onePass(pixels.data, FLOOR, { ...PASS, master: tick.master }, previewBufferRef.current)
-        sampledPassTime += performance.now() - passStartedAt
-        sampledPasses += 1
+        screenBytes = compose(tick.screen.source, tick.master, previewBufferRef.current)
       }
       rgbToPreview(screenBytes, previewImage)
       previewContext.putImageData(previewImage, 0, 0)
