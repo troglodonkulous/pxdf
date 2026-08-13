@@ -1,3 +1,5 @@
+import type { Rotation } from '../render/geometry'
+
 /**
  * The show file, and the only definition of what a cue is.
  *
@@ -57,6 +59,8 @@ export interface Cue {
    * build order, which is the authority.
    */
   readonly durationMs: number | null;
+  /** Per-cue compensation for Mapping's floor Rotation, independent of `mapper/orientation.py`. */
+  readonly rotation: Rotation;
 }
 
 export interface ShowFloor {
@@ -103,6 +107,13 @@ function asPositiveInt(value: unknown, what: string): number {
   return value;
 }
 
+function asRotation(value: unknown, what: string): Rotation {
+  if (value !== 0 && value !== 90 && value !== 180 && value !== 270) {
+    fail(`${what} is not 0, 90, 180 or 270`);
+  }
+  return value;
+}
+
 function parseCue(value: unknown, index: number, seen: Set<string>): Cue {
   const raw = asRecord(value, `cues[${index}]`);
   const id = asString(raw.id, `cues[${index}].id`);
@@ -122,6 +133,7 @@ function parseCue(value: unknown, index: number, seen: Set<string>): Cue {
     name: asString(raw.name, `cues[${index}].name`),
     source: { kind: 'video', path: asString(source.path, `cues[${index}].source.path`) },
     durationMs: durationRaw as number | null,
+    rotation: asRotation(raw.rotation ?? 0, `cues[${index}].rotation`),
   };
 }
 

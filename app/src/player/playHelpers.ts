@@ -1,4 +1,5 @@
 import type { Cue } from './show'
+import type { Rotation } from '../render/geometry'
 
 export function formatTimecode(milliseconds: number | null): string {
   if (milliseconds === null) return '∞'
@@ -79,6 +80,10 @@ export function durationSecondsText(durationMs: number | null): string {
 
 export function setCueDuration(cues: readonly Cue[], cueId: string, durationMs: number | null): Cue[] {
   return cues.map((cue) => (cue.id === cueId ? { ...cue, durationMs } : cue))
+}
+
+export function setCueRotation(cues: readonly Cue[], cueId: string, rotation: Rotation): Cue[] {
+  return cues.map((cue) => (cue.id === cueId ? { ...cue, rotation } : cue))
 }
 
 /**

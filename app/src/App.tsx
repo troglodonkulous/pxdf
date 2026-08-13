@@ -7,6 +7,7 @@ import { composeFrame } from './player/compose.js'
 import { PlayerEngine, type EngineSnapshot } from './player/engine.js'
 import { emptyShow, type Show, type ShowFloor } from './player/show.js'
 import { VideoSource } from './player/videoSource.js'
+import { ZOOM_FIT, zoomIn, zoomOut } from './player/zoom.js'
 import { floorGeometry, SHOP_RIG, workSize, type Rotation } from './render/geometry.js'
 import { blackFrame } from './render/onePass.js'
 
@@ -40,13 +41,14 @@ export function App() {
   if (engineRef.current === null) {
     engineRef.current = new PlayerEngine({
       show: INITIAL_SHOW,
-      createSource: (cue) => new VideoSource(cue.source.path),
+      createSource: (cue) => new VideoSource(cue.source.path, cue.rotation),
     })
   }
   const engine = engineRef.current
 
   const [surface, setSurface] = useState<'mapping' | 'play'>('mapping')
   const [rotation, setRotation] = useState<Rotation>(0)
+  const [zoom, setZoom] = useState(ZOOM_FIT)
   const [show, setShow] = useState<Show>(INITIAL_SHOW)
   const [status, setStatus] = useState<SenderStatus>('restarting')
   const [snapshot, setSnapshot] = useState<EngineSnapshot>(() => engine.snapshot())
@@ -59,6 +61,7 @@ export function App() {
   const work = useMemo(() => workSize(floor, rotation, S), [floor, rotation])
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null)
+  const previewClipRef = useRef<HTMLDivElement>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const wireBufferRef = useRef(new Uint8Array(floor.frameBytes))
   const previewBufferRef = useRef(new Uint8Array(floor.frameBytes))
@@ -209,15 +212,46 @@ export function App() {
 
   useLayoutEffect(() => {
     const previewCanvas = previewCanvasRef.current
+    const previewClip = previewClipRef.current
     const previewContainer = previewContainerRef.current
-    if (surface !== 'play' || previewCanvas === null || previewContainer === null) return
+    if (surface !== 'play' || previewCanvas === null || previewClip === null || previewContainer === null) return
 
+    // The canvas element always holds a floor-native framebuffer (see the
+    // layout effect above) — rotation never touches that pixel data, only
+    // this element's on-screen box. `previewContainer`'s box stays
+    // floor-shaped regardless of rotation (an empty div, sized only to
+    // reserve layout space), so at 90/270 the box a rotated floor needs to
+    // sit in is portrait where the container is landscape or vice versa.
+    // This fits that (rotated) box inside the container the way `object-fit:
+    // contain` would, then rotates the floor-shaped canvas into it — the
+    // same way a landscape photo is shown, uncropped, in a portrait frame.
+    //
+    // `previewClip` is what makes zoom actually stay "within its center
+    // panel": it tracks `previewContainer`'s box exactly (unrotated,
+    // unscaled) and clips with `overflow: hidden`. The canvas itself is
+    // `position: fixed`, mounted once outside the surface switch (see the
+    // canvas's own comment below) — a fixed element ignores every ancestor's
+    // `overflow`, including `.preview-well`'s, so clipping has to come from
+    // an element the canvas is an actual DOM child of. `previewClip` is that
+    // element; the canvas centers on it with plain `50%` + the same
+    // translate/rotate transform as before, since the clip box's own size
+    // already equals the container's.
     const positionPreview = (): void => {
       const bounds = previewContainer.getBoundingClientRect()
-      previewCanvas.style.left = `${bounds.left}px`
-      previewCanvas.style.top = `${bounds.top}px`
-      previewCanvas.style.width = `${bounds.width}px`
-      previewCanvas.style.height = `${bounds.height}px`
+      previewClip.style.left = `${bounds.left}px`
+      previewClip.style.top = `${bounds.top}px`
+      previewClip.style.width = `${bounds.width}px`
+      previewClip.style.height = `${bounds.height}px`
+
+      const swapped = rotation === 90 || rotation === 270
+      const boxW = swapped ? floor.heightPx : floor.widthPx
+      const boxH = swapped ? floor.widthPx : floor.heightPx
+      const fitScale = Math.min(bounds.width / boxW, bounds.height / boxH)
+      const fittedW = boxW * fitScale * zoom
+      const fittedH = boxH * fitScale * zoom
+      previewCanvas.style.width = `${swapped ? fittedH : fittedW}px`
+      previewCanvas.style.height = `${swapped ? fittedW : fittedH}px`
+      previewCanvas.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`
     }
 
     positionPreview()
@@ -228,7 +262,24 @@ export function App() {
       observer.disconnect()
       window.removeEventListener('resize', positionPreview)
     }
-  }, [surface, floor.widthPx, floor.heightPx])
+  }, [surface, floor.widthPx, floor.heightPx, rotation, zoom])
+
+  useEffect(() => {
+    if (surface !== 'play') return
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.metaKey && (event.key === '=' || event.key === '+')) {
+        event.preventDefault()
+        setZoom(zoomIn)
+      } else if (event.metaKey && event.key === '-') {
+        event.preventDefault()
+        setZoom(zoomOut)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [surface])
 
   const refreshSnapshot = (): void => setSnapshot(engine.snapshot())
 
@@ -271,6 +322,10 @@ export function App() {
           applyShow={applyShow}
           refreshSnapshot={refreshSnapshot}
           setSurface={setSurface}
+          zoom={zoom}
+          onZoomIn={() => setZoom(zoomIn)}
+          onZoomOut={() => setZoom(zoomOut)}
+          onZoomFit={() => setZoom(ZOOM_FIT)}
         />
       )}
       {/*
@@ -288,13 +343,26 @@ export function App() {
         10 x 12, and the one reader who cannot see the discrepancy is the
         screen-reader user relying on it.
       */}
-      <canvas
-        ref={previewCanvasRef}
-        className={`persistent-preview-canvas${surface === 'play' ? ' is-visible' : ''}`}
-        width={floor.widthPx}
-        height={floor.heightPx}
-        aria-label={`${floor.widthPx} by ${floor.heightPx} pixel floor framebuffer`}
-      />
+      {/*
+        The clip window `positionPreview` tracks onto `previewContainer`'s
+        box. `overflow: hidden` here is real, unlike a rule on `.preview-well`
+        would be against a `position: fixed` descendant — the canvas below is
+        an actual DOM child of this element, so zooming past "fit" is
+        genuinely contained to the panel instead of drawing over the cue
+        stack and inspector.
+      */}
+      <div
+        ref={previewClipRef}
+        className={`preview-clip${surface === 'play' ? ' is-visible' : ''}`}
+      >
+        <canvas
+          ref={previewCanvasRef}
+          className="persistent-preview-canvas"
+          width={floor.widthPx}
+          height={floor.heightPx}
+          aria-label={`${floor.widthPx} by ${floor.heightPx} pixel floor framebuffer`}
+        />
+      </div>
     </>
   )
 }

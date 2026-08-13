@@ -14,6 +14,7 @@ import {
   removeCue,
   renameCue,
   setCueDuration,
+  setCueRotation,
 } from './player/playHelpers.js'
 import { nextCueId, type Cue, type Show } from './player/show.js'
 import { VideoSource } from './player/videoSource.js'
@@ -36,6 +37,10 @@ interface PlayScreenProps {
   readonly applyShow: (next: Show) => void
   readonly refreshSnapshot: () => void
   readonly setSurface: (surface: 'mapping' | 'play') => void
+  readonly zoom: number
+  readonly onZoomIn: () => void
+  readonly onZoomOut: () => void
+  readonly onZoomFit: () => void
 }
 
 type IconName = 'plus' | 'up' | 'down' | 'trash' | 'pencil' | 'previous' | 'next' | 'play' | 'pause'
@@ -96,6 +101,10 @@ export function PlayScreen({
   applyShow,
   refreshSnapshot,
   setSurface,
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  onZoomFit,
 }: PlayScreenProps) {
   const [selectedCueId, setSelectedCueId] = useState<string | null>(null)
   const [renamingCueId, setRenamingCueId] = useState<string | null>(null)
@@ -138,6 +147,7 @@ export function PlayScreen({
           name: cueNameFromPath(path),
           source: { kind: 'video', path },
           durationMs: null,
+          rotation: 0,
         }
         cues = insertCue(cues, cue)
         firstAddedId ??= cue.id
@@ -357,6 +367,12 @@ export function PlayScreen({
                 </button>
               ))}
             </div>
+            <div className="segmented" aria-label="Zoom controls">
+              <button type="button" className="icon-button compact" title="Zoom out" aria-label="Zoom out" onClick={onZoomOut}>−</button>
+              <span>{Math.round(zoom * 100)}%</span>
+              <button type="button" className="icon-button compact" title="Zoom in" aria-label="Zoom in" onClick={onZoomIn}>+</button>
+              <button type="button" className="button ghost small" title="Zoom to fit" aria-label="Zoom to fit" onClick={onZoomFit}>Fit</button>
+            </div>
           </div>
           <div className="preview-well">
             <div
@@ -422,6 +438,27 @@ export function PlayScreen({
                 >{probingDuration ? 'Reading…' : 'Media'}</button>
               </div>
             )}
+          </div>
+
+          <div className="rotation-control">
+            <span className="control-heading">Rotate</span>
+            <div className="segmented" aria-label="Cue rotation">
+              {([0, 90, 180, 270] as const).map((rotation) => (
+                <button
+                  type="button"
+                  key={rotation}
+                  aria-label={`Rotate cue ${rotation} degrees`}
+                  aria-pressed={selectedCue?.rotation === rotation}
+                  className={selectedCue?.rotation === rotation ? 'is-active' : ''}
+                  disabled={selectedCue === null}
+                  onClick={() => {
+                    if (selectedCue !== null) {
+                      applyShow({ ...showRef.current, cues: setCueRotation(showRef.current.cues, selectedCue.id, rotation) })
+                    }
+                  }}
+                >{rotation}°</button>
+              ))}
+            </div>
           </div>
 
           <label className="disabled-control" title="Speed arrives in PR 4">

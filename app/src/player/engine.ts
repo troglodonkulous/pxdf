@@ -40,6 +40,7 @@
  *      and no code path lets the preview source into it.
  */
 
+import type { Rotation } from '../render/geometry';
 import type { Cue, Show } from './show';
 
 /**
@@ -67,6 +68,16 @@ export interface FrameSource {
   pause(): void;
   /** Release the decoder. Called exactly once per source by the engine. */
   dispose(): void;
+  /**
+   * Apply a cue-authored rotation to an already-armed source.
+   *
+   * `reseat` keeps the same decoder across an edit to a cue that is already
+   * playing — see its own comment — which means rotation, unlike a value the
+   * engine reads straight off `Cue`, has to be pushed into the source
+   * explicitly or a live cue's rotation control would visibly do nothing
+   * until the next GO re-armed it.
+   */
+  setRotation(rotation: Rotation): void;
 }
 
 export type PlayerMode = 'live' | 'preview';
@@ -485,6 +496,7 @@ export class PlayerEngine<S extends FrameSource> {
     if (slot === null) return null;
     const cue = this.cueById(slot.cue.id);
     if (cue === null || cue.source.path !== slot.cue.source.path) return null;
+    if (cue.rotation !== slot.cue.rotation) slot.source.setRotation(cue.rotation);
     return { cue, source: slot.source };
   }
 
