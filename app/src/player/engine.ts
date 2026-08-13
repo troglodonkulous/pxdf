@@ -139,10 +139,21 @@ interface Slot<S extends FrameSource> {
  */
 type ErrorSurface = 'live' | 'preview';
 
-/** A failure, and the cue it is about, so it can be retired with that cue. */
+/**
+ * A failure, and the cue it is about.
+ *
+ * The cue is held by id and the text is held as the *reason* alone, so the
+ * banner's wording is built when it is read rather than when it was recorded.
+ * Both halves matter and for the same reason: a cue's name and a cue's presence
+ * are both things the operator changes while the banner is up. An earlier
+ * version stored the finished sentence, so renaming the offending cue left the
+ * banner naming something no longer in the stack — the same defect as an error
+ * outliving its cue, one layer down.
+ */
 interface SurfaceError {
   readonly cueId: string;
-  readonly message: string;
+  /** Verb phrase completing `cue "<name>" …`. */
+  readonly reason: string;
 }
 
 export class PlayerEngine<S extends FrameSource> {
@@ -425,18 +436,18 @@ export class PlayerEngine<S extends FrameSource> {
 
   private reapFailures(): void {
     if (this.pending?.source.failed === true) {
-      this.fail('live', this.pending.cue, `cue ${JSON.stringify(this.pending.cue.name)} failed to play`);
+      this.fail('live', this.pending.cue, 'failed to play');
       this.pending = this.release(this.pending);
     }
     if (this.live?.source.failed === true) {
       // The floor goes black rather than to the next cue. An automatic advance
       // here would put unrelated content up at the moment something is already
       // wrong, with nothing on screen to say why.
-      this.fail('live', this.live.cue, `cue ${JSON.stringify(this.live.cue.name)} stopped playing`);
+      this.fail('live', this.live.cue, 'stopped playing');
       this.clearLive();
     }
     if (this.preview?.source.failed === true) {
-      this.fail('preview', this.preview.cue, `cue ${JSON.stringify(this.preview.cue.name)} failed to preview`);
+      this.fail('preview', this.preview.cue, 'failed to preview');
       this.preview = this.release(this.preview);
     }
   }
@@ -468,8 +479,8 @@ export class PlayerEngine<S extends FrameSource> {
     return { cue, source: slot.source };
   }
 
-  private fail(surface: ErrorSurface, cue: Cue, message: string): void {
-    const error: SurfaceError = { cueId: cue.id, message };
+  private fail(surface: ErrorSurface, cue: Cue, reason: string): void {
+    const error: SurfaceError = { cueId: cue.id, reason };
     if (surface === 'live') this.liveError = error;
     else this.previewError = error;
   }
@@ -488,7 +499,13 @@ export class PlayerEngine<S extends FrameSource> {
    * the floor is dark has been told the less useful of two true things.
    */
   private get lastError(): string | null {
-    return (this.liveError ?? this.previewError)?.message ?? null;
+    const error = this.liveError ?? this.previewError;
+    if (error === null) return null;
+    // Named from the show as it is now, not as it was when this was recorded.
+    // Renaming the cue that would not play is an ordinary thing to do with the
+    // banner up, and the old name is one the operator can no longer find.
+    const cue = this.cueById(error.cueId);
+    return cue === null ? null : `cue ${JSON.stringify(cue.name)} ${error.reason}`;
   }
 
   /**
@@ -572,7 +589,7 @@ export class PlayerEngine<S extends FrameSource> {
     try {
       this.pending = this.arm(next);
     } catch {
-      this.fail('live', next, `cue ${JSON.stringify(next.name)} could not be started`);
+      this.fail('live', next, 'could not be started');
       // Going idle is also what stops this retrying: with no live cue there is
       // no duration left to expire, so the next tick does not try again.
       this.clearLive();

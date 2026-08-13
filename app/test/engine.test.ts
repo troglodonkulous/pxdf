@@ -920,7 +920,7 @@ describe('the error banner tracks the failure, not the button press', () => {
     expect(onWire(rig.engine.tick().wire)).toBe('a');
   });
 
-  it('keeps a failure up while its cue is still in the stack', () => {
+  it('keeps a failure up while its cue is still in the stack, under its new name', () => {
     const rig = build(show(cue('a'), cue('b')));
     rig.engine.goTo('a');
     rig.source('a').ready = true;
@@ -930,11 +930,17 @@ describe('the error banner tracks the failure, not the button press', () => {
     rig.source('b').failed = true;
     rig.engine.tick();
 
-    // The other half of the check above. Retiring on any `setShow` at all would
-    // erase a live failure the moment the operator renamed an unrelated cue —
-    // the deletion of *this* cue is the event, not the edit.
-    rig.engine.setShow(show(cue('a'), { ...cue('b'), name: 'Renamed' }));
-    expect(rig.engine.snapshot().lastError).toContain('Cue b');
+    // Two things at once, and they pull in opposite directions. Retiring on any
+    // `setShow` at all would erase a live failure the moment the operator
+    // renamed an unrelated cue — the *deletion* of this cue is the event, not
+    // the edit. But the banner is a sentence about a cue, and a sentence built
+    // when the failure happened goes on using a name the operator has since
+    // changed and can no longer find in the stack. So the failure survives the
+    // rename and the wording follows it.
+    rig.engine.setShow(show(cue('a'), { ...cue('b'), name: 'Intro' }));
+    const banner = rig.engine.snapshot().lastError;
+    expect(banner).toContain('Intro');
+    expect(banner).not.toContain('Cue b');
   });
 });
 
