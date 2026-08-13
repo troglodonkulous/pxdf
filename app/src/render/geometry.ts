@@ -16,6 +16,7 @@ export const TILE_PX: Record<string, number> = {
   '8x8_4P': 8,
   '8x8_8P': 8,
   '6x6_4P': 6,
+  '6x6_8P': 6,
 };
 
 export type Rotation = 0 | 90 | 180 | 270;
