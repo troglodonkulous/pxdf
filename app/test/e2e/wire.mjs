@@ -452,8 +452,9 @@ const selectScript = (label, value) => `(() => {
  * knew one framework detail and not the other.
  */
 const hoverConnectorScript = (tileCol, leave = false) => `(() => {
-  const connector = document.querySelector('[data-connector-col="${tileCol}"]')
-  if (connector === null) throw new Error('no connector for tile column ${tileCol}')
+  const connector = [...document.querySelectorAll('[data-connector-cols]')].find(
+    (element) => element.dataset.connectorCols.split(' ').includes('${tileCol}'))
+  if (connector === undefined) throw new Error('no connector for tile column ${tileCol}')
   for (const type of ${leave ? "['mouseout', 'mouseleave']" : "['mouseover', 'mouseenter']"}) {
     connector.dispatchEvent(new MouseEvent(type, { bubbles: true, relatedTarget: null }))
   }
@@ -655,8 +656,13 @@ try {
       .map((element) => Number(element.dataset.tileCol))
     return lit.length > 0 ? lit : null
   })()`)
-  check(Array.isArray(hovered) && hovered.includes(3),
-    'hovering a connector highlights its tile column', JSON.stringify(hovered))
+  //     Exactly 2 and 3, not merely "includes 3". One cable carries two ports
+  //     to two adjacent columns, so a jack that lit only the column it was
+  //     asked about would be the port model surviving inside the jack one, and
+  //     `includes` would pass it green.
+  check(Array.isArray(hovered) && hovered.length === 2
+      && hovered.includes(2) && hovered.includes(3),
+    'hovering a connector highlights both tile columns it feeds', JSON.stringify(hovered))
 
   await page.evaluate(hoverConnectorScript(3, true))
   const highlightCleared = await waitFor(

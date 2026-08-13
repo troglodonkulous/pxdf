@@ -1,10 +1,21 @@
 import { floorGeometry, type FloorGeometry } from '../render/geometry';
 import type { PlanTable } from './mapperPlan';
 
+/**
+ * One cable, from one physical jack to the tile columns it feeds.
+ *
+ * A jack is not a port. `mapper` deals only in ports — one port drives exactly
+ * one tile column, at every floor type — and this diagram deals in the thing an
+ * operator actually plugs, which carries two of them.
+ */
 export interface DiagramWire {
   readonly controller: number;
-  readonly port: number;
-  readonly tileCol: number;
+  /** Physical socket on the back panel, 0..3. */
+  readonly jack: number;
+  /** The one or two logical ports this jack carries. */
+  readonly ports: readonly number[];
+  /** The tile columns those ports drive — adjacent, and as many as the ports. */
+  readonly tileCols: readonly number[];
   readonly colorIndex: number;
   readonly dropHeight: number;
   readonly from: { readonly x: number; readonly y: number };
@@ -28,8 +39,10 @@ export interface DiagramController {
   readonly y: number;
   readonly width: number;
   readonly height: number;
-  readonly ports: readonly {
-    readonly port: number;
+  /** Always four, whatever the type: the sockets on the physical back panel. */
+  readonly jacks: readonly {
+    readonly jack: number;
+    /** True when either of this jack's two ports carries a chain. */
     readonly used: boolean;
     readonly x: number;
     readonly y: number;
@@ -84,26 +97,47 @@ export function portsPerController(type: string): number {
   throw new Error(`unknown controller port count for type: ${type}`);
 }
 
+/** Physical RJ45 sockets on a controller's back panel. `docs/PROTOCOL.md:34`. */
+const JACKS_PER_CONTROLLER = 4;
+/** Logical ports one jack carries over one cable. `docs/PROTOCOL.md:35`. */
+const PORTS_PER_JACK = 2;
+
 /**
- * One floor edge per tile column, at every type.
+ * One floor edge per *jack*, spanning the columns that jack's ports drive.
  *
- * `MAPPING-DIAGRAM.md` describes the vendor drawing wide `_8P` edges that span
- * two columns each, and says the `_8P` path is "not something PR 3 needs to get
- * right". That is a statement about the vendor's *physical connector*, and it is
- * not the mapping this diagram has to show: `mapper/frame.py:34` assigns ports
- * as `divmod(tile_col, ports_per_controller)`, which is one port per tile column
- * whatever the type. `python -m mapper plan --type 6x6_8P --cols 10 --rows 5`
- * bears that out — controller 0 uses ports 0-7 and controller 1 uses 0-1, ten
- * ports for ten columns.
+ * Port and jack are different objects and this diagram is about the second.
+ * `mapper/frame.py:34` assigns ports as `divmod(tile_col, ports_per_controller)`
+ * — one port per tile column, at every type, and nothing here changes that. But
+ * a port is not something anyone plugs. `docs/PROTOCOL.md:75-79` settled the
+ * physical pairing at gate 4 and confirmed it twice: "Connector 1 drives ports 0
+ * and 1; connector 2 drives ports 2 and 3", and the cable trace at
+ * `docs/RUNSHEET-10x5-4P.md:1546-1560` counted "5 connectors populated
+ * ({2,2,1})" on the ten-column shop rig. Five cables, not ten.
  *
- * Pairing columns therefore drew five wires for ten columns and left half the
- * floor with no visible feed. `mapper` owns the topology, so the diagram follows
- * `mapper` and the per-type branch is gone. `tileCols` stays an array because an
- * edge is still allowed to represent more than one column if a later mockup
- * merges them visually — what it may not do is drop the ones it did not draw.
+ * An earlier version of this function returned one edge per column and argued
+ * from the divmod that pairing "left half the floor with no visible feed". The
+ * premise was true and the conclusion was not: a paired edge is *wide*, spanning
+ * both of its columns, so every column keeps a visible feed and there are half
+ * as many cables. That is what the vendor's own 90x12 `LargePowerEdgeElement`
+ * is for.
+ *
+ * Note this deliberately departs from Ledset at `_4P`. `LedSet.decompiled.cs`
+ * `GetEdgeList()` branches on the floor-type enum and hands the two `_4P` types
+ * one narrow edge per column — the vendor draws its `_4P` diagram port-wise,
+ * which does not match the floor its own hardware ships. The cable trace wins.
+ *
+ * An odd trailing column yields a one-wide group with no branch: the last jack
+ * simply has one port instead of two.
  */
-function edgeColumns(tileCols: number): readonly (readonly number[])[] {
-  return Array.from({ length: tileCols }, (_, col) => [col]);
+function edgeColumns(tileCols: number, portsPerControllerCount: number): readonly (readonly number[])[] {
+  const groups: number[][] = [];
+  for (let col = 0; col < tileCols; col += 1) {
+    const port = col % portsPerControllerCount;
+    // A new group starts at each controller boundary and each jack boundary.
+    if (port % PORTS_PER_JACK === 0) groups.push([col]);
+    else groups[groups.length - 1].push(col);
+  }
+  return groups;
 }
 
 /** Build renderer-independent diagram coordinates from mapper-owned topology. */
@@ -122,6 +156,14 @@ export function buildDiagram(
   }
 
   const portCount = portsPerController(type);
+  if (portCount > JACKS_PER_CONTROLLER * PORTS_PER_JACK) {
+    // A type with more ports than the back panel can carry would silently draw
+    // only the first four jacks' worth of cables, and the floor would look
+    // fully fed while half of it had no route. Refuse instead.
+    throw new Error(
+      `${type} has ${portCount} ports, more than ${JACKS_PER_CONTROLLER} jacks x ${PORTS_PER_JACK} can carry`,
+    );
+  }
   const controllerBand = CONTROLLER_BAND_SIZE * plan.controllerCount;
   const floorBand = TILE_SIZE * tileCols;
   const canvasWidth = Math.max(controllerBand, floorBand) + CANVAS_PADDING;
@@ -138,15 +180,17 @@ export function buildDiagram(
       + CONTROLLER_OFFSET_IN_BAND
       + index * (CONTROLLER_BAND_SIZE + controllerGutter);
     const usedPorts = plan.portsByController.get(index) ?? [];
-    const ports = Array.from({ length: portCount }, (_, port) => {
+    const jacks = Array.from({ length: JACKS_PER_CONTROLLER }, (_, jack) => {
       if (usedPorts.some((usedPort) => usedPort >= portCount)) {
         throw new Error(`mapper plan names a port outside ${type}`);
       }
       return {
-        port,
-        used: usedPorts.includes(port),
+        jack,
+        used: usedPorts.some((usedPort) => Math.floor(usedPort / PORTS_PER_JACK) === jack),
         // Vendor coordinates name a socket's corner; wires need its centre.
-        x: x + 17 + port * 15,
+        // Four sockets at a 15px pitch fit the 80px box at every type — an
+        // eight-socket row did not, and its last three fell outside it.
+        x: x + 17 + jack * 15,
         y: controllerY + 35,
       };
     });
@@ -157,11 +201,11 @@ export function buildDiagram(
       y: controllerY,
       width: CONTROLLER_WIDTH,
       height: CONTROLLER_HEIGHT,
-      ports,
+      jacks,
     };
   });
 
-  const edgeColumnGroups = edgeColumns(tileCols);
+  const edgeColumnGroups = edgeColumns(tileCols, portCount);
   const edges = edgeColumnGroups.map((tileColumnGroup): DiagramEdge => ({
     tileCols: tileColumnGroup,
     x: edgeX + tileColumnGroup[0] * TILE_SIZE,
@@ -183,20 +227,28 @@ export function buildDiagram(
   ).flat();
 
   const wires = edges.map((edge): DiagramWire => {
-    const tileCol = edge.tileCols[0];
-    const controller = Math.floor(tileCol / portCount);
-    const port = tileCol % portCount;
-    if (!plan.portsByController.get(controller)?.includes(port)) {
-      throw new Error(`mapper plan has no route for tile column ${tileCol}`);
+    const controller = Math.floor(edge.tileCols[0] / portCount);
+    const ports = edge.tileCols.map((tileCol) => tileCol % portCount);
+    const jack = Math.floor(ports[0] / PORTS_PER_JACK);
+    ports.forEach((port, i) => {
+      if (!plan.portsByController.get(controller)?.includes(port)) {
+        throw new Error(`mapper plan has no route for tile column ${edge.tileCols[i]}`);
+      }
+    });
+    const socket = controllers[controller]?.jacks[jack];
+    if (socket === undefined) {
+      throw new Error(`mapper plan route for tile column ${edge.tileCols[0]} is out of range`);
     }
-    const socket = controllers[controller]?.ports[port];
-    if (socket === undefined) throw new Error(`mapper plan route for tile column ${tileCol} is out of range`);
     return {
       controller,
-      port,
-      tileCol,
-      colorIndex: port % 4,
-      dropHeight: 70 + 10 * (port % 4),
+      jack,
+      ports,
+      tileCols: edge.tileCols,
+      // Indexed by jack, which is 0..3 by construction. Indexing by port let
+      // ports 0 and 4 of an `_8P` controller share both, and their cables drew
+      // on top of each other.
+      colorIndex: jack,
+      dropHeight: 70 + 10 * jack,
       from: { x: socket.x, y: socket.y },
       to: { x: edge.x + edge.width / 2, y: edge.y },
     };

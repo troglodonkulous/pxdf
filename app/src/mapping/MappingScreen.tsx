@@ -183,7 +183,7 @@ export function MappingScreen({
       <div className="mapping-body">
         <section className="mapping-stage" aria-label="Floor wiring diagram">
           <div className="mapping-heading">
-            <span className="section-label">Wiring · one connector per tile column</span>
+            <span className="section-label">Wiring · one connector = 2 ports = 2 tile columns</span>
             <div className="mapping-badges">
               <span>{floor.type}</span>
               {readyState !== null && <span>{readyState.plan.controllerCount} controllers</span>}
@@ -207,10 +207,13 @@ export function MappingScreen({
               >
                 {readyState.diagram.wires.map((wire) => (
                   <g
-                    key={`wire-${wire.controller}-${wire.port}`}
+                    key={`wire-${wire.controller}-${wire.jack}`}
                     className={`mapping-connector mapping-wire-color-${wire.colorIndex}`}
-                    data-connector-col={wire.tileCol}
-                    onMouseEnter={() => setHighlightedCols([wire.tileCol])}
+                    // Space-separated, because one cable feeds up to two
+                    // columns. A single `data-connector-col` could only ever
+                    // name one of the pair.
+                    data-connector-cols={wire.tileCols.join(' ')}
+                    onMouseEnter={() => setHighlightedCols(wire.tileCols)}
                     onMouseLeave={() => setHighlightedCols([])}
                   >
                     <path
@@ -233,14 +236,14 @@ export function MappingScreen({
                     <text x={controller.x + controller.width / 2} y={controller.y + 17} textAnchor="middle">
                       {controller.label}
                     </text>
-                    {controller.ports.map((port) => (
+                    {controller.jacks.map((jack) => (
                       <circle
-                        key={port.port}
-                        className={port.used
-                          ? `mapping-port is-used mapping-wire-color-${port.port % 4}`
+                        key={jack.jack}
+                        className={jack.used
+                          ? `mapping-port is-used mapping-wire-color-${jack.jack}`
                           : 'mapping-port'}
-                        cx={port.x}
-                        cy={port.y}
+                        cx={jack.x}
+                        cy={jack.y}
                         r={5}
                       />
                     ))}
