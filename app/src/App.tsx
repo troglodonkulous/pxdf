@@ -61,6 +61,7 @@ export function App() {
   const work = useMemo(() => workSize(floor, rotation, S), [floor, rotation])
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null)
+  const previewClipRef = useRef<HTMLDivElement>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const wireBufferRef = useRef(new Uint8Array(floor.frameBytes))
   const previewBufferRef = useRef(new Uint8Array(floor.frameBytes))
@@ -211,8 +212,9 @@ export function App() {
 
   useLayoutEffect(() => {
     const previewCanvas = previewCanvasRef.current
+    const previewClip = previewClipRef.current
     const previewContainer = previewContainerRef.current
-    if (surface !== 'play' || previewCanvas === null || previewContainer === null) return
+    if (surface !== 'play' || previewCanvas === null || previewClip === null || previewContainer === null) return
 
     // The canvas element always holds a floor-native framebuffer (see the
     // layout effect above) — rotation never touches that pixel data, only
@@ -223,16 +225,30 @@ export function App() {
     // This fits that (rotated) box inside the container the way `object-fit:
     // contain` would, then rotates the floor-shaped canvas into it — the
     // same way a landscape photo is shown, uncropped, in a portrait frame.
+    //
+    // `previewClip` is what makes zoom actually stay "within its center
+    // panel": it tracks `previewContainer`'s box exactly (unrotated,
+    // unscaled) and clips with `overflow: hidden`. The canvas itself is
+    // `position: fixed`, mounted once outside the surface switch (see the
+    // canvas's own comment below) — a fixed element ignores every ancestor's
+    // `overflow`, including `.preview-well`'s, so clipping has to come from
+    // an element the canvas is an actual DOM child of. `previewClip` is that
+    // element; the canvas centers on it with plain `50%` + the same
+    // translate/rotate transform as before, since the clip box's own size
+    // already equals the container's.
     const positionPreview = (): void => {
       const bounds = previewContainer.getBoundingClientRect()
+      previewClip.style.left = `${bounds.left}px`
+      previewClip.style.top = `${bounds.top}px`
+      previewClip.style.width = `${bounds.width}px`
+      previewClip.style.height = `${bounds.height}px`
+
       const swapped = rotation === 90 || rotation === 270
       const boxW = swapped ? floor.heightPx : floor.widthPx
       const boxH = swapped ? floor.widthPx : floor.heightPx
       const fitScale = Math.min(bounds.width / boxW, bounds.height / boxH)
       const fittedW = boxW * fitScale * zoom
       const fittedH = boxH * fitScale * zoom
-      previewCanvas.style.left = `${bounds.left + bounds.width / 2}px`
-      previewCanvas.style.top = `${bounds.top + bounds.height / 2}px`
       previewCanvas.style.width = `${swapped ? fittedH : fittedW}px`
       previewCanvas.style.height = `${swapped ? fittedW : fittedH}px`
       previewCanvas.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`
@@ -327,13 +343,26 @@ export function App() {
         10 x 12, and the one reader who cannot see the discrepancy is the
         screen-reader user relying on it.
       */}
-      <canvas
-        ref={previewCanvasRef}
-        className={`persistent-preview-canvas${surface === 'play' ? ' is-visible' : ''}`}
-        width={floor.widthPx}
-        height={floor.heightPx}
-        aria-label={`${floor.widthPx} by ${floor.heightPx} pixel floor framebuffer`}
-      />
+      {/*
+        The clip window `positionPreview` tracks onto `previewContainer`'s
+        box. `overflow: hidden` here is real, unlike a rule on `.preview-well`
+        would be against a `position: fixed` descendant — the canvas below is
+        an actual DOM child of this element, so zooming past "fit" is
+        genuinely contained to the panel instead of drawing over the cue
+        stack and inspector.
+      */}
+      <div
+        ref={previewClipRef}
+        className={`preview-clip${surface === 'play' ? ' is-visible' : ''}`}
+      >
+        <canvas
+          ref={previewCanvasRef}
+          className="persistent-preview-canvas"
+          width={floor.widthPx}
+          height={floor.heightPx}
+          aria-label={`${floor.widthPx} by ${floor.heightPx} pixel floor framebuffer`}
+        />
+      </div>
     </>
   )
 }

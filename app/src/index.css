@@ -812,20 +812,29 @@ select:focus-visible {
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.persistent-preview-canvas {
+.preview-clip {
   position: fixed;
   z-index: 2;
-  display: block;
+  overflow: hidden;
   visibility: hidden;
+  border-radius: var(--r-cell);
+  pointer-events: none;
+}
+
+.preview-clip.is-visible {
+  visibility: visible;
+}
+
+.persistent-preview-canvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
   border-radius: var(--r-cell);
   background: var(--ddf-ink);
   image-rendering: pixelated;
   object-fit: contain;
   pointer-events: none;
-}
-
-.persistent-preview-canvas.is-visible {
-  visibility: visible;
 }
 
 .preview-canvas-host {
