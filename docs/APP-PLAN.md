@@ -395,7 +395,8 @@ of this plan drifted about the Player. Settled 2026-08-12.
 H.264 decoder and ffmpeg's do not agree byte for byte — chroma upsampling and
 IDCT rounding differ — so a pixel digest across the two fails for a *correct*
 implementation, and the repair someone reaches for is to change the pass until
-it agrees. That is the seventh self-consistent-but-wrong result, pre-written.
+it agrees. That is a self-consistent-but-wrong result, pre-written — the
+mechanism and its ten instances are in `docs/POSTMORTEMS.md`.
 What is exact is the black-frame invariant: an all-zero framebuffer has one
 correct wire digest, and `CLAUDE.md` makes sending it a safety property rather
 than a nicety, because a floor that stops receiving does not go dark.
