@@ -14,6 +14,7 @@ import {
   removeCue,
   renameCue,
   setCueDuration,
+  setCueRotation,
 } from './player/playHelpers.js'
 import { nextCueId, type Cue, type Show } from './player/show.js'
 import { VideoSource } from './player/videoSource.js'
@@ -138,6 +139,7 @@ export function PlayScreen({
           name: cueNameFromPath(path),
           source: { kind: 'video', path },
           durationMs: null,
+          rotation: 0,
         }
         cues = insertCue(cues, cue)
         firstAddedId ??= cue.id
@@ -422,6 +424,27 @@ export function PlayScreen({
                 >{probingDuration ? 'Reading…' : 'Media'}</button>
               </div>
             )}
+          </div>
+
+          <div className="rotation-control">
+            <span className="control-heading">Rotate</span>
+            <div className="segmented" aria-label="Cue rotation">
+              {([0, 90, 180, 270] as const).map((rotation) => (
+                <button
+                  type="button"
+                  key={rotation}
+                  aria-label={`Rotate cue ${rotation} degrees`}
+                  aria-pressed={selectedCue?.rotation === rotation}
+                  className={selectedCue?.rotation === rotation ? 'is-active' : ''}
+                  disabled={selectedCue === null}
+                  onClick={() => {
+                    if (selectedCue !== null) {
+                      applyShow({ ...showRef.current, cues: setCueRotation(showRef.current.cues, selectedCue.id, rotation) })
+                    }
+                  }}
+                >{rotation}°</button>
+              ))}
+            </div>
           </div>
 
           <label className="disabled-control" title="Speed arrives in PR 4">

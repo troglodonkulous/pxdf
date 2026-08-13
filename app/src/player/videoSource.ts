@@ -1,6 +1,7 @@
 import type { FrameSource } from './engine'
 import { mediaUrl } from './mediaUrl'
 import { SourceReadiness } from './sourceReadiness'
+import type { Rotation } from '../render/geometry'
 
 export interface DrawRect {
   readonly x: number
@@ -37,9 +38,14 @@ export function coverRect(srcW: number, srcH: number, dstW: number, dstH: number
   }
 }
 
+export function rotatedTargetSize(width: number, height: number, rotation: Rotation): { width: number; height: number } {
+  return rotation === 90 || rotation === 270 ? { width: height, height: width } : { width, height }
+}
+
 /** A detached, muted video decoder that satisfies the player's frame-source contract. */
 export class VideoSource implements FrameSource {
   private readonly video: HTMLVideoElement
+  private readonly rotation: Rotation
   /** Ready / failed / disposed, and the ordering between them. */
   private readonly state = new SourceReadiness()
   private frameCallbackId: number | null = null
@@ -63,7 +69,8 @@ export class VideoSource implements FrameSource {
     this.markReadyFromElement()
   }
 
-  constructor(path: string) {
+  constructor(path: string, rotation: Rotation = 0) {
+    this.rotation = rotation
     this.video = document.createElement('video')
     this.video.muted = true
     this.video.playsInline = true
@@ -177,13 +184,24 @@ export class VideoSource implements FrameSource {
     context.fillRect(0, 0, width, height)
 
     if (this.state.ready && !this.state.failed) {
-      const rect = coverRect(this.video.videoWidth, this.video.videoHeight, width, height)
+      const target = rotatedTargetSize(width, height, this.rotation)
+      const rect = coverRect(this.video.videoWidth, this.video.videoHeight, target.width, target.height)
       if (rect.width > 0 && rect.height > 0) {
+        context.save()
+        context.translate(width / 2, height / 2)
+        context.rotate((this.rotation * Math.PI) / 180)
         try {
-          context.drawImage(this.video, rect.x, rect.y, rect.width, rect.height)
+          context.drawImage(
+            this.video,
+            rect.x - target.width / 2,
+            rect.y - target.height / 2,
+            rect.width,
+            rect.height,
+          )
         } catch {
           this.state.fail()
         }
+        context.restore()
       }
     }
     context.restore()
