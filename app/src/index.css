@@ -528,6 +528,62 @@ input:disabled {
   font-size: var(--fs-label);
 }
 
+/* The one live control in the inspector, so it reads at the primary text
+   weight while everything under it stays muted. */
+.duration-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  color: var(--text-primary);
+  font-size: var(--fs-label);
+}
+
+.duration-control .control-heading {
+  color: var(--text-muted);
+  font-size: var(--fs-label);
+}
+
+.duration-control .segmented {
+  align-self: stretch;
+}
+
+.duration-control .segmented button {
+  min-width: 0;
+  flex: 1;
+  justify-content: center;
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-micro);
+}
+
+.duration-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.duration-entry input {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-well);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+}
+
+/* Text that is not a duration. The cue keeps its last good value, so this is
+   the only thing saying the field is not what the floor is using. */
+.duration-entry input.is-invalid {
+  border-color: var(--sem-danger);
+}
+
+.duration-entry .unit {
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+}
+
 .disabled-control {
   display: flex;
   flex-direction: column;

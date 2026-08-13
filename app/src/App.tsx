@@ -2,13 +2,18 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LinkStatus } from '../electron/sidecar.js'
 import { composeFrame } from './player/compose.js'
 import { PlayerEngine, type EngineSnapshot, type PlayerMode } from './player/engine.js'
+import { probeDurationMs } from './player/mediaDuration.js'
 import {
   cueNameFromPath,
+  DEFAULT_CUE_DURATION_MS,
+  durationSecondsText,
   formatTimecode,
   insertCue,
   moveCue,
+  parseDurationSeconds,
   removeCue,
   renameCue,
+  setCueDuration,
 } from './player/playHelpers.js'
 import { emptyShow, nextCueId, type Cue, type Show } from './player/show.js'
 import { VideoSource } from './player/videoSource.js'
@@ -125,6 +130,18 @@ export function App() {
   const [renamingCueId, setRenamingCueId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [pickerError, setPickerError] = useState<string | null>(null)
+  /**
+   * The duration field's text, tagged with the cue it was typed for.
+   *
+   * Tagged rather than synced by an effect: half-typed text is not a duration —
+   * `2.` and `` are both unparseable on the way to `2.5` — so the field has to
+   * hold text the cue does not, and an effect that copies the cue into the
+   * field would fight the operator's keystrokes. Tagging means selecting
+   * another cue simply stops matching and the field falls back to that cue's
+   * real value, with no effect and no stale draft surviving the change.
+   */
+  const [durationDraft, setDurationDraft] = useState<{ cueId: string; text: string } | null>(null)
+  const [probingDuration, setProbingDuration] = useState(false)
 
   useEffect(() => window.ddf.onStatus(setStatus), [])
 
@@ -295,6 +312,71 @@ export function App() {
   }
 
   const selectedCue = show.cues.find((cue) => cue.id === selectedCueId) ?? null
+  const holdsUntilGo = selectedCue === null || selectedCue.durationMs === null
+  // The draft only speaks for the cue it was typed against; anything else falls
+  // back to what that cue actually holds.
+  const durationText = durationDraft !== null && durationDraft.cueId === selectedCueId
+    ? durationDraft.text
+    : durationSecondsText(selectedCue?.durationMs ?? null)
+
+  const writeDuration = (cueId: string, durationMs: number | null): void => {
+    // Through `applyShow`, which calls `engine.setShow`. That is what carries
+    // the edit to a cue that is already playing; the engine reseats the live
+    // slot rather than re-arming it, so the length changes without the clip
+    // jumping back to its first frame.
+    applyShow({ ...showRef.current, cues: setCueDuration(showRef.current.cues, cueId, durationMs) })
+  }
+
+  const editDuration = (text: string): void => {
+    if (selectedCueId === null) return
+    setDurationDraft({ cueId: selectedCueId, text })
+    // Unparseable text leaves the cue alone rather than writing null, which is
+    // "hold until GO" and not what a half-typed number means. The field marks
+    // itself invalid and the cue keeps the last length that parsed.
+    const durationMs = parseDurationSeconds(text)
+    if (durationMs !== null) writeDuration(selectedCueId, durationMs)
+  }
+
+  const setDurationMode = (mode: 'hold' | 'set'): void => {
+    if (selectedCue === null) return
+    if (mode === 'hold') {
+      writeDuration(selectedCue.id, null)
+      setDurationDraft(null)
+      return
+    }
+    // Switching to Set needs a number, and the cue does not have one yet. The
+    // default is visible in the field and immediately editable, which is the
+    // only reason an arbitrary constant is acceptable here.
+    const durationMs = selectedCue.durationMs ?? DEFAULT_CUE_DURATION_MS
+    writeDuration(selectedCue.id, durationMs)
+    setDurationDraft({ cueId: selectedCue.id, text: durationSecondsText(durationMs) })
+  }
+
+  const fillDurationFromMedia = async (): Promise<void> => {
+    const cue = selectedCue
+    if (cue === null || probingDuration) return
+
+    setProbingDuration(true)
+    // A second decoder, not the live one. The live source only exists while the
+    // cue is live, and the operator needs this for cues that are not playing.
+    const probe = new VideoSource(cue.source.path)
+    try {
+      const durationMs = await probeDurationMs(probe)
+      writeDuration(cue.id, durationMs)
+      setDurationDraft({ cueId: cue.id, text: durationSecondsText(durationMs) })
+      setPickerError(null)
+    } catch (error) {
+      // The one channel this has for bad news. Without it the button reads as
+      // doing nothing, which is indistinguishable from a clip of length zero.
+      setPickerError(error instanceof Error ? error.message : 'Could not read the media length')
+    } finally {
+      // In `finally`, so a rejected probe disposes too. This is the whole
+      // lifetime of that decoder: it never outlives the click.
+      probe.dispose()
+      setProbingDuration(false)
+    }
+  }
+
   const selectedIndex = selectedCue === null ? -1 : show.cues.findIndex((cue) => cue.id === selectedCue.id)
   const progress = snapshot.cueDurationMs === null || snapshot.cueDurationMs <= 0
     ? 0
@@ -434,6 +516,51 @@ export function App() {
           <div className="cue-summary">
             <strong>{selectedCue?.name ?? 'No cue selected'}</strong>
             <span>{selectedCue === null ? '—' : formatTimecode(selectedCue.durationMs)}</span>
+          </div>
+
+          {/* The only enabled control in this panel, and the only cue property
+              PR 2 owns. Everything below it belongs to the compositor. */}
+          <div className="duration-control">
+            <span className="control-heading">Duration</span>
+            <div className="segmented" aria-label="Cue duration mode">
+              <button
+                type="button"
+                className={holdsUntilGo ? 'is-active' : ''}
+                aria-pressed={holdsUntilGo}
+                disabled={selectedCue === null}
+                onClick={() => setDurationMode('hold')}
+              >Hold ∞</button>
+              <button
+                type="button"
+                className={holdsUntilGo ? '' : 'is-active'}
+                aria-pressed={!holdsUntilGo}
+                disabled={selectedCue === null}
+                onClick={() => setDurationMode('set')}
+              >Set</button>
+            </div>
+            {selectedCue !== null && !holdsUntilGo && (
+              <div className="duration-entry">
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  aria-label="Cue duration in seconds"
+                  className={parseDurationSeconds(durationText) === null ? 'is-invalid' : ''}
+                  value={durationText}
+                  onChange={(event) => editDuration(event.target.value)}
+                />
+                <span className="unit">s</span>
+                {/* One shot, not a mode. It opens a second decoder for a cue
+                    that may already be on the floor, reads the length off it
+                    and disposes it -- see `fillDurationFromMedia`. */}
+                <button
+                  type="button"
+                  className="button ghost small"
+                  disabled={probingDuration}
+                  onClick={() => void fillDurationFromMedia()}
+                >{probingDuration ? 'Reading…' : 'Media'}</button>
+              </div>
+            )}
           </div>
 
           <label className="disabled-control" title="Speed arrives in PR 4">

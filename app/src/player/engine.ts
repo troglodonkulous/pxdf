@@ -187,14 +187,25 @@ export class PlayerEngine<S extends FrameSource> {
    * A cue that is live or armed and no longer exists in the new show is torn
    * down, which takes the player idle — and idle is black, not a held frame.
    * Editing the stack under a running show is ordinary during a load-in.
+   *
+   * A cue that *does* still exist has its slot pointed at the new definition.
+   * Slots capture their `Cue` at `arm()`, so without this an edit to a cue that
+   * is already playing reaches the show file and never reaches the floor: the
+   * engine goes on reading the duration the cue had when GO was pressed. The
+   * inspector's duration control is exactly that edit, and it would have looked
+   * like it worked everywhere except where it mattered.
    */
   setShow(show: Show): void {
     this.show = show;
     const has = (id: string | null): boolean => id !== null && show.cues.some((cue) => cue.id === id);
 
-    if (this.live !== null && !has(this.live.cue.id)) this.clearLive();
-    if (this.pending !== null && !has(this.pending.cue.id)) this.pending = this.release(this.pending);
-    if (this.preview !== null && !has(this.preview.cue.id)) this.preview = this.release(this.preview);
+    if (this.live !== null) {
+      const live = this.reseat(this.live);
+      if (live === null) this.clearLive();
+      else this.live = live;
+    }
+    this.pending = this.reseat(this.pending) ?? this.release(this.pending);
+    this.preview = this.reseat(this.preview) ?? this.release(this.preview);
     if (!has(this.standbyCueId)) {
       this.standbyCueId = this.cueAfter(this.live?.cue.id ?? null)?.id ?? null;
       this.standbyPinned = false;
@@ -403,6 +414,21 @@ export class PlayerEngine<S extends FrameSource> {
       this.fail('preview', `cue ${JSON.stringify(this.preview.cue.name)} failed to preview`);
       this.preview = this.release(this.preview);
     }
+  }
+
+  /**
+   * Point a slot at its cue's current definition, or report that the cue is
+   * gone by returning null.
+   *
+   * Same decoder, new metadata, on purpose. Re-arming would build a second
+   * source and start the clip from zero, so trimming a running cue's length
+   * would also jump the floor back to its first frame — an edit doing visibly
+   * more than it was asked to.
+   */
+  private reseat(slot: Slot<S> | null): Slot<S> | null {
+    if (slot === null) return null;
+    const cue = this.cueById(slot.cue.id);
+    return cue === null ? null : { cue, source: slot.source };
   }
 
   private fail(surface: ErrorSurface, message: string): void {

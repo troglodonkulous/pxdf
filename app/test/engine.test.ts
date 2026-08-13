@@ -553,6 +553,99 @@ describe('transport and master', () => {
 });
 
 /**
+ * Editing a cue that is already on the floor.
+ *
+ * `setShow` used to ask one question of the new show — does this cue still
+ * exist — and tear the slot down if not. A cue that still existed was left
+ * alone, meaning the slot went on holding the `Cue` object it captured at
+ * `arm()`. Change a live cue's duration and nothing happened: the engine was
+ * still reading the duration the cue had when GO was pressed, and it would keep
+ * doing so until the cue was fired again.
+ *
+ * That is the defect that makes an inspector control feel broken rather than
+ * look broken -- the field takes the number, the show file holds the number,
+ * and the floor ignores it.
+ *
+ * The refresh has to be surgical: swap the cue metadata, keep the decoder. A
+ * re-arm would restart the clip from zero, so trimming a cue's length would
+ * also jump the floor back to its first frame.
+ */
+describe('editing a cue reaches the slot already playing it', () => {
+  it('takes a new duration on the live cue without rebuilding the decoder', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().cueDurationMs).toBe(null);
+
+    rig.engine.setShow(show({ ...cue('a'), durationMs: 5_000 }, cue('b')));
+    expect(rig.engine.snapshot().cueDurationMs).toBe(5_000);
+    expect(rig.created('a')).toBe(1);
+    expect(rig.source('a').disposed).toBe(false);
+  });
+
+  it('honours the edited duration, rather than the one captured at GO', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.engine.setShow(show({ ...cue('a'), durationMs: 5_000 }, cue('b')));
+    rig.advance(5_000);
+    rig.engine.tick();
+    // The edit is only real if the advance actually fires on it.
+    expect(rig.engine.snapshot().pendingCueId).toBe('b');
+  });
+
+  it('advances on the next tick when the new duration is already spent', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    rig.advance(30_000);
+
+    // Trimming a cue to shorter than it has already been running is an ordinary
+    // edit during a load-in, and the only sane reading of it is "this cue is
+    // over". It must not wait, and it must not wrap around into a negative
+    // remaining time.
+    rig.engine.setShow(show({ ...cue('a'), durationMs: 2_000 }, cue('b')));
+    rig.engine.tick();
+    expect(rig.engine.snapshot().pendingCueId).toBe('b');
+  });
+
+  it('refreshes the pending and preview slots too', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    // `a` is armed but not ready, so it is pending rather than live.
+    rig.engine.setShow(show({ ...cue('a'), name: 'renamed' }, cue('b')));
+    rig.source('a').failed = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().lastError).toContain('renamed');
+    expect(rig.created('a')).toBe(1);
+
+    const preview = build(show(cue('a')));
+    preview.engine.setMode('preview');
+    preview.engine.selectCue('a');
+    preview.engine.setShow(show({ ...cue('a'), name: 'also renamed' }));
+    preview.source('a').failed = true;
+    preview.engine.tick();
+    expect(preview.engine.snapshot().lastError).toContain('also renamed');
+    expect(preview.created('a')).toBe(1);
+  });
+
+  it('still tears down a slot whose cue was deleted', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.engine.setShow(show(cue('b')));
+    expect(rig.source('a').disposed).toBe(true);
+    expect(onWire(rig.engine.tick().wire)).toBe(null);
+  });
+});
+
+/**
  * The error banner is the only channel this player has for "the thing you asked
  * for did not happen", so what makes it disappear has to be the thing actually
  * happening — not the operator asking a second time.
