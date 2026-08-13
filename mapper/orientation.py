@@ -99,10 +99,9 @@ class Orientation:
         return cls(**flags)
 
 
-#: What Ledset itself does: no transform at all.
+#: What Ledset itself does: no transform at all, and what this project sends —
+#: `CLAUDE.md` settles orientation as `identity`, permanently, because the floor
+#: is cabled left-to-right and monotonically. The non-identity flags above stay
+#: as the cabling knob for a floor that is patched differently, and as the
+#: non-trivial permutations `test_invariants` runs the packing bijection over.
 IDENTITY = Orientation()
-
-#: The 2026-08-06 reference rig — logical (0, 0) at the bottom-right tile,
-#: cable end. Recorded here as history; it is not a default. That rig has since
-#: been re-patched, and orientation must be chosen per install.
-REFERENCE_RIG_2026_08_06 = Orientation(rotate_180=True)

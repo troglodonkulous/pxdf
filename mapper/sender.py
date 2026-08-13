@@ -80,7 +80,6 @@ def run(
     orientation: Orientation = IDENTITY,
     fps: int = DEFAULT_FPS,
     eof: bool = True,
-    color_order: str = "BGR",
     address: str = DEST_ADDRESS,
     port: int = DEST_PORT,
     local_ip: str | None = None,
@@ -102,9 +101,7 @@ def run(
     start = time.perf_counter()
     try:
         for n in frame_numbers(duration, fps, total_frames):
-            datagrams = build_frame(
-                config, frame_source(n), orientation, eof=eof, color_order=color_order
-            )
+            datagrams = build_frame(config, frame_source(n), orientation, eof=eof)
             sent += send_frame(sock, datagrams, address, port)
             if on_frame:
                 on_frame(n, time.perf_counter() - start)
