@@ -62,18 +62,40 @@ const RIGS = [
   },
   {
     // An `_8P` type, graded because the Floor panel offers it and `wire.mjs`
-    // drives the running app through it. `MAPPING-DIAGRAM.md` says the `_8P`
-    // edge layout is "not something PR 3 needs to get right" — but that is a
-    // statement about the *vendor's* wide physical connectors, and `mapper`
-    // is the authority here: `mapper/frame.py:34` gives one port per tile
-    // column at every type, so ten columns take ten ports whatever the type.
-    // Without this rig the assertions below only ever saw four ports per
-    // controller and could not tell a per-type edge model from a wrong one.
+    // drives the running app through it. It is the rig that tells a jack model
+    // from a port model: at `_4P` a controller's four ports fill two of its four
+    // jacks, so "four sockets" and "ports per controller" happen to coincide and
+    // a port-indexed diagram looks right. At `_8P` they diverge — eight ports
+    // across the same four jacks — and every assertion below that says *jack*
+    // rather than *port* only has teeth here.
     name: 'an 8-port type · 6x6_8P 10 x 5',
     type: '6x6_8P', cols: 10, rows: 5, packets: 20, bytes: 5_500, controllers: 2,
     ports: [[0, 1, 2, 3, 4, 5, 6, 7], [0, 1]],
   },
+  {
+    // An odd column count, so the trailing jack carries one port instead of two.
+    // Nine columns on a `_4P` type leave controller 3 with a single chain, which
+    // is the vendor's narrow-edge case and the only path where a cable feeds one
+    // column rather than a pair. Without this rig that branch is reasoned about
+    // and never executed.
+    name: 'an odd column count · 8x8_4P 9 x 5',
+    type: '8x8_4P', cols: 9, rows: 5, packets: 18, bytes: 8_730, controllers: 3,
+    ports: [[0, 1, 2, 3], [0, 1, 2, 3], [0]],
+  },
 ];
+
+/**
+ * How many jacks a controller's ports occupy.
+ *
+ * `docs/PROTOCOL.md:35` — a connector "drives 2 chains" — and the gate-4 cable
+ * trace in `docs/RUNSHEET-10x5-4P.md:1546-1560`, which found "5 connectors
+ * populated ({2,2,1})" on a ten-column `_4P` rig. Written out here rather than
+ * imported, for the same reason the tile-column expectation is: a test that
+ * asked `diagramLayout` how many jacks it drew would be the module asserting
+ * against itself.
+ */
+const PORTS_PER_JACK = 2;
+const jacksUsedBy = (ports: readonly number[]): number => Math.ceil(ports.length / PORTS_PER_JACK);
 
 // ---------------------------------------------------------------------------
 // Gate 1 — the diagram agrees with `mapper plan`, field for field
@@ -123,25 +145,91 @@ describe.each(RIGS)('gate 1 — $name topology comes from mapper plan', (rig) =>
     expect([...plan.portsByController.values()].flat().length).toBe(rig.cols);
   });
 
-  it('assigns every (ctrl, port) to the tile column mapper puts it on', () => {
+  it('draws one cable per used jack, not one per tile column', () => {
+    const diagram = buildDiagram(rig.type, rig.cols, rig.rows, plan);
+
+    // The count this file used to assert was `rig.cols`, and that is the line
+    // the defect lived behind: it was satisfied by a diagram drawing ten cables
+    // into a floor that is physically wired with five. A jack carries two ports
+    // over one cable, so the cable count is a function of ports-in-use, not of
+    // columns.
+    expect(diagram.wires.length).toBe(rig.ports.reduce((n, ports) => n + jacksUsedBy(ports), 0));
+  });
+
+  it('routes every tile column through the jack mapper puts its port on', () => {
     const diagram = buildDiagram(rig.type, rig.cols, rig.rows, plan);
     const ppc = portsPerController(rig.type);
 
-    // One wire per floor edge, and for a `_4P` type one edge per tile column.
-    expect(diagram.wires.length).toBe(rig.cols);
-
     // The field-for-field check. Aggregate counts stay right under a reversed
     // or shifted column-to-port assignment, so counts alone cannot catch it.
-    // `expectedCol` is `mapper/frame.py:34`'s divmod inverted, computed here.
-    const wireFor = new Map(diagram.wires.map((w) => [`${w.controller}:${w.port}`, w]));
+    // `expectedCol` is `mapper/frame.py:34`'s divmod inverted, computed here;
+    // `expectedJack` is `docs/PROTOCOL.md:75-79`'s connector pairing, likewise.
     let checked = 0;
     for (const row of plan.rows) {
-      const wire = wireFor.get(`${row.ctrl}:${row.port}`);
-      expect(wire, `no wire for controller ${row.ctrl} port ${row.port}`).toBeDefined();
-      expect(wire!.tileCol).toBe(row.ctrl * ppc + row.port);
+      const expectedCol = row.ctrl * ppc + row.port;
+      const expectedJack = Math.floor(row.port / PORTS_PER_JACK);
+      const wire = diagram.wires.find((w) => w.tileCols.includes(expectedCol));
+      expect(wire, `no cable feeds tile column ${expectedCol}`).toBeDefined();
+      expect(wire!.controller).toBe(row.ctrl);
+      expect(wire!.jack).toBe(expectedJack);
+      expect(wire!.ports).toContain(row.port);
       checked += 1;
     }
     expect(checked).toBe(rig.packets);
+  });
+
+  it('feeds every tile column exactly once, pairing adjacent columns', () => {
+    const diagram = buildDiagram(rig.type, rig.cols, rig.rows, plan);
+
+    // The failure the old per-column model was written to avoid — a pairing that
+    // silently drops the columns it did not draw. Asserted directly rather than
+    // avoided by not pairing at all.
+    const fed = diagram.edges.flatMap((edge) => edge.tileCols);
+    expect([...fed].sort((a, b) => a - b)).toEqual(Array.from({ length: rig.cols }, (_, i) => i));
+
+    for (const edge of diagram.edges) {
+      expect(edge.tileCols.length).toBeGreaterThanOrEqual(1);
+      expect(edge.tileCols.length).toBeLessThanOrEqual(PORTS_PER_JACK);
+      edge.tileCols.forEach((col, i) => {
+        if (i > 0) expect(col).toBe(edge.tileCols[i - 1] + 1);
+      });
+      // A pair spans two tiles' worth of floor, a lone trailing column one.
+      expect(edge.width).toBe(edge.tileCols.length * (diagram.tiles[0]?.size ?? 0));
+    }
+    expect(diagram.edges.length).toBe(diagram.wires.length);
+  });
+
+  it('draws four jacks on every controller, inside the box', () => {
+    const diagram = buildDiagram(rig.type, rig.cols, rig.rows, plan);
+
+    // Four is the back panel, not the port count: `docs/PROTOCOL.md:34`. Drawing
+    // one circle per *port* put eight at 15px pitch into an 80px box on an `_8P`
+    // type, and the last three fell outside it. Asserted as a coordinate,
+    // because the symptom is visual and nothing else here would see it.
+    expect(diagram.controllers.length).toBe(rig.controllers);
+    diagram.controllers.forEach((controller, index) => {
+      expect(controller.jacks.length).toBe(4);
+      for (const jack of controller.jacks) {
+        expect(jack.x).toBeGreaterThanOrEqual(controller.x);
+        expect(jack.x).toBeLessThanOrEqual(controller.x + controller.width);
+      }
+      // A jack is lit when either of its two ports carries a chain.
+      const used = controller.jacks.filter((jack) => jack.used).length;
+      expect(used).toBe(jacksUsedBy(rig.ports[index]));
+    });
+  });
+
+  it('never gives one controller two cables the same colour or drop height', () => {
+    const diagram = buildDiagram(rig.type, rig.cols, rig.rows, plan);
+
+    // `port % 4` gave ports 0 and 4 of an `_8P` controller the same colour *and*
+    // the same horizontal run height, so their cables drew on top of each other.
+    // A jack index is 0..3 by construction and cannot collide.
+    for (let controller = 0; controller < rig.controllers; controller += 1) {
+      const mine = diagram.wires.filter((wire) => wire.controller === controller);
+      expect(new Set(mine.map((wire) => wire.colorIndex)).size).toBe(mine.length);
+      expect(new Set(mine.map((wire) => wire.dropHeight)).size).toBe(mine.length);
+    }
   });
 
   it('gives every tile its floor-pixel origin', () => {
