@@ -190,6 +190,18 @@ export class Sidecar {
   private spawnChild(): void {
     if (this.stopping || !this.started) return
 
+    // Every path that brings a child up passes through here — first launch, a
+    // ladder respawn, and `main.ts` replacing the whole instance for a floor or
+    // NIC change. That last one is why this belongs here rather than in
+    // `scheduleRespawn`: `stop()` publishes nothing, so a replacement used to
+    // leave the previous child's status standing until the new one announced
+    // itself. That was survivable while the announcement came from `spawn`;
+    // once it waits for `SENDING_AFTER_MS` it is a 400 ms window in which the
+    // indicator reads Sending on behalf of a process that has already been
+    // killed. Saying `restarting` the moment a child is being brought up closes
+    // it, and is true on all three paths.
+    this.options.onStatus('restarting')
+
     const address = process.env.DDF_ADDRESS ??
       (this.options.isPackaged ? '255.255.255.255' : '127.0.0.1')
     const port = process.env.DDF_PORT ?? String(60_001)
@@ -290,7 +302,9 @@ export class Sidecar {
   private scheduleRespawn(): void {
     const delay = RETRY_DELAYS_MS[Math.min(this.retryIndex, RETRY_DELAYS_MS.length - 1)]
     this.retryIndex += 1
-    this.options.onStatus('restarting')
+    // `restarting` is published by `spawnChild`, not here. During this delay —
+    // up to a second at the top of the ladder — nothing is coming up yet, and
+    // `stopped` is the accurate word for that.
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null
       this.spawnChild()

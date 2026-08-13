@@ -342,14 +342,43 @@ describe('respawn', () => {
     statuses.length = 0;
 
     children[0].die();
-    expect(statuses).toEqual(['stopped', 'restarting']);
+    // `restarting` waits for the ladder's delay to elapse and a child to
+    // actually be started. Nothing is coming up during the delay, and `stopped`
+    // is the accurate word for that.
+    expect(statuses).toEqual(['stopped']);
     vi.advanceTimersByTime(0);
+    expect(statuses).toEqual(['stopped', 'restarting']);
     children[1].goLive();
     // Not yet. `spawn` fires on process creation, so a status published here
     // would say nothing more than the old 'linked' did.
     expect(statuses).toEqual(['stopped', 'restarting']);
     vi.advanceTimersByTime(500);
     expect(statuses).toEqual(['stopped', 'restarting', 'sending']);
+  });
+
+  it('does not leave a replaced sidecar reading sending', () => {
+    // `main.ts` swaps the whole instance for a floor or NIC change, and
+    // `stop()` publishes nothing — so whatever the previous child last said
+    // stands until the new one speaks. While that was `spawn` the gap was
+    // negligible; with the promotion deferred it is a window in which the
+    // indicator claims a process that has already been killed is sending.
+    const first = makeSidecar();
+    first.sidecar.start();
+    first.children[0].goLive();
+    vi.advanceTimersByTime(500);
+    expect(first.statuses.at(-1)).toBe('sending');
+
+    // The replacement instance. Its first published word has to displace the
+    // stale one, and it must not be `sending`.
+    const replacement = makeSidecar();
+    replacement.sidecar.start();
+    expect(replacement.statuses).toEqual(['restarting']);
+
+    // And it still reaches sending on its own account, so this is a correction
+    // rather than a mute.
+    replacement.children[0].goLive();
+    vi.advanceTimersByTime(500);
+    expect(replacement.statuses).toEqual(['restarting', 'sending']);
   });
 
   it('never says sending for a child that dies on startup', () => {
