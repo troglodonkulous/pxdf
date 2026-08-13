@@ -338,13 +338,41 @@ describe('respawn', () => {
     const { sidecar, children, statuses } = makeSidecar();
     sidecar.start();
     children[0].goLive();
+    vi.advanceTimersByTime(500);
     statuses.length = 0;
 
     children[0].die();
     expect(statuses).toEqual(['stopped', 'restarting']);
     vi.advanceTimersByTime(0);
     children[1].goLive();
+    // Not yet. `spawn` fires on process creation, so a status published here
+    // would say nothing more than the old 'linked' did.
+    expect(statuses).toEqual(['stopped', 'restarting']);
+    vi.advanceTimersByTime(500);
     expect(statuses).toEqual(['stopped', 'restarting', 'sending']);
+  });
+
+  it('never says sending for a child that dies on startup', () => {
+    // The crash loop this exists for: an illegal geometry, or a --local-ip
+    // naming an interface that has gone away, makes `mapper stream` exit on its
+    // next tick. The retry ladder's first rung is 0 ms, so publishing from
+    // `spawn` strobed the indicator through Sending several times a second
+    // while nothing was leaving the machine — and an indicator that cries wolf
+    // once is one an operator reads straight past on the night it is right.
+    const { sidecar, children, statuses } = makeSidecar();
+    sidecar.start();
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      children[attempt].goLive();
+      children[attempt].die();
+      vi.advanceTimersByTime(1_000);
+    }
+
+    expect(statuses).not.toContain('sending');
+    // The positive control. An assertion that something is absent passes just
+    // as well when nothing happened at all, so prove the loop ran.
+    expect(children.length).toBeGreaterThan(4);
+    expect(statuses.filter((status) => status === 'stopped').length).toBe(4);
   });
 });
 

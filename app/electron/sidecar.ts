@@ -59,10 +59,33 @@ const STABLE_AFTER_MS = 5_000
 /** Wait this long past SIGKILL before giving up on ever seeing `exit`. */
 const REAP_GRACE_MS = 2_000
 
+/**
+ * How long a child must stay up before the indicator says it is sending.
+ *
+ * Renaming the states was half a fix. `sending` was still published from the
+ * `spawn` handler — the same instant `linked` used to be — and `spawn` fires on
+ * process *creation*. A `mapper stream` that exits on its next tick, because the
+ * geometry is illegal or `--local-ip` names an interface that has gone away, had
+ * already been announced as sending. Worse, the retry ladder's first rung is
+ * 0 ms, so a crash loop published `sending` on every attempt and the pill
+ * strobed Sending / Stopped / Restarting several times a second while nothing
+ * whatsoever was leaving the machine. A channel that does that is a channel the
+ * operator stops reading, which is the failure the rename was for.
+ *
+ * So the promotion waits for the child to still be alive a beat later. Short
+ * enough that a healthy launch reads Restarting for a blink rather than five
+ * seconds — `STABLE_AFTER_MS` is far too long to put in front of an operator —
+ * and long enough that an immediate exit never reaches `sending` at all.
+ *
+ * It still does not mean the floor is receiving. Nothing here can mean that.
+ */
+const SENDING_AFTER_MS = 400
+
 export class Sidecar {
   private child: ChildProcess | null = null
   private retryTimer: ReturnType<typeof setTimeout> | null = null
   private stableTimer: ReturnType<typeof setTimeout> | null = null
+  private sendingTimer: ReturnType<typeof setTimeout> | null = null
   private retryIndex = 0
   private lastFrame: Uint8Array | null = null
   private writable = false
@@ -107,6 +130,7 @@ export class Sidecar {
     this.started = false
     this.clearTimer('retryTimer')
     this.clearTimer('stableTimer')
+    this.clearTimer('sendingTimer')
 
     const child = this.child
     this.child = null
@@ -155,7 +179,7 @@ export class Sidecar {
     })
   }
 
-  private clearTimer(which: 'retryTimer' | 'stableTimer'): void {
+  private clearTimer(which: 'retryTimer' | 'stableTimer' | 'sendingTimer'): void {
     const timer = this[which]
     if (timer !== null) {
       clearTimeout(timer)
@@ -196,6 +220,7 @@ export class Sidecar {
       if (failed) return
       failed = true
       this.clearTimer('stableTimer')
+      this.clearTimer('sendingTimer')
 
       // Make sure this child is really gone before another is started. The
       // trigger may be a stdin error rather than an exit — a broken pipe on a
@@ -231,7 +256,14 @@ export class Sidecar {
 
       this.writable = true
       this.writeIfPossible(this.lastFrame ?? this.options.blackFrame)
-      this.options.onStatus('sending')
+
+      // Not `onStatus('sending')` here. See `SENDING_AFTER_MS`: this line is
+      // where the old `linked` was published, and publishing `sending` from the
+      // same event would have been the same claim in a smaller word.
+      this.sendingTimer = setTimeout(() => {
+        this.sendingTimer = null
+        if (this.child === child && !failed) this.options.onStatus('sending')
+      }, SENDING_AFTER_MS)
 
       // The ladder resets only once this child has *stayed* up. `spawn` fires
       // on process creation and says nothing about survival, so resetting here
