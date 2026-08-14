@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import sys
 import threading
+import traceback
 from pathlib import Path
 
 from . import fixtures as fixtures_module
@@ -294,6 +296,39 @@ def cmd_play(args) -> int:
     return 0
 
 
+#: `mapper stream` could not use the socket at all — almost always a floor NIC
+#: that has gone away under a live sender. Distinct from 1 so a supervisor can
+#: tell "the network went away" from "the sender is broken" without parsing
+#: text, and so it can decline to respawn something that cannot succeed yet.
+EXIT_NETWORK_GONE = 3
+
+
+def _exit_now(code: int) -> None:
+    """Leave without running interpreter finalisation.
+
+    MEASURED 2026-08-13, from a crash report and reproduced off-hardware
+    (`mapper/tests/test_stream_exit.py`): the stdin reader below is a **daemon
+    thread parked inside `read()`**, and it holds the `BufferedReader`'s lock
+    for as long as it is parked. Returning normally from an error path sends the
+    main thread into `Py_FinalizeEx`, which deallocates `sys.stdin`, whose
+    `close()` reaches `_enter_buffered_busy`, which cannot take that lock and
+    calls `abort()`.
+
+    That is SIGABRT — exit 134, and a macOS "python quit unexpectedly" dialog
+    per respawn, forever, because the app's supervisor restarts the sender. The
+    operator's only recourse was killing the app from a terminal.
+
+    The daemon thread is deliberate and stays: the reader blocks on a pipe
+    nobody may still be writing to, and there is no way to interrupt that read
+    from here. So the exit is what changes. Everything this process had to say
+    is flushed first; a process that *threw* must still read as one that threw,
+    just not as one that crashed.
+    """
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(code)
+
+
 class LatestFrame:
     """A one-slot mailbox between a stdin reader and the send loop.
 
@@ -455,18 +490,34 @@ def cmd_stream(args) -> int:
         if latest.drained():
             raise KeyboardInterrupt
 
-    sent = run(
-        config,
-        frame_source,
-        duration=None,
-        orientation=orientation,
-        fps=args.fps,
-        eof=not args.no_eof,
-        address=args.address,
-        port=args.port,
-        local_ip=args.local_ip,
-        on_frame=on_frame,
-    )
+    # Both handlers exist because of the daemon reader — see `_exit_now`. Any
+    # exception leaving `run()` while that thread is parked turns into SIGABRT,
+    # so no error path here may return or re-raise normally. The distinction
+    # between them is what the supervisor reads: `EXIT_NETWORK_GONE` means wait
+    # for the interface and try again, anything else means the sender is broken.
+    try:
+        sent = run(
+            config,
+            frame_source,
+            duration=None,
+            orientation=orientation,
+            fps=args.fps,
+            eof=not args.no_eof,
+            address=args.address,
+            port=args.port,
+            local_ip=args.local_ip,
+            on_frame=on_frame,
+        )
+    except OSError as exc:
+        where = args.local_ip or f"{args.address}:{args.port}"
+        print(f"floor NIC {where} unusable: {exc}", file=sys.stderr, flush=True)
+        _exit_now(EXIT_NETWORK_GONE)
+    except BaseException:
+        # Still loud, still a full traceback — the channel for bad news stays
+        # open. It just arrives as a traceback rather than as a crash dialog.
+        traceback.print_exc()
+        _exit_now(1)
+
     print(f"sent {sent} packets")
     return 0
 
