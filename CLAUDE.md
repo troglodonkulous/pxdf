@@ -72,7 +72,7 @@ Test counts are deliberately absent — they went stale in a day once. The runne
 Cabled left-to-right, monotonic. Sender NIC `10.200.50.78/8`; dumpcap interface number **not stable across reboots** — re-derive with `python -m tools.oracle.harness list-interfaces`.
 
 - Connector 1 = ports 0, 1; connector 2 = ports 2, 3 for `_4P` unit.
-- Controller 1 (Master/IR) **times out ~5 s after packets stop**, reverts to local content; controllers 2 and 3 hold last frame forever. Not defect. Expect constantly with `--forever`.
+- Controller 1 (Master/IR) **times out ~5 s after packets stop and reverts to local content** — but that is Master/IR-mode behaviour specifically. **All three controllers can also run in slave mode**, in which case controller 1 holds its last frame indefinitely, the same as 2 and 3. Corrected 2026-08-14 from an unconditional claim; neither mode is a defect, and this repo does not track at runtime which mode controller 1 is actually in. Does not weaken the black-frames-on-idle rule below — see Traps.
 - Power down all three controllers before moving any data cable.
 - **Never run Ledset and either sender at the same time.**
 
@@ -98,7 +98,7 @@ Cabled left-to-right, monotonic. Sender NIC `10.200.50.78/8`; dumpcap interface 
 - **`oracle.harness --live` only captures for config row whose `capture` is `null`.** On row that already has one it now refuses with exit 2 rather than silently re-grading stored file. To measure new sender, add *new* row with new name and null capture — see `tools/oracle/configs.appendix.json`.
 - **Clip sent at rate it was not authored for plays at wrong speed and no byte comparison in this project can see it** — every individual frame correct, only spacing between them wrong.
 - `max_tolerated` budgets **measured per capture window and clip length**. Re-derive if either changes; budget carried over from different capture is exactly the unbounded tolerance the field exists to remove.
-- **Stopping the send does not black the floor.** Controller 1 reverts to local content ~5 s later while 2 and 3 hold last frame, so app BLACKOUT, cue gaps, idle must all send *black frames*. Socket opens with show file, never closes.
+- **Stopping the send does not black the floor.** In Master/IR mode controller 1 reverts to local content ~5 s later; in slave mode it holds its last frame like 2 and 3 do unconditionally. Either way nothing blacks the floor on its own, so app BLACKOUT, cue gaps, idle must all send *black frames*. Socket opens with show file, never closes.
 - **`design/mockups.html` renders superset of what ships.** Direction (Fwd/Rev/Bounce), Custom layout, Calibrate… all appear in it, all shelved or scrapped. `docs/REQUIREMENTS-v1.pdf` wins over mockups, `docs/APP-PLAN.md` say what cut and why.
 - **App traps live in `docs/APP-PLAN.md`, not here** — `corsEnabled` and the render loop that dies silently, a fix disarming the regression test for its own bug, `wire.mjs` asserting on wire then polling the DOM. Read it before app code.
 

@@ -93,10 +93,12 @@ sender-side bugs rather than protocol limits:
   decoder is still writing it, so it ships torn frames. Ours must not.
 
 A third is a property of the hardware rather than of Ledset: **stopping the send
-does not black the floor.** Controller 1 times out ~5 s after packets stop and
-reverts to its local content, while controllers 2 and 3 hold the last frame
-forever. BLACKOUT, cue gaps and idle therefore all send *black frames*, and the
-socket opens with the show file and never closes.
+does not black the floor.** In Master/IR mode, controller 1 times out ~5 s after
+packets stop and reverts to its local content, while controllers 2 and 3 hold
+the last frame forever; controller 1 can also run in slave mode, in which case
+it holds its last frame too. Either way, BLACKOUT, cue gaps and idle therefore
+all send *black frames*, and the socket opens with the show file and never
+closes.
 
 ## Try it
 
