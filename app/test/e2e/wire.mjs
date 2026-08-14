@@ -75,10 +75,12 @@ const PYTHON = process.env.DDF_PYTHON ?? 'python3'
  * How long the wire may go quiet across a sidecar restart.
  *
  * Not a performance target — a safety margin. `docs/APP-PLAN.md` calls a 200 ms
- * restart fine; controller 1 reverts to the vendor's own content at about five
- * seconds. Two seconds sits well inside that and still fails loudly on the case
- * this bound exists for: a restart that hangs on a Python process which will
- * not exit, which on the floor is somebody else's content mid-show.
+ * restart fine; controller 1, in Master/IR mode, reverts to the vendor's own
+ * content at about five seconds (in slave mode it holds its last frame instead,
+ * same as 2 and 3 — `CLAUDE.md` § The rig). Two seconds sits well inside that
+ * worst case and still fails loudly on the case this bound exists for: a
+ * restart that hangs on a Python process which will not exit, which on the
+ * floor is somebody else's content mid-show.
  */
 const MAX_RESTART_GAP_MS = 2_000
 
@@ -135,8 +137,9 @@ class WireTap {
      * restart is a real process swap: the old `mapper stream` has to stop being
      * the sender before the new one starts, or two processes interleave frames
      * onto one floor. So some interval with no datagrams is structural, and the
-     * question a gate has to answer is *how long* — controller 1 reverts to the
-     * vendor's own content about five seconds after packets stop. Without
+     * question a gate has to answer is *how long* — controller 1, in Master/IR
+     * mode, reverts to the vendor's own content about five seconds after
+     * packets stop (in slave mode it holds its last frame instead). Without
      * timestamps that interval is unmeasurable and the gate can only assert it
      * by feel.
      *
@@ -1081,9 +1084,11 @@ try {
   //     rows) and refuses on 8x8_8P (max 11). Before the limits were per type,
   //     picking 8x8_8P here stopped the running sidecar, spawned a `mapper
   //     stream` that exited on startup with `tile_rows 12 outside 1..11`, and
-  //     left the floor with no sender at all — controller 1 reverting to the
-  //     vendor's own content five seconds later, mid-show. It was reachable
-  //     from a dropdown.
+  //     left the floor with no sender at all — controller 1, in Master/IR
+  //     mode, reverting to the vendor's own content five seconds later,
+  //     mid-show (in slave mode it would have held its last frame instead,
+  //     same as 2 and 3 — either way, no sender is still no sender). It was
+  //     reachable from a dropdown.
   //
   //     Graded on the consequence, not the symptom: the wire keeps carrying
   //     frames, at the shape `mapper plan` gives for the clamped geometry.
@@ -1114,6 +1119,141 @@ try {
     'document.querySelector(".notice-banner")?.textContent ?? null')
   check(typeof clampNotice === 'string' && clampNotice.includes('11'),
     'the operator is told the height was reduced', String(clampNotice))
+
+  // 4e. Back to Play for PR 2's layout gate. Section 4b-4d drove the Mapping
+  //     surface's Floor selects, which leaves the app standing on Mapping —
+  //     Navigation does not touch engine state (checked in 4a), so the cue
+  //     that was live going into that detour is still live coming out of it.
+  await page.evaluate(clickButtonScript('Open Player'))
+  const backOnPlay = await waitFor('document.querySelector(".play-screen") !== null ? 1 : 0')
+  check(backOnPlay === 1, 'Open Player returns to the Play surface after the Mapping detour')
+
+  // 6. PR 2: bottom bar regrouped to global controls, the timeline reading
+  //    clip position, Standby/GO/preview coupling, Tab, resizable sidebars
+  //    and zoom past 100%. Six checks, matching the PR's Grade list exactly.
+
+  // 6a. The bottom bar is global controls only, left to right in the order
+  //     3a specifies: Master, Crossfade, PAUSE, BLACKOUT. Previous/Next and
+  //     the per-cue timecode/progress bar are not decoration removed from
+  //     here — they are what the new centre timeline panel (6b) replaces, so
+  //     their absence from the bar is as load-bearing as the new order.
+  const transportText = await page.evaluate('document.querySelector(".transport")?.textContent ?? ""')
+  const barOrder = ['Master', 'Crossfade', 'PAUSE', 'BLACKOUT'].map((label) => transportText.indexOf(label))
+  check(barOrder.every((index) => index >= 0) && barOrder.every((index, i) => i === 0 || index > barOrder[i - 1]),
+    'the bottom bar holds Master, Crossfade, PAUSE, BLACKOUT in that order',
+    `positions ${JSON.stringify(barOrder)} in ${JSON.stringify(transportText)}`)
+  check(await page.evaluate('document.querySelector(\'.transport [aria-label="Previous cue"]\') === null'),
+    'per-cue transport (Previous/Next) is no longer in the bottom bar')
+
+  // 6b. The timeline reads clip position, not cue hold — the bug this PR
+  //     fixes. The old bar read `elapsedMs / cueDurationMs`, and
+  //     `cueDurationMs` is `null` for every hold-until-GO cue, so it sat at 0
+  //     for most of the stack. Cue 2 (the white clip) has never had a
+  //     duration set — section 3b only touched cue 1 — so it is still
+  //     hold-until-GO, which is exactly the case the old bar could not move
+  //     for. A fresh GO first, rather than reading whatever position it is
+  //     already at: the cue has been live on and off for several seconds by
+  //     this point, and comparing two arbitrary samples of a *looping* 3 s
+  //     clip risks straddling a wrap, which would read as the bar going
+  //     backwards on a perfectly healthy app — the instrument's fault, not
+  //     the app's, and exactly the shape of flake this file argues against
+  //     elsewhere. Starting fresh keeps the whole 1.2 s poll window inside
+  //     the clip's first lap.
+  await page.evaluate(clickRowScript(1))
+  await page.evaluate(clickButtonScript('GO'))
+  await waitForLive(1)
+  const clipPosition = () => page.evaluate(
+    'Number(document.querySelector(\'[aria-label="Clip position"]\')?.getAttribute("aria-valuenow") ?? "-1")')
+  const positionStart = await clipPosition()
+  await sleep(1_200)
+  const positionLater = await clipPosition()
+  check(positionStart >= 0 && positionLater > positionStart,
+    'the timeline advances for a hold-until-GO cue, driven by clip position',
+    `${positionStart} -> ${positionLater}`)
+
+  // 6c. Tab toggles Live/Preview, and does not fight a focused text field —
+  //     blurring first so a stray focus left over from the duration field
+  //     earlier in this run cannot make the toggle a no-op.
+  await page.evaluate('document.activeElement instanceof HTMLElement && document.activeElement.blur()')
+  const modeBeforeTab = await page.evaluate('document.querySelector(".player-shell")?.className ?? ""')
+  const pressTab = () => page.evaluate(`(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))
+    return true
+  })()`)
+  await pressTab()
+  const modeAfterTab = await waitFor(`(() => {
+    const cls = document.querySelector('.player-shell')?.className ?? ''
+    return cls !== ${JSON.stringify(modeBeforeTab)} ? cls : null
+  })()`)
+  check(modeBeforeTab.includes('mode-live')
+      && typeof modeAfterTab === 'string' && modeAfterTab.includes('mode-preview'),
+    'Tab flips the player shell from Live to Preview', `${modeBeforeTab} -> ${modeAfterTab}`)
+
+  // Back to Live, so every check after this one runs in the mode the rest of
+  // the file assumes.
+  await pressTab()
+  const modeBackToLive = await waitFor(
+    'document.querySelector(".player-shell")?.className.includes("mode-live") ? "live" : null')
+  check(modeBackToLive === 'live', 'Tab flips back from Preview to Live', String(modeBackToLive))
+
+  // 6d. Clicking the live cue's own row parks Standby there rather than
+  //     leaving it wherever it was, and GO greys out — firing Standby here
+  //     would restart the cue already on the floor, which is not what a
+  //     click on the live row means. The Standby badge is hidden on that row
+  //     too, since the row is already marked live and a second badge saying
+  //     "Standby" on the same row is not information, it is the same fact
+  //     twice under two different names.
+  const liveRowForGo = await page.evaluate(liveIndex)
+  await page.evaluate(clickRowScript(liveRowForGo))
+  const goDisabledAfterSelf = await waitFor(
+    'document.querySelector(".go-button")?.disabled === true ? "disabled" : null')
+  check(goDisabledAfterSelf === 'disabled', 'GO is disabled when Standby is parked on the live cue',
+    String(await page.evaluate('document.querySelector(".go-button")?.disabled ?? null')))
+  check(await page.evaluate(
+    `document.querySelectorAll('.cue-row')[${liveRowForGo}]?.querySelector('.standby-marker') === null`),
+    'the Standby badge is hidden on a row that is both live and standby')
+
+  // 6e. A gutter drag resizes the sidebar, live, through the same
+  //     `--w-sidebar` token the design system already sizes the cue stack
+  //     from — a new writer of an existing value, not a new layout
+  //     mechanism. Dispatched on `window` after `pointerdown`, not relying on
+  //     `setPointerCapture` alone: a scripted `PointerEvent` here has no real
+  //     active pointer for the browser to capture, and a resize that only
+  //     works for a mouse the OS is tracking is not one this gate can drive.
+  const widthBeforeDrag = await page.evaluate(
+    'getComputedStyle(document.querySelector(".player-shell")).getPropertyValue("--w-sidebar").trim()')
+  await page.evaluate(`(() => {
+    const gutter = document.querySelector('[data-gutter="sidebar"]')
+    if (gutter === null) throw new Error('no sidebar gutter')
+    const rect = gutter.getBoundingClientRect()
+    const startX = rect.left + rect.width / 2
+    gutter.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, clientX: startX }))
+    window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 1, clientX: startX + 60 }))
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1, clientX: startX + 60 }))
+    return true
+  })()`)
+  const widthAfterDrag = await waitFor(`(() => {
+    const w = getComputedStyle(document.querySelector('.player-shell')).getPropertyValue('--w-sidebar').trim()
+    return w !== ${JSON.stringify(widthBeforeDrag)} ? w : null
+  })()`)
+  check(typeof widthAfterDrag === 'string' && widthAfterDrag !== widthBeforeDrag,
+    'dragging the sidebar gutter changes --w-sidebar', `${widthBeforeDrag} -> ${widthAfterDrag}`)
+
+  // 6f. Layout must not touch the render loop. The gutter drag above and a
+  //     zoom change here happen while a cue is live, and neither may gap or
+  //     black the wire — a resize handler or a zoom recompute that touched
+  //     the compose/writeFrame path would be exactly the kind of defect
+  //     `docs/APP-PLAN.md` describes for the render loop: silent, and
+  //     invisible to anything that is not watching the wire itself.
+  const beforeLayoutChange = tap.packets.length
+  await page.evaluate(clickScript('[aria-label="Zoom in"]'))
+  await page.evaluate(clickScript('[aria-label="Zoom in"]'))
+  await sleep(600)
+  const acrossLayoutChange = tap.packets.slice(beforeLayoutChange)
+  check(acrossLayoutChange.length > 0 && countTone(acrossLayoutChange, 'black') === 0,
+    'the wire stays unbroken across the sidebar resize and a zoom change',
+    `${countTone(acrossLayoutChange, 'black')} of ${acrossLayoutChange.length} packets were all-zero`)
+  await page.evaluate(clickButtonScript('Fit'))
 
   // 5. Quitting leaves the floor black. Controllers 2 and 3 hold their last
   //    frame indefinitely, so the last frame sent is the one that stays lit.
