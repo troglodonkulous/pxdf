@@ -8,6 +8,7 @@ import { PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
 import { MEDIA_SCHEME, mediaPath, mediaUrl } from '../src/player/mediaUrl.js'
 import type { ShowFloor } from '../src/player/show.js'
 import { runMapperPlan } from './mapperPlan.js'
+import { nicVerdict } from './nicWatch.js'
 import { flushSettings, loadSettings, saveSettings } from './settings.js'
 import { Sidecar, type SenderStatus } from './sidecar.js'
 
@@ -56,6 +57,9 @@ let currentFloor: ShowFloor = { type: SHOP_RIG.type, tileCols: SHOP_RIG.tileCols
 let currentBlackFrame: Uint8Array = blackFrame(SHOP_RIG)
 let interfacePollTimer: ReturnType<typeof setInterval> | null = null
 let lastInterfaces: { name: string; address: string }[] | null = null
+let nicGone = false
+let pendingNicVerdict: ReturnType<typeof nicVerdict> | null = null
+let nicVerdictQueued = false
 let quitAfterStop = false
 let stopInProgress = false
 
@@ -79,12 +83,10 @@ function listIpv4Interfaces(): { name: string; address: string }[] {
 
 function pollInterfaces(): void {
   const interfaces = listIpv4Interfaces()
-  const bound = process.env.DDF_LOCAL_IP
-  if (bound !== undefined && bound.length > 0 && !interfaces.some(({ address }) => address === bound)) {
-    sidecar?.suspend(`floor NIC ${bound} is no longer assigned to any interface — check the cable`)
-  } else {
-    sidecar?.resume()
-  }
+  const verdict = nicVerdict(process.env.DDF_LOCAL_IP, interfaces, nicGone)
+  if (verdict.clearBanner) publishSenderError(null)
+  nicGone = verdict.gone
+  queueNicVerdict(verdict)
 
   // Interface order comes from the OS and is stable within a process. Treating
   // an order change as a change is harmless, while sorting would make the UI's
@@ -124,6 +126,32 @@ function withSidecar<T>(fn: () => Promise<T>): Promise<T> {
   // The caller still sees its own rejection through result.
   sidecarQueue = result.then(() => undefined, () => undefined)
   return result
+}
+
+function queueNicVerdict(verdict: ReturnType<typeof nicVerdict>): void {
+  pendingNicVerdict = verdict
+  if (nicVerdictQueued) return
+  nicVerdictQueued = true
+
+  // A sidecar stop can occupy the lifecycle queue longer than the 2 s poll
+  // interval. Queueing every tick would grow an unbounded tail of stale
+  // suspend/resume calls; dropping overlapping ticks could instead suspend a
+  // replacement after its NIC had returned. One queued operation reads the
+  // newest verdict when it reaches the sidecar, so delay changes neither the
+  // final state nor the amount of work waiting behind it.
+  void withSidecar(async () => {
+    const latest = pendingNicVerdict
+    pendingNicVerdict = null
+    if (latest === null) return
+    if (latest.suspend !== null) sidecar?.suspend(latest.suspend)
+    else sidecar?.resume()
+  }).then(
+    () => { nicVerdictQueued = false },
+    (error: unknown) => {
+      nicVerdictQueued = false
+      console.error('Failed to apply NIC state to sender:', error)
+    },
+  )
 }
 
 async function doSetFloor(next: ShowFloor): Promise<void> {

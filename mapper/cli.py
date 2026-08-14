@@ -297,9 +297,10 @@ def cmd_play(args) -> int:
 
 
 #: `mapper stream` could not use the socket at all — almost always a floor NIC
-#: that has gone away under a live sender. Distinct from 1 so a supervisor can
-#: tell "the network went away" from "the sender is broken" without parsing
-#: text, and so it can decline to respawn something that cannot succeed yet.
+#: that has gone away under a live sender. Distinct from 1 so a human reading a
+#: log or shell status can tell "the network went away" from "the sender is
+#: broken". No supervisor reads this value today; interface polling decides
+#: whether the app suspends the sender.
 EXIT_NETWORK_GONE = 3
 
 
@@ -492,9 +493,9 @@ def cmd_stream(args) -> int:
 
     # Both handlers exist because of the daemon reader — see `_exit_now`. Any
     # exception leaving `run()` while that thread is parked turns into SIGABRT,
-    # so no error path here may return or re-raise normally. The distinction
-    # between them is what the supervisor reads: `EXIT_NETWORK_GONE` means wait
-    # for the interface and try again, anything else means the sender is broken.
+    # so no error path here may return or re-raise normally. Distinct exit codes
+    # preserve the diagnosis for a human reading a log; no supervisor reads the
+    # value today. The app decides whether to wait from its interface poll.
     try:
         sent = run(
             config,
