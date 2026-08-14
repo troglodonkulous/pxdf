@@ -328,6 +328,7 @@ export function App() {
           onZoomIn={() => setZoom(zoomIn)}
           onZoomOut={() => setZoom(zoomOut)}
           onZoomFit={() => setZoom(ZOOM_FIT)}
+          onZoomSet={setZoom}
         />
       )}
       {/*
