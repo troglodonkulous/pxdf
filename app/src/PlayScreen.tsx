@@ -30,6 +30,8 @@ interface PlayScreenProps {
   readonly showRef: RefObject<Show>
   readonly floor: FloorGeometry
   readonly status: SenderStatus
+  /** Why the sender is down, straight from the child's stderr. */
+  readonly senderError: string | null
   readonly snapshot: EngineSnapshot
   readonly stats: RenderStats
   readonly engine: PlayerEngine<VideoSource>
@@ -94,6 +96,7 @@ export function PlayScreen({
   showRef,
   floor,
   status,
+  senderError,
   snapshot,
   stats,
   engine,
@@ -260,7 +263,10 @@ export function PlayScreen({
   const progress = snapshot.cueDurationMs === null || snapshot.cueDurationMs <= 0
     ? 0
     : Math.min(1, snapshot.elapsedMs / snapshot.cueDurationMs)
-  const visibleError = snapshot.lastError ?? pickerError
+  // Sender first. A cue that will not decode is a problem with one cue; a
+  // sender that is down is the whole floor, and during a show the operator gets
+  // one glance at this line.
+  const visibleError = senderError ?? snapshot.lastError ?? pickerError
 
   return (
     <main className={`player-shell mode-${snapshot.mode} play-screen`}>

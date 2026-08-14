@@ -18,20 +18,27 @@ import {
 import { parsePlanTable, type PlanTable } from './mapperPlan.js'
 import { StatusPill } from '../StatusPill.js'
 
+export interface NetworkInterface {
+  readonly name: string
+  readonly address: string
+}
+
 interface MappingScreenProps {
   readonly floor: FloorGeometry
   readonly rotation: Rotation
   readonly status: SenderStatus
+  /** Pushed from the main process's interface poll, not fetched on mount. */
+  readonly interfaces: readonly NetworkInterface[]
+  /** The address `mapper stream` is actually bound to. Empty means unbound. */
+  readonly localIp: string
+  /** Why the sender is down, straight from the child's stderr. */
+  readonly senderError: string | null
+  readonly selectInterface: (address: string) => Promise<void>
   readonly changeFloor: (
     patch: Partial<Pick<ShowFloor, 'type' | 'tileCols' | 'tileRows'>>,
   ) => Promise<void>
   readonly setRotation: (rotation: Rotation) => void
   readonly setSurface: (surface: 'mapping' | 'play') => void
-}
-
-interface NetworkInterface {
-  readonly name: string
-  readonly address: string
 }
 
 type DiagramState =
@@ -66,20 +73,79 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+/**
+ * What to do when the cable is in and the floor is still dark.
+ *
+ * From a field session on 2026-08-13 that cost an hour and very nearly cost a
+ * job: the floor NIC took a DHCP lease, won the default route, and killed
+ * Wi-Fi along with it. Both remedies are here because the operator may be
+ * somewhere they cannot use a terminal, and the System Settings route survives
+ * a reboot where the `ipconfig` one does not.
+ *
+ * Deliberately not here: everything about `DDF_ADDRESS` and running from a dev
+ * server. Operators run a packaged build, where that default does not apply,
+ * and a panel that is mostly irrelevant is a panel nobody finishes reading.
+ */
+function NetworkHelp({ onDismiss }: { readonly onDismiss: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onDismiss()
+    }
+    // Capture, so it fires before anything inside the panel can swallow it.
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [onDismiss])
+
+  return (
+    <>
+      {/*
+        A full-viewport catcher rather than a document-level `mousedown`
+        listener. The listener version closes the panel on the very click that
+        opened it, because the button's own click is still propagating when the
+        effect that registered it runs.
+      */}
+      <div className="popover-catcher" onClick={onDismiss} />
+      <div className="popover" role="dialog" aria-label="Network troubleshooting">
+        <p className="popover-title">Ethernet is connected but the floor gets nothing</p>
+        <p>
+          The floor NIC may be taking a DHCP lease and stealing the default route.
+          That also drops Wi-Fi. Give it a static address with no gateway so it
+          cannot win the route.
+        </p>
+        <p className="popover-step">Terminal</p>
+        <code>sudo ipconfig set en18 MANUAL 10.200.50.78 255.0.0.0</code>
+        <p className="popover-note">
+          Revert any time with <code>sudo ipconfig set en18 DHCP</code>. Use the
+          interface name shown in the dropdown below, not necessarily
+          <code>en18</code>.
+        </p>
+        <p className="popover-step">System Settings</p>
+        <p>
+          Network → ⋯ → Set Service Order, then drag Wi-Fi above Ethernet. Slower
+          to do, but it survives a reboot.
+        </p>
+      </div>
+    </>
+  )
+}
+
 export function MappingScreen({
   floor,
   rotation,
   status,
+  interfaces,
+  localIp,
+  senderError,
+  selectInterface,
   changeFloor,
   setRotation,
   setSurface,
 }: MappingScreenProps) {
   const [diagramState, setDiagramState] = useState<DiagramState>({ kind: 'loading' })
   const [highlightedCols, setHighlightedCols] = useState<readonly number[]>([])
-  const [interfaces, setInterfaces] = useState<readonly NetworkInterface[]>([])
-  const [selectedAddress, setSelectedAddress] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [networkHelpOpen, setNetworkHelpOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -99,20 +165,6 @@ export function MappingScreen({
 
     return () => { active = false }
   }, [floor.type, floor.tileCols, floor.tileRows])
-
-  useEffect(() => {
-    let active = true
-    void window.ddf.listInterfaces()
-      .then((nextInterfaces) => {
-        if (!active) return
-        setInterfaces(nextInterfaces)
-        setSelectedAddress((current) => current || nextInterfaces[0]?.address || '')
-      })
-      .catch((error: unknown) => {
-        if (active) setActionError(`Network interfaces failed: ${errorMessage(error)}`)
-      })
-    return () => { active = false }
-  }, [])
 
   const selectFloor = async (
     patch: Partial<Pick<ShowFloor, 'type' | 'tileCols' | 'tileRows'>>,
@@ -147,15 +199,25 @@ export function MappingScreen({
     )
   }
 
-  const selectInterface = async (address: string): Promise<void> => {
+  const chooseInterface = async (address: string): Promise<void> => {
     setActionError(null)
     try {
-      await window.ddf.setLocalIp(address)
-      setSelectedAddress(address)
+      await selectInterface(address)
     } catch (error) {
       setActionError(`Network interface change failed: ${errorMessage(error)}`)
     }
   }
+
+  /**
+   * The bound address may not be in the list — the cable is out, or a
+   * `DDF_LOCAL_IP` from the environment names an interface this machine does
+   * not have. Showing it anyway, marked, beats the two alternatives: silently
+   * re-pointing the dropdown at `interfaces[0]` (which is the bug this PR is
+   * about) or dropping the operator's choice on the floor with no explanation.
+   */
+  const boundIsMissing = localIp !== '' && !interfaces.some((i) => i.address === localIp)
+
+  const visibleError = senderError ?? actionError
 
   const readyState = diagramState.kind === 'ready'
     && diagramState.plan.type === floor.type
@@ -210,10 +272,15 @@ export function MappingScreen({
             </div>
           </div>
 
-          {actionError !== null && (
-            <div className="error-banner mapping-error-banner" role="alert">{actionError}</div>
+          {/*
+            The sender's own complaint outranks anything this screen has to say
+            about a dropdown: a floor that is dark is a bigger fact than a floor
+            change that did not take, and one of the two is on stage.
+          */}
+          {visibleError !== null && (
+            <div className="error-banner mapping-error-banner" role="alert">{visibleError}</div>
           )}
-          {actionError === null && notice !== null && (
+          {visibleError === null && notice !== null && (
             <div className="notice-banner mapping-error-banner" role="status">{notice}</div>
           )}
 
@@ -398,20 +465,33 @@ export function MappingScreen({
           </div>
 
           <div className="mapping-rule" />
-          <label className="mapping-network">
-            <span className="section-label">Network</span>
+          <div className="mapping-network">
+            <div className="label-with-help">
+              <span className="section-label">Network</span>
+              <button
+                type="button"
+                className="help-button"
+                aria-label="Why is the floor not receiving?"
+                aria-expanded={networkHelpOpen}
+                onClick={() => setNetworkHelpOpen((open) => !open)}
+              >i</button>
+              {networkHelpOpen && <NetworkHelp onDismiss={() => setNetworkHelpOpen(false)} />}
+            </div>
             <select
               aria-label="Network interface"
-              value={selectedAddress}
-              onChange={(event) => void selectInterface(event.currentTarget.value)}
+              value={localIp}
+              onChange={(event) => void chooseInterface(event.currentTarget.value)}
             >
+              {boundIsMissing && (
+                <option value={localIp}>{localIp} — not connected</option>
+              )}
               {interfaces.map((networkInterface) => (
                 <option key={`${networkInterface.name}-${networkInterface.address}`} value={networkInterface.address}>
                   {networkInterface.name} — {networkInterface.address}
                 </option>
               ))}
             </select>
-          </label>
+          </div>
 
           <div className="mapping-rule" />
           <span className="section-label">Show File</span>

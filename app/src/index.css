@@ -1047,6 +1047,109 @@ select:focus-visible {
   font-size: var(--fs-label);
 }
 
+/* ---------------------------------------------------- the help popover
+
+   The design system defines --shadow-popover and --blur-popover and has never
+   had anything to hang them on; its readme reserves transparency and blur for
+   popovers and menus specifically, to match macOS materials. This is the first
+   one, so it uses both rather than inventing a third surface treatment. */
+
+.label-with-help {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.help-button {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--fs-micro);
+  font-style: italic;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+
+.help-button:hover,
+.help-button[aria-expanded='true'] {
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+
+/* Covers the viewport so any click outside the panel dismisses it, including
+   one on a control that would otherwise act on that same click. Below the
+   panel, above everything else. */
+.popover-catcher {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + var(--sp-2));
+  left: 0;
+  z-index: 11;
+  width: 320px;
+  max-width: 60vw;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  backdrop-filter: var(--blur-popover);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-body);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-prose);
+}
+
+.popover p {
+  margin: 0;
+}
+
+.popover-title {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+}
+
+.popover-step {
+  color: var(--text-muted);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+
+.popover code {
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-cell);
+  background: var(--surface-well);
+  color: var(--text-numeric);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  /* Commands are long and a horizontal scrollbar inside a popover is a trap. */
+  overflow-wrap: anywhere;
+}
+
+.popover-note {
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+}
+
 .mapping-readout {
   gap: var(--sp-2);
   padding: var(--sp-6);
