@@ -458,19 +458,6 @@ input:disabled {
   box-shadow: var(--shadow-raised);
 }
 
-.preview-well canvas {
-  display: block;
-  width: 100%;
-  max-width: 720px;
-  height: auto;
-  max-height: 100%;
-  aspect-ratio: 2 / 1;
-  border-radius: var(--r-cell);
-  background: var(--ddf-ink);
-  image-rendering: pixelated;
-  object-fit: contain;
-}
-
 .render-readout {
   color: var(--text-muted);
   font-size: var(--fs-label);
