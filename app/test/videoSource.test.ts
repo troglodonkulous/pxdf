@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { coverRect, rotatedTargetSize } from '../src/player/videoSource'
+import { coverRect, rotatedTargetSize, trimWrapPoint } from '../src/player/videoSource'
 
 describe('coverRect', () => {
   it('centre-crops a source that is wider than the box', () => {
@@ -48,5 +48,44 @@ describe('rotatedTargetSize', () => {
   it('swaps width and height at 90 and 270', () => {
     expect(rotatedTargetSize(80, 40, 90)).toEqual({ width: 40, height: 80 })
     expect(rotatedTargetSize(80, 40, 270)).toEqual({ width: 40, height: 80 })
+  })
+})
+
+/**
+ * The trim-wrap check, as a pure function so it is gradeable under `vitest`
+ * without a DOM (`docs/APP-PLAN.md`, "no jsdom, no third harness" — a real
+ * `HTMLVideoElement` is graded only by `wire.mjs`).
+ *
+ * `VideoSource.draw` calls this on every drawn frame, never on `timeupdate` —
+ * that event fires roughly every 250 ms, and by the time it fired the floor
+ * would already be showing content past the cue's out-point. `draw` runs once
+ * per `requestAnimationFrame`, which is what "per-frame" means here.
+ *
+ * Units are milliseconds throughout, matching `Cue.trimStartMs`/`trimEndMs`;
+ * `VideoSource` converts `HTMLVideoElement.currentTime` (seconds) at the call
+ * site so this function stays free of that unit conversion.
+ */
+describe('trimWrapPoint', () => {
+  it('never wraps when trimEnd is open (play to the end of the media)', () => {
+    expect(trimWrapPoint(0, 0, null)).toBe(null)
+    expect(trimWrapPoint(999_999, 1_000, null)).toBe(null)
+  })
+
+  it('does not wrap before the out-point', () => {
+    expect(trimWrapPoint(4_999, 1_000, 5_000)).toBe(null)
+  })
+
+  it('wraps to trimStart exactly at the out-point', () => {
+    expect(trimWrapPoint(5_000, 1_000, 5_000)).toBe(1_000)
+  })
+
+  it('wraps to trimStart once playback has passed the out-point', () => {
+    // A dropped frame or a slow tab can land past the boundary rather than on
+    // it; the check still has to fire, not wait for an exact match.
+    expect(trimWrapPoint(5_250, 1_000, 5_000)).toBe(1_000)
+  })
+
+  it('wraps to a non-zero in-point, not to zero', () => {
+    expect(trimWrapPoint(5_000, 1_200, 5_000)).toBe(1_200)
   })
 })

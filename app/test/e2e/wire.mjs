@@ -94,12 +94,37 @@ function check(ok, description, detail = '') {
 
 // --------------------------------------------------------------- test clips
 
-function makeClip(directory, colour) {
-  const path = join(directory, `${colour}.mp4`)
+function makeClip(directory, colour, seconds = 3) {
+  const path = join(directory, `${colour}-${seconds}s.mp4`)
   execFileSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y',
-    '-f', 'lavfi', '-i', `color=c=${colour}:s=640x480:r=30:d=3`,
+    '-f', 'lavfi', '-i', `color=c=${colour}:s=640x480:r=30:d=${seconds}`,
     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path,
+  ])
+  return path
+}
+
+/**
+ * One clip, two colours back to back — for grading trim, which a single-colour
+ * clip cannot: trimming red-then-red never shows whether the in-point moved.
+ *
+ * Red then *white*, not red then blue. `tone()` below tells red from white by
+ * the fraction of a packet's body that is non-zero, which is phase-independent
+ * — see its own comment. Red and blue would both be a third lit, from any
+ * packet's phase, and indistinguishable from one another by that measure; this
+ * file already rejected that pairing once, for the same reason, in the cue
+ * pair right above.
+ */
+function makeSplitClip(directory, segments) {
+  const path = join(directory, 'split.mp4')
+  const inputs = segments.flatMap(([colour, seconds]) =>
+    ['-f', 'lavfi', '-i', `color=c=${colour}:s=640x480:r=30:d=${seconds}`])
+  const labels = segments.map((_, i) => `[${i}:v]`).join('')
+  execFileSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    ...inputs,
+    '-filter_complex', `${labels}concat=n=${segments.length}:v=1:a=0[v]`,
+    '-map', '[v]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path,
   ])
   return path
 }
@@ -407,25 +432,6 @@ const clickRowScript = (index) => `(() => {
 })()`
 
 /**
- * Type a duration into the inspector, the way the operator does.
- *
- * The value goes through the property setter on the prototype rather than
- * `input.value = x`. React installs its own setter on the element instance and
- * tracks the last value it saw, so a direct assignment updates the DOM, is
- * recorded as "already seen", and the `input` event that follows is discarded
- * as a no-op change. The field would show the number and the cue would never
- * get it — a test that drives the UI and grades nothing.
- */
-const typeDurationScript = (seconds) => `(() => {
-  const input = document.querySelector('[aria-label="Cue duration in seconds"]')
-  if (input === null) throw new Error('no duration field')
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set
-  setter.call(input, ${JSON.stringify(String(seconds))})
-  input.dispatchEvent(new Event('input', { bubbles: true }))
-  return input.value
-})()`
-
-/**
  * Change a `<select>` the way the operator does.
  *
  * Same native-setter dance as the duration field above, and for the same
@@ -557,6 +563,25 @@ try {
   // the point: the only thing that decides whether it is served is whether a
   // human chose it.
   const unpicked = makeClip(workspace, 'green')
+
+  // PR 3's engine half: loop and trim, seeded onto two more cues with no
+  // editing UI at all — that UI lands with the merge from `app-player-layout`
+  // (`docs/APP-PLAN.md`, "the inspector and trim-mode UI wait"). `DDF_CUE_SEED`
+  // is a test-only, env-var-gated seam of exactly the shape `DDF_PICK_MEDIA`
+  // already is: a JSON object keyed by picked path, read once in `main.ts` and
+  // applied to a cue's `loop`/`trimStartMs`/`trimEndMs` at add time in
+  // `PlayScreen.tsx`'s `addMedia` — nothing a real launch ever sets.
+  //
+  // `loopClip` is a plain 1 s clip; `loop: 2` gives it a 1,000 ms x 2 = 2,000 ms
+  // hold. `trimClip` is red for 1.2 s then white — trimmed to start at 1,200 ms,
+  // its first frame on the wire has to be white, never the red in-point.
+  const loopClip = makeClip(workspace, 'white', 1)
+  const trimClip = makeSplitClip(workspace, [['red', 1.2], ['white', 1.8]])
+  const cueSeed = {
+    [loopClip]: { loop: 2, trimStartMs: 0, trimEndMs: null },
+    [trimClip]: { loop: null, trimStartMs: 1_200, trimEndMs: null },
+  }
+
   await tap.listen()
 
   electron = spawn(
@@ -568,7 +593,8 @@ try {
         ...process.env,
         DDF_ADDRESS: '127.0.0.1',
         DDF_PORT: String(PORT),
-        DDF_PICK_MEDIA: [...clips, undecodable].join(delimiter),
+        DDF_PICK_MEDIA: [...clips, undecodable, loopClip, trimClip].join(delimiter),
+        DDF_CUE_SEED: JSON.stringify(cueSeed),
       },
       stdio: 'inherit',
       // `node_modules/.bin/electron` is a Node shim that spawns the real binary
@@ -763,9 +789,13 @@ try {
   // render behind it, and a fixed wait that is long enough on a warm machine
   // reads zero cues on a cold one — grading a healthy app red. This file argues
   // for polling twice in its own comments and then did this.
+  //
+  // Five, not three: `red`, `white`, `undecodable`, then `loopClip` and
+  // `trimClip` — rows 3 and 4, exercised in step 6 below. Appended, so every
+  // row index the rest of this file already assumes (0, 1, 2) still holds.
   const cueCount = await waitFor(
-    'document.querySelectorAll(".cue-row").length === 3 ? 3 : 0')
-  check(cueCount === 3, 'all three seeded cues land in the stack',
+    'document.querySelectorAll(".cue-row").length === 5 ? 5 : 0')
+  check(cueCount === 5, 'all five seeded cues land in the stack',
     `saw ${await page.evaluate('document.querySelectorAll(".cue-row").length')}`)
 
   // 2a. A cue that cannot decode, fired from idle.
@@ -918,53 +948,61 @@ try {
   check(countTone(across, 'black') === 0, 'no black frame appears across the cue change',
     `${countTone(across, 'black')} of ${across.length} packets were all-zero`)
 
-  // 3b. A timed cue advances on its own, and the edit reaches a cue that is
-  //     already playing.
+  // 3b. Loop and trim reach the wire — PR 3's engine half, proven with no
+  //     editing UI at all. `loopClip` and `trimClip` (rows 3 and 4) already
+  //     carry `loop`/`trimStartMs` from `DDF_CUE_SEED`, applied at add time in
+  //     `addMedia` — the same path a real cue goes through once the Loop/Trim
+  //     controls exist. This only replaces the operator's not-yet-built click;
+  //     nothing about the engine or the decoder downstream of it is a stub.
   //
-  //     The order is the point. Cue 1 is put live *first* and given a duration
-  //     *after*, because a slot captures its `Cue` at arm time — so setting the
-  //     length beforehand would grade nothing but `advanceOnDuration`, and the
-  //     defect this is here for is that a live slot went on reading the length
-  //     the cue had when GO was pressed. Set it while live, and the only way
-  //     the advance happens is if `setShow` reseated the slot.
-  //
-  //     It also grades the inspector control itself, through the real field.
-  await page.evaluate(`(() => {
-    const rows = [...document.querySelectorAll('.cue-row')]
-    rows[0].dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
-    return true
-  })()`)
-  const liveForTiming = await waitForLive(0)
-  check(liveForTiming === 0, 'cue 1 is live before its length is edited',
-    `live row index ${liveForTiming}`)
+  //     First, that the add-time probe actually landed. `mediaDurationMs` is
+  //     probed asynchronously (`probeDurationMs`), and firing `loopClip` before
+  //     it resolves would leave the hold unknown — which the engine correctly
+  //     reads as "never advance", per `engine.test.ts`'s failed-probe case, so
+  //     a race here would read as a hang rather than as what it is. Polled,
+  //     not assumed, for exactly that reason.
+  await page.evaluate(clickRowScript(3))
+  const probed = await waitFor(
+    'document.querySelector(".cue-duration-readout")?.textContent !== "—" ? "probed" : ""')
+  check(probed === 'probed', 'the add-time duration probe reaches the inspector',
+    String(await page.evaluate('document.querySelector(".cue-duration-readout")?.textContent ?? null')))
 
-  await page.evaluate(clickRowScript(0))
-  await page.evaluate(clickButtonScript('Set'))
-  const fieldExists = await waitFor(
-    'document.querySelector(\'[aria-label="Cue duration in seconds"]\') !== null')
-  check(fieldExists === true, 'the duration field appears when the cue stops holding')
-  const typed = await page.evaluate(typeDurationScript(3))
-  check(typed === '3', 'the duration field takes the value typed into it', String(typed))
+  const beforeLoop = tap.packets.length
+  const loopStartedAt = Date.now()
+  await page.evaluate(clickButtonScript('GO'))
+  const loopLive = await waitForLive(3)
+  check(loopLive === 3, 'the loop cue goes live', `live row index ${loopLive}`)
 
-  // Selecting a cue is also how Standby is armed, so editing the live cue in
-  // the inspector left Standby pointing at the live cue — and a timed advance
-  // fires Standby, which would have restarted cue 1 rather than moving on.
-  // That is the engine's stated rule (Standby is what fires next, however it
-  // fires), not a defect, but it means this has to put Standby back on cue 2
-  // the way an operator would before the length elapses.
-  await page.evaluate(clickRowScript(1))
+  // loop: 2 on a 1 s clip holds for 1,000 x 2 = 2,000 ms, then advances with no
+  // GO and no black in between. `MAX_RESTART_GAP_MS` is reused as the budget
+  // for the next cue's decode, stacked on top of the hold itself — the same
+  // number this file already uses for "does not strand the floor".
+  const advancedTo = await waitForLive(4)
+  const loopElapsed = Date.now() - loopStartedAt
+  check(advancedTo === 4, 'loop: 2 on a 1 s clip advances to the next cue with no GO',
+    `live row index ${advancedTo} after ${loopElapsed} ms`)
+  check(loopElapsed >= 1_900, 'the loop held its full 2 s rather than firing early',
+    `advanced after ${loopElapsed} ms`)
+  check(loopElapsed <= 2_000 + MAX_RESTART_GAP_MS, 'the advance landed inside the restart budget',
+    `advanced after ${loopElapsed} ms, budget ${2_000 + MAX_RESTART_GAP_MS} ms`)
 
-  const fromAdvance = tap.packets.length
-  // No further input from here. If the next line passes, the engine advanced on
-  // its own, on a length that was edited under a running cue.
-  const advancedTo = await waitForLive(1)
-  check(advancedTo === 1, 'the timed cue advanced to the next cue with no GO',
-    `live row index ${advancedTo}`)
+  const acrossLoop = tap.packets.slice(beforeLoop)
+  check(acrossLoop.length > 0 && countTone(acrossLoop, 'black') === 0,
+    'no black packets appear across the loop-driven advance',
+    `${countTone(acrossLoop, 'black')} of ${acrossLoop.length} packets were all-zero`)
 
-  const acrossAdvance = tap.packets.slice(fromAdvance)
-  check(acrossAdvance.length > 0 && countTone(acrossAdvance, 'black') === 0,
-    'no black frame appears across the automatic advance',
-    `${countTone(acrossAdvance, 'black')} of ${acrossAdvance.length} packets were all-zero`)
+  // And the cue it landed on is the trimmed one. Its very first content on the
+  // wire is already past the red in-point — `VideoSource` seeks to
+  // `trimStartMs` before the first frame is ever composed, rather than
+  // starting at 0 and skipping forward after the fact, which would show red
+  // for at least one frame.
+  const trimmedOnset = tap.packets.slice(-40)
+  check(countTone(trimmedOnset, 'red') === 0,
+    'the trimmed cue never shows its red in-point on the wire',
+    `red ${countTone(trimmedOnset, 'red')} of ${trimmedOnset.length} recent packets`)
+  check(countTone(trimmedOnset, 'white') > 0,
+    'the trimmed cue starts already past the in-point',
+    `white ${countTone(trimmedOnset, 'white')} of ${trimmedOnset.length} recent packets`)
 
   // 4. BLACKOUT is black on the wire, and is not a teardown.
   await page.evaluate(clickButtonScript('BLACKOUT'))

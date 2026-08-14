@@ -68,8 +68,29 @@ class FakeSource implements FrameSource {
   }
 }
 
-function cue(id: string, durationMs: number | null = null): Cue {
-  return { id, name: `Cue ${id}`, source: { kind: 'video', path: `/media/${id}.mp4` }, durationMs, rotation: 0 };
+/**
+ * A cue with a hold expressed the way most of this file's tests want it: `null`
+ * holds until GO, and a number is exactly how long the cue holds before the
+ * stack advances.
+ *
+ * Built on the PR 3 model — `loop: 1` and `mediaDurationMs: holdMs`, with no
+ * trim — rather than a deleted `durationMs` field. `cueHoldMs(cue) === holdMs`
+ * for every value this produces, which is what keeps the ~90 call sites below
+ * unchanged: they were never testing `loop`/`trim` composition, only "this cue
+ * holds for N ms, or forever". The composition itself is graded in its own
+ * `describe` block further down, on cues built by hand.
+ */
+function cue(id: string, holdMs: number | null = null): Cue {
+  return {
+    id,
+    name: `Cue ${id}`,
+    source: { kind: 'video', path: `/media/${id}.mp4` },
+    loop: holdMs === null ? null : 1,
+    trimStartMs: 0,
+    trimEndMs: null,
+    mediaDurationMs: holdMs,
+    rotation: 0,
+  };
 }
 
 function show(...cues: Cue[]): Show {
@@ -603,7 +624,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     rig.engine.tick();
     expect(rig.engine.snapshot().cueDurationMs).toBe(null);
 
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 5_000 }, cue('b')));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 5_000 }, cue('b')));
     expect(rig.engine.snapshot().cueDurationMs).toBe(5_000);
     expect(rig.created('a')).toBe(1);
     expect(rig.source('a').disposed).toBe(false);
@@ -615,7 +636,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     rig.source('a').ready = true;
     rig.engine.tick();
 
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 5_000 }, cue('b')));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 5_000 }, cue('b')));
     rig.advance(5_000);
     rig.engine.tick();
     // The edit is only real if the advance actually fires on it.
@@ -666,7 +687,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     // edit during a load-in, and the only sane reading of it is "this cue is
     // over". It must not wait, and it must not wrap around into a negative
     // remaining time.
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 2_000 }, cue('b')));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 2_000 }, cue('b')));
     rig.engine.tick();
     expect(rig.engine.snapshot().pendingCueId).toBe('b');
   });
@@ -704,7 +725,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     // nothing to say why. Restarting on a timer is Loop, it is PR 4, and it is
     // not what a control labelled Duration promises.
     rig.engine.selectCue('a');
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 1_000 }, cue('b')));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 1_000 }, cue('b')));
     rig.advance(1_000);
     rig.engine.tick();
 
@@ -727,7 +748,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     rig.source('a').ready = true;
     rig.engine.tick();
     rig.engine.selectCue('a');
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 1_000 }));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 1_000 }));
     rig.advance(1_000);
 
     // Nothing after it, so the stack has ended. Idle is black and the send
@@ -741,7 +762,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     rig.engine.goTo('a');
     rig.source('a').ready = true;
     rig.engine.tick();
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 1_000 }, cue('b')));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 1_000 }, cue('b')));
     rig.advance(1_000);
 
     // `arm` runs on the tick path here, and the tick path is the render loop.
@@ -1038,5 +1059,123 @@ describe('a cue whose media changed is not the cue that is playing', () => {
     expect(onWire(rig.engine.tick().wire)).toBe('a');
     expect(rig.source('a').disposed).toBe(false);
     expect(rig.created('a')).toBe(1);
+  });
+});
+
+/**
+ * PR 3's model: `interface Cue` replaces `durationMs` with `loop` (null = hold
+ * until GO, N = play N times then advance), `trimStartMs`/`trimEndMs` (the
+ * in/out points) and `mediaDurationMs` (probed once at add time). The cue's
+ * hold — what `advanceOnDuration` compares elapsed time against — is
+ * `loop === null ? ∞ : loop × ((trimEndMs ?? mediaDurationMs) - trimStartMs)`.
+ *
+ * The `cue()` helper above already covers "holds forever" and "holds for N ms"
+ * for the ~90 tests that only need those two shapes. What is graded here is the
+ * composition itself — loop with trim, and the specific silent-failure trap
+ * named in the plan: a failed probe must not read as a duration of zero.
+ */
+describe('the hold is loop × the trimmed clip duration', () => {
+  /** A cue built by hand, not through `cue()`, so every field is explicit. */
+  function timed(id: string, fields: Partial<Cue> = {}): Cue {
+    return {
+      id,
+      name: `Cue ${id}`,
+      source: { kind: 'video', path: `/media/${id}.mp4` },
+      loop: null,
+      trimStartMs: 0,
+      trimEndMs: null,
+      mediaDurationMs: null,
+      rotation: 0,
+      ...fields,
+    };
+  }
+
+  it('never advances on loop: null, however long the clip is known to be', () => {
+    const rig = build(show(timed('a', { loop: null, mediaDurationMs: 100 }), cue('b')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.advance(100_000);
+    for (let i = 0; i < 10; i++) {
+      rig.advance(1_000);
+      expect(onWire(rig.engine.tick().wire)).toBe('a');
+    }
+    expect(rig.sources.has('b')).toBe(false);
+  });
+
+  it('advances at loop x duration and not one tick before', () => {
+    const rig = build(show(timed('a', { loop: 3, mediaDurationMs: 100 }), cue('b')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.advance(299);
+    expect(rig.engine.snapshot().pendingCueId).toBe(null);
+    expect(onWire(rig.engine.tick().wire)).toBe('a');
+
+    rig.advance(1);
+    rig.engine.tick();
+    expect(rig.engine.snapshot().pendingCueId).toBe('b');
+  });
+
+  it('exposes the hold on the snapshot as loop x duration', () => {
+    const rig = build(show(timed('a', { loop: 3, mediaDurationMs: 100 }), cue('b')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().cueDurationMs).toBe(300);
+  });
+
+  /**
+   * The trap named explicitly in `docs/APP-PLAN.md`'s PR 3 section: a failed
+   * probe must not advance instantly at 0. `mediaDurationMs: null` with an
+   * open `trimEndMs` means the clip's length is simply not known, and the only
+   * safe reading of "advance after an unknown length of time" is "do not
+   * advance" — the same as `loop: null`, even though `loop` here is finite.
+   * Silence has to read as unknown, not as zero.
+   */
+  it('does not advance on loop: N when the probe failed, rather than treating the unknown length as zero', () => {
+    const rig = build(show(timed('a', { loop: 3, mediaDurationMs: null }), cue('b')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.advance(50_000);
+    expect(onWire(rig.engine.tick().wire)).toBe('a');
+    expect(rig.sources.has('b')).toBe(false);
+    expect(rig.engine.snapshot().cueDurationMs).toBe(null);
+  });
+
+  it('uses the trimmed length, not the full media length, in the hold', () => {
+    // 1,000 ms of media, trimmed to the middle 500 ms, looped twice: 1,000 ms
+    // hold — not 2,000, which is what looping the *untrimmed* clip would give.
+    const rig = build(show(
+      timed('a', { loop: 2, mediaDurationMs: 1_000, trimStartMs: 250, trimEndMs: 750 }),
+      cue('b'),
+    ));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    expect(rig.engine.snapshot().cueDurationMs).toBe(1_000);
+    rig.advance(999);
+    expect(onWire(rig.engine.tick().wire)).toBe('a');
+    rig.advance(1);
+    rig.engine.tick();
+    expect(rig.engine.snapshot().pendingCueId).toBe('b');
+  });
+
+  it('falls back to mediaDurationMs for the out-point when trimEndMs is open', () => {
+    // trimEndMs: null means "to the end of the media" — the clip duration is
+    // mediaDurationMs - trimStartMs, not the untrimmed mediaDurationMs.
+    const rig = build(show(
+      timed('a', { loop: 1, mediaDurationMs: 400, trimStartMs: 100, trimEndMs: null }),
+      cue('b'),
+    ));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().cueDurationMs).toBe(300);
   });
 });
