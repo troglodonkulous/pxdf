@@ -1440,6 +1440,13 @@ try {
   //     sends black, which `Sidecar.stop()` does unconditionally regardless of
   //     what was live.
   //
+  //     4a sent us to Mapping for the geometry checks in 4b-4d, and nothing
+  //     since has navigated back — the Library button below does not exist
+  //     unless the Play surface is mounted again first.
+  await page.evaluate(clickButtonScript('Open Player'))
+  const backOnPlayForLibrary = await waitFor('document.querySelector(".play-screen") !== null ? 1 : 0')
+  check(backOnPlayForLibrary === 1, 'Open Player returns to the Play surface for the Library checks')
+
   //     `ddf:list-media-dir` takes no path from the renderer — the main
   //     process answers with its own idea of the authorised folder. That is
   //     the property that keeps the handler from being a read-any-directory
