@@ -55,7 +55,7 @@
 
 import { spawn, execFileSync } from 'node:child_process'
 import { createSocket } from 'node:dgram'
-import { mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, delimiter } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -465,6 +465,61 @@ const hoverConnectorScript = (tileCol, leave = false) => `(() => {
 })()`
 
 // -------------------------------------------------------------------- main
+
+/**
+ * A machine-wide lock, because the ports above are constants.
+ *
+ * `PORT` and `DEBUG_PORT` are hardcoded, so two copies of this script — two
+ * worktrees, two agents, a stray `npm run dev` — do not fail cleanly when they
+ * overlap. They interleave on the UDP tap and produce fractional packet counts,
+ * which read as a compositor bug rather than as two runs. A preflight `lsof`
+ * does not fix it: both runs can pass that check before either one binds.
+ *
+ * `wx` is the atomic half — exclusive creation fails if the file already
+ * exists, so exactly one process wins however close the two starts are. The
+ * owning pid is written down so a lock left behind by a killed run can be told
+ * apart from a live one; without that distinction the only options are to
+ * refuse for ever or to delete a lock that is still in use.
+ *
+ * `/tmp`, not `tmpdir()`: on macOS `TMPDIR` is per-login-session, so two agents
+ * can hold two different "machine-wide" locks and neither sees the other.
+ */
+const LOCK_PATH = '/tmp/ddf-wire-gate.lock'
+
+function acquireGateLock() {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      writeFileSync(LOCK_PATH, `${process.pid}\n`, { flag: 'wx' })
+      return
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error
+      const owner = Number.parseInt(readFileSync(LOCK_PATH, 'utf8').trim(), 10)
+      let alive = Number.isInteger(owner)
+      if (alive) {
+        try {
+          process.kill(owner, 0)
+        } catch (probe) {
+          // `EPERM` means the pid exists and belongs to somebody else — alive,
+          // and not ours to clear. Only `ESRCH` says the owner is gone.
+          alive = probe.code === 'EPERM'
+        }
+      }
+      if (alive) {
+        console.error(`\nwire gate already running as pid ${owner} (${LOCK_PATH}).`)
+        console.error('Only one may run on this machine: UDP 60001 and the DevTools port')
+        console.error('are hardcoded, and two runs interleave rather than fail. Wait for it,')
+        console.error('or stop that process and re-run.')
+        process.exit(2)
+      }
+      console.error(`clearing a stale wire-gate lock left by dead pid ${owner}`)
+      rmSync(LOCK_PATH, { force: true })
+    }
+  }
+  console.error(`could not take ${LOCK_PATH}: a lock is being recreated as fast as it is cleared`)
+  process.exit(2)
+}
+
+acquireGateLock()
 
 const workspace = mkdtempSync(join(tmpdir(), 'ddf-e2e-'))
 const tap = new WireTap()
@@ -1116,6 +1171,17 @@ try {
   }
   tap.close()
   rmSync(workspace, { recursive: true, force: true })
+
+  // Only if this process still owns it. Another run may have cleared it as
+  // stale — deleting it then would hand a third run a lock nobody holds.
+  try {
+    if (readFileSync(LOCK_PATH, 'utf8').trim() === String(process.pid)) {
+      rmSync(LOCK_PATH, { force: true })
+    }
+  } catch {
+    // Already gone. Nothing downstream reads this, so there is no decision
+    // here to lose — the loud path is `acquireGateLock`'s refusal, not this.
+  }
 }
 
 console.log(failures.length === 0
