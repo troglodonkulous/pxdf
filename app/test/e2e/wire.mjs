@@ -374,7 +374,14 @@ function open(url) {
             awaitPromise: true,
           })
           if (reply.result?.exceptionDetails !== undefined) {
-            throw new Error(`page threw: ${reply.result.exceptionDetails.text}`)
+            // `.text` alone is Chrome's generic marker — literally the string
+            // "Uncaught" — for a thrown `Error`. The message is one level
+            // deeper, in `.exception.description`, which is exactly what the
+            // passive `Runtime.exceptionThrown` listener above already knows
+            // to read. Without it this is the loud channel CLAUDE.md asks for
+            // saying nothing louder than "something happened".
+            const details = reply.result.exceptionDetails
+            throw new Error(`page threw: ${details.exception?.description ?? details.text}`)
           }
           return reply.result?.result?.value
         },
