@@ -55,7 +55,8 @@
 
 import { spawn, execFileSync } from 'node:child_process'
 import { createSocket } from 'node:dgram'
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve, delimiter } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -467,69 +468,53 @@ const hoverConnectorScript = (tileCol, leave = false) => `(() => {
 // -------------------------------------------------------------------- main
 
 /**
- * A machine-wide lock, because the ports above are constants.
+ * One wire gate at a time, machine-wide, held by the kernel.
  *
  * `PORT` and `DEBUG_PORT` are hardcoded, so two copies of this script — two
  * worktrees, two agents, a stray `npm run dev` — do not fail cleanly when they
- * overlap. They interleave on the UDP tap and produce fractional packet counts,
- * which read as a compositor bug rather than as two runs. A preflight `lsof`
- * does not fix it: both runs can pass that check before either one binds.
+ * overlap. Each run launches a sender that broadcasts to `PORT`, so a second
+ * run's packets land in the first run's tap: fractional packet counts, which
+ * read as a compositor bug rather than as two runs. A preflight `lsof` does not
+ * fix it, because both runs can pass that check before either one binds. It has
+ * to be taken here, before Electron and the sidecar start, because the harm is
+ * done by the second run's *sender*, not by its tap.
  *
- * `wx` is the atomic half — exclusive creation fails if the file already
- * exists, so exactly one process wins however close the two starts are. The
- * owning pid is written down so a lock left behind by a killed run reads as
- * something a human can act on rather than as an unexplained refusal.
+ * **A listening socket, not a lockfile.** Two earlier drafts of this used a
+ * pidfile and both were raceable, in the same shape each time: a lock whose
+ * existence *is* the lock can be deleted by somebody who read it a moment ago
+ * and acted a moment late — either the script auto-clearing a dead owner while
+ * another run was mid-acquire, or an operator running the `rm` that a stale-lock
+ * message told them to run, after a newer run had already taken it. There is no
+ * atomic compare-and-delete to close that with, and the versions that did close
+ * it needed a second lock to guard the first.
  *
- * **Nothing clears a stale lock automatically, deliberately.** An earlier draft
- * did, and it reintroduced exactly the race this exists to prevent: two runs
- * both find the same dead owner, both delete, and the second delete removes the
- * lock the first one had just created — so both proceed, silently. There is no
- * atomic compare-and-delete to fix that with, and every fix that looked like one
- * needed a second lock to guard the first. A stale lock is rare (the `finally`
- * below releases on every path a run can take on its own), and one `rm` from
- * somebody who has read the pid is a cheaper answer than a lock that is
- * occasionally not a lock.
+ * A listening socket has no such gap. `listen` is atomic, `EADDRINUSE` is
+ * unambiguous, and **the kernel releases it when the process dies, however it
+ * dies** — so there is no stale state to reclaim, nothing for a human to clear,
+ * and no instruction that can be followed too late. `SIGKILL` mid-run leaves the
+ * next run free to start immediately.
  *
- * `/tmp`, not `tmpdir()`: on macOS `TMPDIR` is per-login-session, so two agents
- * can hold two different "machine-wide" locks and neither sees the other.
+ * TCP `PORT`, deliberately the same number as the UDP port being protected,
+ * which nothing here listens on over TCP. `unref` stops it holding the event
+ * loop open: its lifetime is then exactly the process's, which is the invariant
+ * wanted, and it needs no release path to get it.
  */
-const LOCK_PATH = '/tmp/ddf-wire-gate.lock'
+const gateLock = createServer()
 
-function acquireGateLock() {
-  try {
-    writeFileSync(LOCK_PATH, `${process.pid}\n`, { flag: 'wx' })
-    return
-  } catch (error) {
-    if (error.code !== 'EEXIST') throw error
-  }
-
-  const owner = Number.parseInt(readFileSync(LOCK_PATH, 'utf8').trim(), 10)
-  let alive = Number.isInteger(owner)
-  if (alive) {
-    try {
-      process.kill(owner, 0)
-    } catch (probe) {
-      // `EPERM` means the pid exists and belongs to somebody else — alive, and
-      // not ours to judge. Only `ESRCH` says the owner is gone.
-      alive = probe.code === 'EPERM'
-    }
-  }
-
-  if (alive) {
-    console.error(`\nwire gate already running as pid ${owner} (${LOCK_PATH}).`)
-    console.error('Only one may run on this machine: UDP 60001 and the DevTools port are')
-    console.error('hardcoded, and two runs interleave on the tap rather than fail. Wait for')
-    console.error('it, or stop that process and re-run.')
-  } else {
-    console.error(`\nwire gate lock ${LOCK_PATH} is held by pid ${owner}, which is not running.`)
-    console.error('A previous run was killed before it could release it. Confirm no gate is')
-    console.error('running, then clear it by hand:')
-    console.error(`\n    rm ${LOCK_PATH}\n`)
-  }
-  process.exit(2)
-}
-
-acquireGateLock()
+await new Promise((acquired) => {
+  gateLock.once('error', (error) => {
+    if (error.code !== 'EADDRINUSE') throw error
+    console.error(`\nanother wire gate is already running on this machine (TCP ${PORT}).`)
+    console.error('Only one may run: UDP 60001 and the DevTools port are hardcoded, and a')
+    console.error("second run's sender lands in the first run's tap rather than failing.")
+    console.error('Wait for it to finish, or stop it, and re-run.')
+    process.exit(2)
+  })
+  gateLock.listen(PORT, '127.0.0.1', () => {
+    gateLock.unref()
+    acquired()
+  })
+})
 
 const workspace = mkdtempSync(join(tmpdir(), 'ddf-e2e-'))
 const tap = new WireTap()
@@ -1182,17 +1167,9 @@ try {
   tap.close()
   rmSync(workspace, { recursive: true, force: true })
 
-  // Only if this process still owns it. Nothing here clears a lock it does not
-  // hold, but a human can — the stale path above tells them to — and if they do
-  // it while a second run is starting, this must not delete that run's lock.
-  try {
-    if (readFileSync(LOCK_PATH, 'utf8').trim() === String(process.pid)) {
-      rmSync(LOCK_PATH, { force: true })
-    }
-  } catch {
-    // Already gone. Nothing downstream reads this, so there is no decision
-    // here to lose — the loud path is `acquireGateLock`'s refusal, not this.
-  }
+  // The gate lock needs no release: it is a socket, and the kernel closes it
+  // when this process ends, on every path including the ones that never reach
+  // here.
 }
 
 console.log(failures.length === 0
