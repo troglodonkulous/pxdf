@@ -477,9 +477,18 @@ const hoverConnectorScript = (tileCol, leave = false) => `(() => {
  *
  * `wx` is the atomic half — exclusive creation fails if the file already
  * exists, so exactly one process wins however close the two starts are. The
- * owning pid is written down so a lock left behind by a killed run can be told
- * apart from a live one; without that distinction the only options are to
- * refuse for ever or to delete a lock that is still in use.
+ * owning pid is written down so a lock left behind by a killed run reads as
+ * something a human can act on rather than as an unexplained refusal.
+ *
+ * **Nothing clears a stale lock automatically, deliberately.** An earlier draft
+ * did, and it reintroduced exactly the race this exists to prevent: two runs
+ * both find the same dead owner, both delete, and the second delete removes the
+ * lock the first one had just created — so both proceed, silently. There is no
+ * atomic compare-and-delete to fix that with, and every fix that looked like one
+ * needed a second lock to guard the first. A stale lock is rare (the `finally`
+ * below releases on every path a run can take on its own), and one `rm` from
+ * somebody who has read the pid is a cheaper answer than a lock that is
+ * occasionally not a lock.
  *
  * `/tmp`, not `tmpdir()`: on macOS `TMPDIR` is per-login-session, so two agents
  * can hold two different "machine-wide" locks and neither sees the other.
@@ -487,35 +496,36 @@ const hoverConnectorScript = (tileCol, leave = false) => `(() => {
 const LOCK_PATH = '/tmp/ddf-wire-gate.lock'
 
 function acquireGateLock() {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  try {
+    writeFileSync(LOCK_PATH, `${process.pid}\n`, { flag: 'wx' })
+    return
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error
+  }
+
+  const owner = Number.parseInt(readFileSync(LOCK_PATH, 'utf8').trim(), 10)
+  let alive = Number.isInteger(owner)
+  if (alive) {
     try {
-      writeFileSync(LOCK_PATH, `${process.pid}\n`, { flag: 'wx' })
-      return
-    } catch (error) {
-      if (error.code !== 'EEXIST') throw error
-      const owner = Number.parseInt(readFileSync(LOCK_PATH, 'utf8').trim(), 10)
-      let alive = Number.isInteger(owner)
-      if (alive) {
-        try {
-          process.kill(owner, 0)
-        } catch (probe) {
-          // `EPERM` means the pid exists and belongs to somebody else — alive,
-          // and not ours to clear. Only `ESRCH` says the owner is gone.
-          alive = probe.code === 'EPERM'
-        }
-      }
-      if (alive) {
-        console.error(`\nwire gate already running as pid ${owner} (${LOCK_PATH}).`)
-        console.error('Only one may run on this machine: UDP 60001 and the DevTools port')
-        console.error('are hardcoded, and two runs interleave rather than fail. Wait for it,')
-        console.error('or stop that process and re-run.')
-        process.exit(2)
-      }
-      console.error(`clearing a stale wire-gate lock left by dead pid ${owner}`)
-      rmSync(LOCK_PATH, { force: true })
+      process.kill(owner, 0)
+    } catch (probe) {
+      // `EPERM` means the pid exists and belongs to somebody else — alive, and
+      // not ours to judge. Only `ESRCH` says the owner is gone.
+      alive = probe.code === 'EPERM'
     }
   }
-  console.error(`could not take ${LOCK_PATH}: a lock is being recreated as fast as it is cleared`)
+
+  if (alive) {
+    console.error(`\nwire gate already running as pid ${owner} (${LOCK_PATH}).`)
+    console.error('Only one may run on this machine: UDP 60001 and the DevTools port are')
+    console.error('hardcoded, and two runs interleave on the tap rather than fail. Wait for')
+    console.error('it, or stop that process and re-run.')
+  } else {
+    console.error(`\nwire gate lock ${LOCK_PATH} is held by pid ${owner}, which is not running.`)
+    console.error('A previous run was killed before it could release it. Confirm no gate is')
+    console.error('running, then clear it by hand:')
+    console.error(`\n    rm ${LOCK_PATH}\n`)
+  }
   process.exit(2)
 }
 
@@ -1172,8 +1182,9 @@ try {
   tap.close()
   rmSync(workspace, { recursive: true, force: true })
 
-  // Only if this process still owns it. Another run may have cleared it as
-  // stale — deleting it then would hand a third run a lock nobody holds.
+  // Only if this process still owns it. Nothing here clears a lock it does not
+  // hold, but a human can — the stale path above tells them to — and if they do
+  // it while a second run is starting, this must not delete that run's lock.
   try {
     if (readFileSync(LOCK_PATH, 'utf8').trim() === String(process.pid)) {
       rmSync(LOCK_PATH, { force: true })
