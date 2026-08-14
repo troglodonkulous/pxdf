@@ -376,9 +376,8 @@ export function PlayScreen({
                   onDrop={(event) => {
                     event.preventDefault()
                     const draggedId = event.dataTransfer.getData('text/plain')
-                    const targetIndex = show.cues.findIndex((c) => c.id === cue.id)
-                    if (draggedId.length > 0 && targetIndex >= 0) {
-                      applyShow({ ...showRef.current, cues: moveCue(showRef.current.cues, draggedId, targetIndex) })
+                    if (draggedId.length > 0) {
+                      applyShow({ ...showRef.current, cues: moveCue(showRef.current.cues, draggedId, index) })
                     }
                   }}
                   onClick={() => selectCue(cue.id)}
