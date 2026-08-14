@@ -57,7 +57,7 @@ let currentFloor: ShowFloor = { type: SHOP_RIG.type, tileCols: SHOP_RIG.tileCols
 let currentBlackFrame: Uint8Array = blackFrame(SHOP_RIG)
 let interfacePollTimer: ReturnType<typeof setInterval> | null = null
 let lastInterfaces: { name: string; address: string }[] | null = null
-let nicGone = false
+let nicBanner: string | null = null
 let pendingNicVerdict: ReturnType<typeof nicVerdict> | null = null
 let nicVerdictQueued = false
 let quitAfterStop = false
@@ -83,9 +83,14 @@ function listIpv4Interfaces(): { name: string; address: string }[] {
 
 function pollInterfaces(): void {
   const interfaces = listIpv4Interfaces()
-  const verdict = nicVerdict(process.env.DDF_LOCAL_IP, interfaces, nicGone)
+  const verdict = nicVerdict(
+    process.env.DDF_LOCAL_IP,
+    interfaces,
+    nicBanner,
+    currentSenderError?.message ?? null,
+  )
   if (verdict.clearBanner) publishSenderError(null)
-  nicGone = verdict.gone
+  nicBanner = verdict.nicBanner
   queueNicVerdict(verdict)
 
   // Interface order comes from the OS and is stable within a process. Treating
@@ -140,10 +145,10 @@ function queueNicVerdict(verdict: ReturnType<typeof nicVerdict>): void {
   // newest verdict when it reaches the sidecar, so delay changes neither the
   // final state nor the amount of work waiting behind it.
   void withSidecar(async () => {
-    const latest = pendingNicVerdict
+    const latestSuspend = pendingNicVerdict?.suspend
     pendingNicVerdict = null
-    if (latest === null) return
-    if (latest.suspend !== null) sidecar?.suspend(latest.suspend)
+    if (latestSuspend === undefined) return
+    if (latestSuspend !== null) sidecar?.suspend(latestSuspend)
     else sidecar?.resume()
   }).then(
     () => { nicVerdictQueued = false },

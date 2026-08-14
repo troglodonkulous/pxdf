@@ -11,25 +11,30 @@
  * be a side effect of `Sidecar.resume()`, which returns early unless that same
  * instance is suspended — and `doSetFloor` replaces the instance wholesale, so
  * a sidecar built while the cable was out could never be resumed and the
- * banner outlived the fault forever. The edge is therefore owned here, above
- * any object that does not survive it. It is `wasGone && !gone` and nothing
- * else: a banner this poll did not raise belongs to the sender's own stderr,
- * and clearing that every 2 s would hide a real crash behind a healthy NIC.
+ * banner outlived the fault forever. The poll therefore owns the one message
+ * it published, above any object that does not survive the fault, and clears
+ * only while that exact message is still the one on screen. If another fault
+ * replaced it, recovery forgets the poll's stale message without touching the
+ * replacement.
  *
  * Graded by `app/test/nicWatch.test.ts`, whose docstring has the measurement.
  */
 export function nicVerdict(
   bound: string | undefined,
   interfaces: readonly { name: string; address: string }[],
-  wasGone: boolean,
-): { suspend: string | null; clearBanner: boolean; gone: boolean } {
+  lastNicBanner: string | null,
+  currentBanner: string | null,
+): { suspend: string | null; clearBanner: boolean; nicBanner: string | null } {
   const gone = bound !== undefined
     && bound.length > 0
     && !interfaces.some(({ address }) => address === bound)
+  const suspend = gone
+    ? `floor NIC ${bound} is no longer assigned to any interface — check the cable`
+    : null
 
   return {
-    suspend: gone ? `floor NIC ${bound} is no longer assigned to any interface — check the cable` : null,
-    clearBanner: wasGone && !gone,
-    gone,
+    suspend,
+    clearBanner: lastNicBanner !== null && currentBanner === lastNicBanner && !gone,
+    nicBanner: suspend,
   }
 }
