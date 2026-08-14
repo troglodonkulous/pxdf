@@ -1082,31 +1082,28 @@ select:focus-visible {
 }
 
 .help-button:hover,
-.help-button[aria-expanded='true'] {
+.help-button:is(:popover-open, [popovertarget]:active) {
   color: var(--text-primary);
   border-color: var(--border-accent);
 }
 
-/* Covers the viewport so any click outside the panel dismisses it, including
-   one on a control that would otherwise act on that same click. Below the
-   panel, above everything else. */
-.popover-catcher {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
+/* `[popover]` renders in the top layer, so nothing here fights an ancestor for
+   stacking or clipping — which is the entire reason it is a popover. The UA
+   default centres it in the viewport and draws a border and background; the
+   reset below is what the design system's surface replaces. */
+.popover:popover-open {
+  display: flex;
 }
 
 .popover {
-  position: absolute;
-  top: calc(100% + var(--sp-2));
-  left: 0;
-  z-index: 11;
-  width: 320px;
-  max-width: 60vw;
-  display: flex;
+  width: 360px;
+  max-width: min(80vw, 360px);
+  max-height: 80vh;
+  overflow-y: auto;
   flex-direction: column;
   gap: var(--sp-3);
-  padding: var(--sp-5);
+  margin: auto;
+  padding: var(--sp-6);
   border: 1px solid var(--border-hairline);
   border-radius: var(--r-md);
   background: var(--surface-raised);
@@ -1115,6 +1112,13 @@ select:focus-visible {
   color: var(--text-body);
   font-size: var(--fs-caption);
   line-height: var(--lh-prose);
+}
+
+/* The UA's ::backdrop is transparent by default. The scrim is what makes a
+   panel over a dark wiring diagram legible as a panel rather than as more
+   diagram. */
+.popover::backdrop {
+  background: var(--scrim);
 }
 
 .popover p {

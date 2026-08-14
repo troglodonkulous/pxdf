@@ -73,6 +73,9 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+/** Shared by the trigger's `popoverTarget` and the panel's `id`. */
+const NETWORK_HELP_ID = 'network-help'
+
 /**
  * What to do when the cable is in and the floor is still dark.
  *
@@ -85,47 +88,57 @@ function errorMessage(error: unknown): string {
  * Deliberately not here: everything about `DDF_ADDRESS` and running from a dev
  * server. Operators run a packaged build, where that default does not apply,
  * and a panel that is mostly irrelevant is a panel nobody finishes reading.
+ *
+ * `popover="auto"` rather than a hand-rolled panel, and the difference is not
+ * cosmetic. The first version was an absolutely-positioned div beside the
+ * button, which put it inside `.mapping-inspector` — a 214 px rail with
+ * `overflow: auto`, near the bottom of the window. It was clipped on two edges
+ * at once and unreadable, which no test in this repo could have caught and one
+ * screenshot did. The platform's popover renders in the **top layer**, so no
+ * ancestor's `overflow` or `z-index` can reach it, and click-outside dismissal
+ * comes with it. That deleted a click-catcher overlay and a piece of state.
+ *
+ * The Escape handler below is not that leftover. MEASURED in this Electron
+ * build: click-outside light-dismiss works, and **Escape does not**, with focus
+ * inside the panel or on the trigger. Escape is the expected way out of a
+ * dialog that covers the window, so it is wired explicitly rather than
+ * described in a comment as something the platform provides.
  */
-function NetworkHelp({ onDismiss }: { readonly onDismiss: () => void }) {
+function NetworkHelp() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onDismiss()
+      if (event.key !== 'Escape') return
+      const panel = document.getElementById(NETWORK_HELP_ID)
+      // `:popover-open` rather than a piece of React state: the popover's
+      // openness lives in the DOM, and mirroring it here would be a second
+      // copy that can disagree with the first.
+      if (panel instanceof HTMLElement && panel.matches(':popover-open')) panel.hidePopover()
     }
-    // Capture, so it fires before anything inside the panel can swallow it.
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [onDismiss])
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
-    <>
-      {/*
-        A full-viewport catcher rather than a document-level `mousedown`
-        listener. The listener version closes the panel on the very click that
-        opened it, because the button's own click is still propagating when the
-        effect that registered it runs.
-      */}
-      <div className="popover-catcher" onClick={onDismiss} />
-      <div className="popover" role="dialog" aria-label="Network troubleshooting">
-        <p className="popover-title">Ethernet is connected but the floor gets nothing</p>
-        <p>
-          The floor NIC may be taking a DHCP lease and stealing the default route.
-          That also drops Wi-Fi. Give it a static address with no gateway so it
-          cannot win the route.
-        </p>
-        <p className="popover-step">Terminal</p>
-        <code>sudo ipconfig set en18 MANUAL 10.200.50.78 255.0.0.0</code>
-        <p className="popover-note">
-          Revert any time with <code>sudo ipconfig set en18 DHCP</code>. Use the
-          interface name shown in the dropdown below, not necessarily
-          <code>en18</code>.
-        </p>
-        <p className="popover-step">System Settings</p>
-        <p>
-          Network → ⋯ → Set Service Order, then drag Wi-Fi above Ethernet. Slower
-          to do, but it survives a reboot.
-        </p>
-      </div>
-    </>
+    <div id={NETWORK_HELP_ID} popover="auto" className="popover">
+      <p className="popover-title">Ethernet is connected but the floor gets nothing</p>
+      <p>
+        The floor NIC may be taking a DHCP lease and stealing the default route.
+        That also drops Wi-Fi. Give it a static address with no gateway so it
+        cannot win the route.
+      </p>
+      <p className="popover-step">Terminal</p>
+      <code>sudo ipconfig set en18 MANUAL 10.200.50.78 255.0.0.0</code>
+      <p className="popover-note">
+        Revert any time with <code>sudo ipconfig set en18 DHCP</code>. Use the
+        interface name shown in the dropdown, which is not necessarily{' '}
+        <code>en18</code>.
+      </p>
+      <p className="popover-step">System Settings</p>
+      <p>
+        Network → ⋯ → Set Service Order, then drag Wi-Fi above Ethernet. Slower
+        to do, but it survives a reboot.
+      </p>
+    </div>
   )
 }
 
@@ -145,7 +158,6 @@ export function MappingScreen({
   const [highlightedCols, setHighlightedCols] = useState<readonly number[]>([])
   const [actionError, setActionError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [networkHelpOpen, setNetworkHelpOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -472,16 +484,26 @@ export function MappingScreen({
                 type="button"
                 className="help-button"
                 aria-label="Why is the floor not receiving?"
-                aria-expanded={networkHelpOpen}
-                onClick={() => setNetworkHelpOpen((open) => !open)}
+                popoverTarget={NETWORK_HELP_ID}
               >i</button>
-              {networkHelpOpen && <NetworkHelp onDismiss={() => setNetworkHelpOpen(false)} />}
+              <NetworkHelp />
             </div>
             <select
               aria-label="Network interface"
               value={localIp}
               onChange={(event) => void chooseInterface(event.currentTarget.value)}
             >
+              {/*
+                Nothing bound is a real state, and it needs a real option.
+                Without one no `<option>` matches `value=""`, so the select
+                displays the first interface while `mapper` runs with no
+                `--local-ip` at all — the display disagreeing with the binding,
+                which is the bug this whole panel was rewritten to remove,
+                wearing a different hat. It says what is actually happening:
+                the socket is unbound and datagrams leave by whichever route
+                the OS prefers, which on a laptop with Wi-Fi is rarely the floor.
+              */}
+              {localIp === '' && <option value="">Default route — not pinned to a NIC</option>}
               {boundIsMissing && (
                 <option value={localIp}>{localIp} — not connected</option>
               )}

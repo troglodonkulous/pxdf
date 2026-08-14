@@ -613,6 +613,22 @@ try {
 
   await tap.listen()
 
+  // Refuse to run with somebody else already on the wire — the UDP counterpart
+  // of the debug-port check above. `npm run dev` sends to this same
+  // 127.0.0.1:60001, and binding the port does not conflict with that, so the
+  // tap happily records both senders interleaved. What that looks like
+  // downstream is fractional packet counts ("21.9 packets per frame") and
+  // half the packets all-zero, which reads as a compositor fault rather than as
+  // a second app. Cost a run to work out once; it should never cost a second.
+  await sleep(500)
+  if (tap.packets.length > 0) {
+    throw new Error(
+      `${tap.packets.length} packets arrived on ${PORT} before this run started anything. ` +
+      'Something else is sending — a leaked Electron, or `npm run dev` in another ' +
+      'terminal. Stop it before trusting anything this script prints.',
+    )
+  }
+
   electron = spawn(
     resolve(APP_DIR, 'node_modules', '.bin', 'electron'),
     [
@@ -739,6 +755,48 @@ try {
     'document.querySelectorAll(\'[aria-label="Network interface"] option\').length')
   check(typeof nicCount === 'number' && nicCount > 0,
     'the Network panel lists at least one interface', `${nicCount} options`)
+
+  // 1b-ii. The Network help panel opens, and Escape closes it.
+  //
+  //     Graded here because it could not be graded where it was built. The
+  //     panel covers the window, and computer-use cannot verify the way out of
+  //     it: an OS-level Escape does not arrive as a DOM `keydown` in this
+  //     Electron, though `cmd+r` works, because that is a native menu
+  //     accelerator rather than a page event. So the one instrument that can
+  //     see it is this one.
+  //
+  //     `popover="auto"` gives click-outside dismissal for free but, measured
+  //     in this build, not Escape — hence the explicit handler in
+  //     `MappingScreen.tsx` that this check exists to keep honest.
+  await page.evaluate(
+    'document.querySelector(\'[aria-label="Why is the floor not receiving?"]\').click()')
+  const helpOpen = await waitFor(
+    'document.getElementById(\'network-help\').matches(\':popover-open\') ? 1 : 0')
+  check(helpOpen === 1, 'the Network help panel opens')
+
+  await page.evaluate(
+    "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))")
+  const helpClosed = await waitFor(
+    'document.getElementById(\'network-help\').matches(\':popover-open\') ? 0 : 1')
+  check(helpClosed === 1, 'Escape closes the Network help panel')
+
+  // 1b-iii. The dropdown and the socket agree.
+  //
+  //     This is the invariant the NIC bug actually violated. The old code kept
+  //     the selection in `MappingScreen`'s own state, which the surface switch
+  //     destroys, and re-defaulted it to `interfaces[0]` on remount while the
+  //     sidecar stayed bound to whatever the operator had really chosen. Both
+  //     halves looked right in isolation; only their disagreement was wrong,
+  //     and nothing compared them.
+  //
+  //     It holds for the unbound case too, which is what this run exercises:
+  //     no `DDF_LOCAL_IP` means `mapper` gets no `--local-ip`, and the select
+  //     has to say so rather than displaying the first interface as though it
+  //     had been chosen.
+  const nicAgrees = await waitFor(
+    '(async () => (document.querySelector(\'[aria-label="Network interface"]\').value ' +
+    '=== await window.ddf.getLocalIp()) ? 1 : 0)()')
+  check(nicAgrees === 1, 'the Network dropdown shows the address the sender is bound to')
 
   // 1c. Rotation is presentation, not orientation — it must not restart anything.
   //
@@ -1063,6 +1121,17 @@ try {
   const navGap = tap.maxGapMs(beforeNav)
   check(navGap !== null && navGap < 200, 'navigating between surfaces does not gap the wire',
     navGap === null ? 'no measurement' : `largest silence ${navGap} ms`)
+
+  //     And the NIC selection survived the round trip. This is the exact
+  //     sequence the operator reported: pick an interface, open the Player, come
+  //     back, and find the dropdown pointing somewhere else while the sender was
+  //     still bound where they left it. The Mapping surface has been unmounted
+  //     and rebuilt between the two reads, which is what used to lose it.
+  const nicSurvived = await waitFor(
+    '(async () => (document.querySelector(\'[aria-label="Network interface"]\').value ' +
+    '=== await window.ddf.getLocalIp()) ? 1 : 0)()')
+  check(nicSurvived === 1,
+    'the NIC selection still matches the binding after a trip through the Player')
 
   // 4b. Geometry becomes a runtime variable — the load-bearing half of PR 3.
   //
