@@ -40,11 +40,41 @@ describe('Play helpers', () => {
     expect(removeCue([cue('a'), cue('b'), cue('c')], 'b').map(({ id }) => id)).toEqual(['a', 'c'])
   })
 
-  it('moves a cue one keyboard-reachable step and stops at the edges', () => {
+  it('moves a cue to an arbitrary target index', () => {
+    // The signature the drag-and-drop handler needs: a drop index, not a
+    // step. Dropping row 'a' onto row 'c''s position lands it at index 2.
+    const cues = [cue('a'), cue('b'), cue('c'), cue('d')]
+    expect(moveCue(cues, 'a', 2).map(({ id }) => id)).toEqual(['b', 'c', 'a', 'd'])
+    expect(moveCue(cues, 'd', 0).map(({ id }) => id)).toEqual(['d', 'a', 'b', 'c'])
+  })
+
+  it('still serves the keyboard up/down buttons, which pass selectedIndex ± 1', () => {
     const cues = [cue('a'), cue('b'), cue('c')]
-    expect(moveCue(cues, 'b', -1).map(({ id }) => id)).toEqual(['b', 'a', 'c'])
-    expect(moveCue(cues, 'b', 1).map(({ id }) => id)).toEqual(['a', 'c', 'b'])
-    expect(moveCue(cues, 'a', -1).map(({ id }) => id)).toEqual(['a', 'b', 'c'])
+    expect(moveCue(cues, 'b', 0).map(({ id }) => id)).toEqual(['b', 'a', 'c'])
+    expect(moveCue(cues, 'b', 2).map(({ id }) => id)).toEqual(['a', 'c', 'b'])
+  })
+
+  it('clamps a target past either edge rather than refusing the move', () => {
+    // A drop below the last row or above the first is an ordinary drag
+    // gesture, not an error — unlike the old `-1 | 1` offset form, which
+    // returned the stack unchanged at an edge because there was no next slot
+    // to step into. Clamping is that same "do nothing more" outcome for the
+    // in-bounds edge case (moving the first cue further up) and an active
+    // move for the out-of-bounds one (a drop past the end).
+    const cues = [cue('a'), cue('b'), cue('c')]
+    expect(moveCue(cues, 'a', -5).map(({ id }) => id)).toEqual(['a', 'b', 'c'])
+    expect(moveCue(cues, 'a', 99).map(({ id }) => id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('leaves the stack unchanged for an id that is not in it', () => {
+    const cues = [cue('a'), cue('b'), cue('c')]
+    expect(moveCue(cues, 'ghost', 1).map(({ id }) => id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('does not mutate the array it was given', () => {
+    const original = [cue('a'), cue('b'), cue('c')]
+    moveCue(original, 'a', 2)
+    expect(original.map(({ id }) => id)).toEqual(['a', 'b', 'c'])
   })
 
   it('renames non-destructively and derives readable names from media paths', () => {
