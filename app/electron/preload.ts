@@ -1,10 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { SenderStatus } from './sidecar.js'
+import type { Cue } from '../src/player/show.js'
 
 export interface DdfApi {
   writeFrame(frame: Uint8Array): void
   onStatus(callback: (status: SenderStatus) => void): () => void
   pickMedia(): Promise<string[]>
+  cueSeed(): Promise<Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>>>
   mapperPlan(type: string, cols: number, rows: number): Promise<string>
   listInterfaces(): Promise<{ name: string; address: string }[]>
   setFloor(floor: { type: string; tileCols: number; tileRows: number }): Promise<void>
@@ -45,6 +47,9 @@ const api: DdfApi = {
   },
   pickMedia() {
     return ipcRenderer.invoke('ddf:pick-media') as Promise<string[]>
+  },
+  cueSeed() {
+    return ipcRenderer.invoke('ddf:cue-seed') as Promise<Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>>>
   },
   mapperPlan(type, cols, rows) {
     return ipcRenderer.invoke('ddf:mapper-plan', type, cols, rows) as Promise<string>
