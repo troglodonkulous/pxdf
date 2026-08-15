@@ -1158,45 +1158,58 @@ try {
   //     for most of the stack. Cue 2 (the white clip) has never had a
   //     duration set — section 3b only touched cue 1 — so it is still
   //     hold-until-GO, which is exactly the case the old bar could not move
-  //     for. A fresh GO first, rather than reading whatever position it is
-  //     already at: the cue has been live on and off for several seconds by
-  //     this point, and comparing two arbitrary samples of a *looping* 3 s
-  //     clip risks straddling a wrap, which would read as the bar going
-  //     backwards on a perfectly healthy app — the instrument's fault, not
-  //     the app's, and exactly the shape of flake this file argues against
-  //     elsewhere. Starting fresh keeps the whole 1.2 s poll window inside
-  //     the clip's first lap.
-  //     The GO above does not buy a fresh lap. Cue 2 has been live on and off
-  //     for several seconds by this point, and GO on an already-live cue does
-  //     not reseek its clip — so the first sample can land anywhere, including
-  //     96 % with a wrap due before the second sample. That is exactly what it
-  //     did: `96 -> 29`, graded red against a perfectly healthy app. Sampling
-  //     twice and demanding the second be larger cannot tell a wrap from a
-  //     stalled bar, and the comment above talked itself out of the risk
-  //     instead of removing it.
+  //     for.
   //
-  //     Sampled across the window instead, asserting one strictly increasing
-  //     step. A wrap costs one step out of many and the rest still rise; the
-  //     bug this section exists for — the bar reading `elapsedMs /
-  //     cueDurationMs`, which is `null` for every hold-until-GO cue — pins the
-  //     readout at a constant and yields no increasing step at all. The count
-  //     is asserted too, so a readout that vanished (every sample `-1`,
-  //     `steps` empty) cannot pass as silence.
+  //     GO does not buy a fresh lap. Cue 2 has been live on and off for
+  //     several seconds by this point, and GO on an already-live cue does not
+  //     reseek its clip — so the first sample lands wherever the clip happens
+  //     to be. Sampling twice 1.2 s apart and demanding the second be larger
+  //     read `96 -> 29` and graded a healthy app red: 1.2 s of a looping 3 s
+  //     clip is 40 % of a lap, and starting at 96 % put a wrap inside the
+  //     window. Two samples cannot tell a wrap from a stall.
+  //
+  //     Nor can "at least one rising step across the window", which replaced
+  //     it: a bar that ticks once and then freezes rises once and passes. The
+  //     grade has to catch a *partial* stall, not just a total one.
+  //
+  //     So the window is sampled at 300 ms — comfortably above the ~250 ms
+  //     tick React republishes engine state on, so a live bar should move on
+  //     every step — and graded on the longest run of identical readings. A
+  //     healthy bar repeats at most once where a sample lands inside a tick;
+  //     three in a row means it stopped for 900 ms while the clip kept
+  //     playing, which is the freeze. A wrap costs no flat run at all, so the
+  //     `96 -> 29` case this replaced now passes on its merits rather than by
+  //     the grade being loosened until it did.
+  //
+  //     Both ends still asserted: one rising step, so the bug this section
+  //     exists for — the bar reading `elapsedMs / cueDurationMs`, null for
+  //     every hold-until-GO cue, pinned at a constant — fails on flat run
+  //     *and* on no rise; and every sample non-negative with the count
+  //     checked, so a readout that vanished mid-window (`-1` from the
+  //     missing-element fallback) cannot pass as silence.
   await page.evaluate(clickRowScript(1))
   await page.evaluate(clickButtonScript('GO'))
   await waitForLive(1)
   const clipPosition = () => page.evaluate(
     'Number(document.querySelector(\'[aria-label="Clip position"]\')?.getAttribute("aria-valuenow") ?? "-1")')
   const positions = []
-  for (let sample = 0; sample < 8; sample++) {
+  for (let sample = 0; sample < 10; sample++) {
     positions.push(await clipPosition())
-    await sleep(200)
+    await sleep(300)
   }
   const rising = positions.filter(
     (value, index) => index > 0 && value > positions[index - 1] && positions[index - 1] >= 0).length
-  check(positions.length === 8 && positions.every((value) => value >= 0) && rising > 0,
+  let flatRun = 1
+  let longestFlatRun = 1
+  for (let index = 1; index < positions.length; index++) {
+    flatRun = positions[index] === positions[index - 1] ? flatRun + 1 : 1
+    if (flatRun > longestFlatRun) longestFlatRun = flatRun
+  }
+  check(positions.length === 10 && positions.every((value) => value >= 0)
+    && rising > 0 && longestFlatRun <= 2,
     'the timeline advances for a hold-until-GO cue, driven by clip position',
-    `${positions.join(' -> ')} · ${rising} rising steps of ${positions.length - 1}`)
+    `${positions.join(' -> ')} · ${rising} rising of ${positions.length - 1}, ` +
+    `longest flat run ${longestFlatRun}`)
 
   // 6c. Tab toggles Live/Preview, and does not fight a focused text field —
   //     blurring first so a stray focus left over from the duration field
