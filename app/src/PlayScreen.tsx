@@ -119,6 +119,29 @@ export function timelineProgress(snapshot: Pick<EngineSnapshot, 'positionMs' | '
     : Math.min(1, Math.max(0, snapshot.positionMs / snapshot.mediaDurationMs))
 }
 
+/**
+ * What clicking a cue row targets — both `selectedCueId` (the inspector,
+ * rotation edit, rename, move, and delete all read it) and the id handed to
+ * `engine.selectCue`. These must always agree: if they diverged, those
+ * controls would silently act on a different cue than the one being
+ * previewed or armed.
+ *
+ * Outside Preview the target is always the clicked cue — Standby only makes
+ * sense for what was actually clicked. In Preview, clicking the row that is
+ * live re-targets the next cue instead, because re-previewing a cue that's
+ * already on the floor shows nothing new; auditioning the next cue does.
+ */
+export function selectCueTarget(
+  cueId: string,
+  cues: readonly Cue[],
+  mode: PlayerMode,
+  liveCueId: string | null,
+): string {
+  if (mode !== 'preview' || cueId !== liveCueId) return cueId
+  const index = cues.findIndex((cue) => cue.id === cueId)
+  return cues[index + 1]?.id ?? cueId
+}
+
 export function PlayScreen({
   show,
   showRef,
@@ -158,12 +181,9 @@ export function PlayScreen({
   const shellRef = useRef<HTMLElement>(null)
 
   const selectCue = (cueId: string): void => {
-    const clickedIsLive = cueId === snapshot.liveCueId
-    const index = show.cues.findIndex((cue) => cue.id === cueId)
-    const nextId = show.cues[index + 1]?.id ?? null
-    const previewTarget = clickedIsLive && nextId !== null ? nextId : cueId
-    setSelectedCueId(previewTarget)
-    engine.selectCue(snapshot.mode === 'preview' ? previewTarget : cueId)
+    const target = selectCueTarget(cueId, show.cues, snapshot.mode, snapshot.liveCueId)
+    setSelectedCueId(target)
+    engine.selectCue(target)
     refreshSnapshot()
   }
 
@@ -228,19 +248,55 @@ export function PlayScreen({
     refreshSnapshot()
   }
 
+  // Shared by the ↑/↓ standby-step buttons and the ArrowUp/ArrowDown keys the
+  // helper row underneath them advertises. selectedCueId is resynced to the
+  // engine's own post-step standbyCueId (queried directly, not derived here)
+  // so the inspector/rotation/rename/move/delete keep tracking whatever is
+  // actually armed, the same contract selectCue holds for a direct click.
+  const stepStandby = (direction: 'previous' | 'next'): void => {
+    if (direction === 'previous') engine.selectPrevious()
+    else engine.selectNext()
+    setSelectedCueId(engine.snapshot().standbyCueId)
+    refreshSnapshot()
+  }
+
+  const fireGo = (): void => {
+    if (isGoDisabled(snapshot)) return
+    engine.go()
+    refreshSnapshot()
+  }
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Tab') return
       const target = event.target
       const isTextInput = target instanceof HTMLElement
         && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')
       if (isTextInput) return
-      event.preventDefault()
-      setMode(snapshot.mode === 'live' ? 'preview' : 'live')
+      switch (event.key) {
+        case 'Tab':
+          event.preventDefault()
+          setMode(snapshot.mode === 'live' ? 'preview' : 'live')
+          return
+        case 'ArrowUp':
+          event.preventDefault()
+          stepStandby('previous')
+          return
+        case 'ArrowDown':
+          event.preventDefault()
+          stepStandby('next')
+          return
+        case ' ':
+        case 'Spacebar':
+          event.preventDefault()
+          fireGo()
+          return
+        default:
+          return
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [snapshot.mode])
+  }, [snapshot])
 
   const selectedCue = show.cues.find((cue) => cue.id === selectedCueId) ?? null
   const selectedLiveCue = show.cues.find((cue) => cue.id === snapshot.liveCueId) ?? null
@@ -437,9 +493,9 @@ export function PlayScreen({
 
           <div className="standby-controls">
             <div className="standby-row">
-              <button type="button" className="standby-step" title="Standby previous cue" aria-label="Standby previous cue" onClick={() => { engine.selectPrevious(); refreshSnapshot() }}><Icon name="up" size={20} /></button>
-              <button type="button" className="button primary go-button" disabled={isGoDisabled(snapshot)} onClick={() => { engine.go(); refreshSnapshot() }}>GO</button>
-              <button type="button" className="standby-step" title="Standby next cue" aria-label="Standby next cue" onClick={() => { engine.selectNext(); refreshSnapshot() }}><Icon name="down" size={20} /></button>
+              <button type="button" className="standby-step" title="Standby previous cue" aria-label="Standby previous cue" onClick={() => stepStandby('previous')}><Icon name="up" size={20} /></button>
+              <button type="button" className="button primary go-button" disabled={isGoDisabled(snapshot)} onClick={fireGo}>GO</button>
+              <button type="button" className="standby-step" title="Standby next cue" aria-label="Standby next cue" onClick={() => stepStandby('next')}><Icon name="down" size={20} /></button>
             </div>
             <div className="standby-helper"><span>↑</span><span>Space</span><span>↓</span></div>
           </div>
