@@ -1047,6 +1047,113 @@ select:focus-visible {
   font-size: var(--fs-label);
 }
 
+/* ---------------------------------------------------- the help popover
+
+   The design system defines --shadow-popover and --blur-popover and has never
+   had anything to hang them on; its readme reserves transparency and blur for
+   popovers and menus specifically, to match macOS materials. This is the first
+   one, so it uses both rather than inventing a third surface treatment. */
+
+.label-with-help {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.help-button {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--fs-micro);
+  font-style: italic;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+
+.help-button:hover,
+.help-button:is(:popover-open, [popovertarget]:active) {
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+
+/* `[popover]` renders in the top layer, so nothing here fights an ancestor for
+   stacking or clipping — which is the entire reason it is a popover. The UA
+   default centres it in the viewport and draws a border and background; the
+   reset below is what the design system's surface replaces. */
+.popover:popover-open {
+  display: flex;
+}
+
+.popover {
+  width: 360px;
+  max-width: min(80vw, 360px);
+  max-height: 80vh;
+  overflow-y: auto;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: auto;
+  padding: var(--sp-6);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  backdrop-filter: var(--blur-popover);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-body);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-prose);
+}
+
+/* The UA's ::backdrop is transparent by default. The scrim is what makes a
+   panel over a dark wiring diagram legible as a panel rather than as more
+   diagram. */
+.popover::backdrop {
+  background: var(--scrim);
+}
+
+.popover p {
+  margin: 0;
+}
+
+.popover-title {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+}
+
+.popover-step {
+  color: var(--text-muted);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+
+.popover code {
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-cell);
+  background: var(--surface-well);
+  color: var(--text-numeric);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  /* Commands are long and a horizontal scrollbar inside a popover is a trap. */
+  overflow-wrap: anywhere;
+}
+
+.popover-note {
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+}
+
 .mapping-readout {
   gap: var(--sp-2);
   padding: var(--sp-6);

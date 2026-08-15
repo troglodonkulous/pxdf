@@ -8,6 +8,8 @@ import { PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
 import { MEDIA_SCHEME, mediaPath, mediaUrl } from '../src/player/mediaUrl.js'
 import type { ShowFloor } from '../src/player/show.js'
 import { runMapperPlan } from './mapperPlan.js'
+import { nicVerdict } from './nicWatch.js'
+import { flushSettings, loadSettings, saveSettings } from './settings.js'
 import { Sidecar, type SenderStatus } from './sidecar.js'
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
@@ -50,14 +52,70 @@ protocol.registerSchemesAsPrivileged([
 let mainWindow: BrowserWindow | null = null
 let sidecar: Sidecar | null = null
 let currentStatus: SenderStatus = 'restarting'
+let currentSenderError: { message: string } | null = null
 let currentFloor: ShowFloor = { type: SHOP_RIG.type, tileCols: SHOP_RIG.tileCols, tileRows: SHOP_RIG.tileRows }
 let currentBlackFrame: Uint8Array = blackFrame(SHOP_RIG)
+let interfacePollTimer: ReturnType<typeof setInterval> | null = null
+let lastInterfaces: { name: string; address: string }[] | null = null
+let nicBanner: string | null = null
+let pendingNicVerdict: ReturnType<typeof nicVerdict> | null = null
+let nicVerdictQueued = false
 let quitAfterStop = false
 let stopInProgress = false
 
 function publishStatus(status: SenderStatus): void {
   currentStatus = status
   mainWindow?.webContents.send('ddf:status', status)
+}
+
+function publishSenderError(message: string | null): void {
+  currentSenderError = message === null ? null : { message }
+  mainWindow?.webContents.send('ddf:sender-error', currentSenderError)
+}
+
+function listIpv4Interfaces(): { name: string; address: string }[] {
+  return Object.entries(networkInterfaces()).flatMap(([name, addresses]) =>
+    (addresses ?? [])
+      .filter(({ family, internal }) => family === 'IPv4' && !internal)
+      .map(({ address }) => ({ name, address })),
+  )
+}
+
+function pollInterfaces(): void {
+  const interfaces = listIpv4Interfaces()
+  const verdict = nicVerdict(
+    process.env.DDF_LOCAL_IP,
+    interfaces,
+    nicBanner,
+    currentSenderError?.message ?? null,
+  )
+  if (verdict.clearBanner) publishSenderError(null)
+  nicBanner = verdict.nicBanner
+  queueNicVerdict(verdict)
+
+  // Interface order comes from the OS and is stable within a process. Treating
+  // an order change as a change is harmless, while sorting would make the UI's
+  // presentation differ from the native enumeration used by the picker.
+  if (JSON.stringify(interfaces) !== JSON.stringify(lastInterfaces)) {
+    lastInterfaces = interfaces
+    mainWindow?.webContents.send('ddf:interfaces', interfaces)
+  }
+}
+
+function startInterfacePoll(): void {
+  if (interfacePollTimer !== null) return
+  // Once straight away, not only on the first tick. Launching with the cable
+  // already out is the ordinary case — the laptop boots at the venue before
+  // anyone patches it — and waiting 2 s to notice buys two seconds of a sender
+  // crash-looping against an address that was never going to be there.
+  pollInterfaces()
+  interfacePollTimer = setInterval(pollInterfaces, 2_000)
+}
+
+function stopInterfacePoll(): void {
+  if (interfacePollTimer === null) return
+  clearInterval(interfacePollTimer)
+  interfacePollTimer = null
 }
 
 // One queue for every operation that touches sidecar's lifecycle: floor
@@ -73,6 +131,32 @@ function withSidecar<T>(fn: () => Promise<T>): Promise<T> {
   // The caller still sees its own rejection through result.
   sidecarQueue = result.then(() => undefined, () => undefined)
   return result
+}
+
+function queueNicVerdict(verdict: ReturnType<typeof nicVerdict>): void {
+  pendingNicVerdict = verdict
+  if (nicVerdictQueued) return
+  nicVerdictQueued = true
+
+  // A sidecar stop can occupy the lifecycle queue longer than the 2 s poll
+  // interval. Queueing every tick would grow an unbounded tail of stale
+  // suspend/resume calls; dropping overlapping ticks could instead suspend a
+  // replacement after its NIC had returned. One queued operation reads the
+  // newest verdict when it reaches the sidecar, so delay changes neither the
+  // final state nor the amount of work waiting behind it.
+  void withSidecar(async () => {
+    const latestSuspend = pendingNicVerdict?.suspend
+    pendingNicVerdict = null
+    if (latestSuspend === undefined) return
+    if (latestSuspend !== null) sidecar?.suspend(latestSuspend)
+    else sidecar?.resume()
+  }).then(
+    () => { nicVerdictQueued = false },
+    (error: unknown) => {
+      nicVerdictQueued = false
+      console.error('Failed to apply NIC state to sender:', error)
+    },
+  )
 }
 
 async function doSetFloor(next: ShowFloor): Promise<void> {
@@ -92,6 +176,7 @@ async function doSetFloor(next: ShowFloor): Promise<void> {
     rows: next.tileRows,
     blackFrame: black,
     onStatus: publishStatus,
+    onError: publishSenderError,
   })
   sidecar.start()
   currentFloor = next
@@ -105,6 +190,7 @@ function setFloor(next: ShowFloor): Promise<void> {
 function setLocalIp(address: string | undefined): Promise<void> {
   if (address !== undefined && address.length > 0) process.env.DDF_LOCAL_IP = address
   else delete process.env.DDF_LOCAL_IP
+  saveSettings({ localIp: process.env.DDF_LOCAL_IP ?? '' })
   // Re-spawns at the current geometry so the new env var takes effect.
   // Sidecar's spawn reads process.env.DDF_LOCAL_IP fresh on every call;
   // there is simply no path that rebinds a live child.
@@ -141,7 +227,11 @@ function createWindow(): void {
     // vendor's own content.
     if (BrowserWindow.getAllWindows().length === 0) sidecar?.writeFrame(currentBlackFrame)
   })
-  window.webContents.on('did-finish-load', () => publishStatus(currentStatus))
+  window.webContents.on('did-finish-load', () => {
+    publishStatus(currentStatus)
+    window.webContents.send('ddf:sender-error', currentSenderError)
+    if (lastInterfaces !== null) window.webContents.send('ddf:interfaces', lastInterfaces)
+  })
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL
   if (devServerUrl !== undefined) {
@@ -160,13 +250,10 @@ ipcMain.handle('ddf:mapper-plan', (_event, type: string, cols: number, rows: num
 })
 
 ipcMain.handle('ddf:list-interfaces', () => {
-  return Object.entries(networkInterfaces()).flatMap(([name, addresses]) =>
-    (addresses ?? [])
-      .filter(({ family, internal }) => family === 'IPv4' && !internal)
-      .map(({ address }) => ({ name, address })),
-  )
+  return listIpv4Interfaces()
 })
 
+ipcMain.handle('ddf:get-local-ip', () => process.env.DDF_LOCAL_IP ?? '')
 ipcMain.handle('ddf:set-floor', (_event, floor: ShowFloor) => setFloor(floor))
 ipcMain.handle('ddf:set-local-ip', (_event, address: string | undefined) => setLocalIp(address))
 
@@ -274,6 +361,26 @@ void app.whenReady().then(() => {
     return new Response(file.body, { status: file.status, statusText: file.statusText, headers })
   })
 
+  // The stored NIC seeds the environment, and an explicit `DDF_LOCAL_IP` still
+  // wins — the wire gate and `npm run dev:floor` both set it, and a stored
+  // preference must not quietly override what the operator typed on the command
+  // line. If the stored address is not on this machine any more, the interface
+  // poll started below notices within the first tick and says so; that is a
+  // better outcome than dropping the preference here, which would leave the
+  // dropdown pointing somewhere plausible and wrong.
+  //
+  // Written out rather than as `??=`, which does not do what it looks like it
+  // does here: `process.env` stringifies whatever it is assigned, so
+  // `process.env.X ??= undefined` sets X to the literal string "undefined".
+  // That reached the sidecar as `--local-ip undefined`, the bind failed, and
+  // the poll below then correctly suspended a sender that could never work —
+  // silencing the whole wire gate. The failure was loud and immediate, which
+  // is the only reason it cost minutes instead of a session.
+  const storedLocalIp = loadSettings().localIp
+  if (process.env.DDF_LOCAL_IP === undefined && storedLocalIp.length > 0) {
+    process.env.DDF_LOCAL_IP = storedLocalIp
+  }
+
   sidecar = new Sidecar({
     isPackaged: app.isPackaged,
     repoRoot,
@@ -282,9 +389,11 @@ void app.whenReady().then(() => {
     rows: currentFloor.tileRows,
     blackFrame: currentBlackFrame,
     onStatus: publishStatus,
+    onError: publishSenderError,
   })
   sidecar.start()
   createWindow()
+  startInterfacePoll()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -296,6 +405,10 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', (event) => {
+  stopInterfacePoll()
+  // Before the early return below, so a NIC changed inside the debounce window
+  // and then quit on is still written.
+  flushSettings()
   if (quitAfterStop) return
 
   event.preventDefault()

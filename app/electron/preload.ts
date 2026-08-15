@@ -4,9 +4,12 @@ import type { SenderStatus } from './sidecar.js'
 export interface DdfApi {
   writeFrame(frame: Uint8Array): void
   onStatus(callback: (status: SenderStatus) => void): () => void
+  onSenderError(callback: (payload: { message: string } | null) => void): () => void
+  onInterfaces(callback: (list: { name: string; address: string }[]) => void): () => void
   pickMedia(): Promise<string[]>
   mapperPlan(type: string, cols: number, rows: number): Promise<string>
   listInterfaces(): Promise<{ name: string; address: string }[]>
+  getLocalIp(): Promise<string>
   setFloor(floor: { type: string; tileCols: number; tileRows: number }): Promise<void>
   setLocalIp(address: string | undefined): Promise<void>
 }
@@ -30,6 +33,16 @@ export interface DdfApi {
 let lastStatus: SenderStatus = 'restarting'
 ipcRenderer.on('ddf:status', (_event: unknown, status: SenderStatus) => { lastStatus = status })
 
+let lastSenderError: { message: string } | null = null
+ipcRenderer.on('ddf:sender-error', (_event: unknown, payload: { message: string } | null) => {
+  lastSenderError = payload
+})
+
+let lastInterfaces: { name: string; address: string }[] = []
+ipcRenderer.on('ddf:interfaces', (_event: unknown, list: { name: string; address: string }[]) => {
+  lastInterfaces = list
+})
+
 const api: DdfApi = {
   writeFrame(frame) {
     ipcRenderer.send('ddf:frame', frame)
@@ -43,6 +56,18 @@ const api: DdfApi = {
     callback(lastStatus)
     return () => ipcRenderer.removeListener('ddf:status', listener)
   },
+  onSenderError(callback) {
+    const listener = (_event: unknown, payload: { message: string } | null): void => callback(payload)
+    ipcRenderer.on('ddf:sender-error', listener)
+    callback(lastSenderError)
+    return () => ipcRenderer.removeListener('ddf:sender-error', listener)
+  },
+  onInterfaces(callback) {
+    const listener = (_event: unknown, list: { name: string; address: string }[]): void => callback(list)
+    ipcRenderer.on('ddf:interfaces', listener)
+    callback(lastInterfaces)
+    return () => ipcRenderer.removeListener('ddf:interfaces', listener)
+  },
   pickMedia() {
     return ipcRenderer.invoke('ddf:pick-media') as Promise<string[]>
   },
@@ -51,6 +76,9 @@ const api: DdfApi = {
   },
   listInterfaces() {
     return ipcRenderer.invoke('ddf:list-interfaces') as Promise<{ name: string; address: string }[]>
+  },
+  getLocalIp() {
+    return ipcRenderer.invoke('ddf:get-local-ip') as Promise<string>
   },
   setFloor(floor) {
     return ipcRenderer.invoke('ddf:set-floor', floor) as Promise<void>

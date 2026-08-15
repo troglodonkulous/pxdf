@@ -55,7 +55,7 @@
 
 import { spawn, execFileSync } from 'node:child_process'
 import { createSocket } from 'node:dgram'
-import { mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync, chmodSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, delimiter } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -292,10 +292,10 @@ const countTone = (packets, want) => packets.filter((p) => tone(p) === want).len
 
 // ------------------------------------------------------- DevTools protocol
 
-async function attachToPage() {
+async function attachToPage(port = DEBUG_PORT) {
   for (let attempt = 0; attempt < 100; attempt++) {
     try {
-      const response = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`)
+      const response = await fetch(`http://127.0.0.1:${port}/json/list`)
       const targets = await response.json()
       const page = targets.find((t) => t.type === 'page' && typeof t.webSocketDebuggerUrl === 'string')
       if (page !== undefined) return await open(page.webSocketDebuggerUrl)
@@ -467,6 +467,104 @@ const hoverConnectorScript = (tileCol, leave = false) => `(() => {
 // -------------------------------------------------------------------- main
 
 const workspace = mkdtempSync(join(tmpdir(), 'ddf-e2e-'))
+/**
+ * The respawn storm, graded by counting spawns.
+ *
+ * MEASURED 2026-08-13: pulling the Ethernet with the app open relaunched
+ * `mapper stream` once a second, forever, each launch dying on a socket it
+ * could not bind and each death raising a macOS crash dialog. Nothing in the UI
+ * said why, and the operator's way out was killing the app from a terminal.
+ *
+ * **The count is the whole check.** Every other observable — the status pill,
+ * the wire, the banner — looks the same after five spawns as after five hundred,
+ * so grading them would report a fix that had not happened. This substitutes a
+ * stub for the Python binary that appends a line per launch and exits the way
+ * the real sender now does, and reads the file.
+ *
+ * The assertion is that the count *stops*, not that it is one. The first spawn
+ * happens before the first poll tick and the ladder gets a rung or two in
+ * before the poll suspends it, so a small number is correct and expected; an
+ * unbounded one is the defect. Sampling twice, eight seconds apart, is what
+ * separates them — a single sample cannot tell a storm from a stopped storm.
+ */
+async function checkNoRespawnStorm(workspace) {
+  const STORM_DEBUG_PORT = DEBUG_PORT + 1
+  const spawnLog = join(workspace, 'spawns.log')
+  const stub = join(workspace, 'fake-python.sh')
+  // Stands in for `python -m mapper stream ...`: records the launch, complains
+  // the way the real sender complains, and leaves with EXIT_NETWORK_GONE.
+  writeFileSync(stub, [
+    '#!/bin/sh',
+    'echo spawn >> "$DDF_SPAWN_LOG"',
+    'echo "floor NIC $DDF_LOCAL_IP unusable: [Errno 49] Can\'t assign requested address" >&2',
+    'exit 3',
+    '',
+  ].join('\n'))
+  chmodSync(stub, 0o755)
+  writeFileSync(spawnLog, '')
+
+  const countSpawns = () => readFileSync(spawnLog, 'utf8').split('\n').filter(Boolean).length
+
+  let child = null
+  let stormPage = null
+  try {
+    child = spawn(
+      resolve(APP_DIR, 'node_modules', '.bin', 'electron'),
+      [
+        resolve(APP_DIR, 'dist', 'main.js'),
+        `--remote-debugging-port=${STORM_DEBUG_PORT}`,
+        `--user-data-dir=${join(workspace, 'storm-profile')}`,
+      ],
+      {
+        cwd: APP_DIR,
+        env: {
+          ...process.env,
+          DDF_ADDRESS: '127.0.0.1',
+          // A different port from the main run's, so a stray packet from this
+          // one can never be counted as content by the tap.
+          DDF_PORT: String(PORT + 1),
+          DDF_PYTHON: stub,
+          DDF_SPAWN_LOG: spawnLog,
+          // TEST-NET-3 (RFC 5737). Reserved for documentation, so it is
+          // guaranteed not to be assigned to any interface on this machine —
+          // which is exactly the state a pulled cable leaves behind.
+          DDF_LOCAL_IP: '203.0.113.9',
+        },
+        stdio: 'ignore',
+        detached: true,
+      },
+    )
+
+    stormPage = await attachToPage(STORM_DEBUG_PORT)
+    await sleep(4_000)
+    const settled = countSpawns()
+    await sleep(8_000)
+    const later = countSpawns()
+
+    check(later === settled, 'a sender that cannot bind is not restarted for ever',
+      `${settled} spawns by 4 s, ${later} by 12 s — unbounded means the storm is still running`)
+    check(settled > 0 && settled < 12, 'the ladder gets a few attempts in before the poll suspends it',
+      `${settled} spawns before it settled`)
+
+    const banner = await stormPage.evaluate(
+      "document.querySelector('.error-banner')?.textContent ?? ''",
+    )
+    check(String(banner).includes('203.0.113.9'),
+      'the banner names the interface that went away',
+      `banner read: ${JSON.stringify(banner)}`)
+  } finally {
+    stormPage?.close()
+    if (child !== null) {
+      try {
+        process.kill(-child.pid, 'SIGKILL')
+      } catch {
+        // Already gone.
+      }
+      await sleep(300)
+    }
+  }
+}
+
 const tap = new WireTap()
 let electron = null
 let page = null
@@ -507,11 +605,43 @@ try {
   // the point: the only thing that decides whether it is served is whether a
   // human chose it.
   const unpicked = makeClip(workspace, 'green')
+
+  // Before the tap opens, and in its own Electron on its own ports, because
+  // this one is deliberately launched broken and must not be mistaken for the
+  // healthy run everything below grades.
+  await checkNoRespawnStorm(workspace)
+
   await tap.listen()
+
+  // Refuse to run with somebody else already on the wire — the UDP counterpart
+  // of the debug-port check above. `npm run dev` sends to this same
+  // 127.0.0.1:60001, and binding the port does not conflict with that, so the
+  // tap happily records both senders interleaved. What that looks like
+  // downstream is fractional packet counts ("21.9 packets per frame") and
+  // half the packets all-zero, which reads as a compositor fault rather than as
+  // a second app. Cost a run to work out once; it should never cost a second.
+  await sleep(500)
+  if (tap.packets.length > 0) {
+    throw new Error(
+      `${tap.packets.length} packets arrived on ${PORT} before this run started anything. ` +
+      'Something else is sending — a leaked Electron, or `npm run dev` in another ' +
+      'terminal. Stop it before trusting anything this script prints.',
+    )
+  }
 
   electron = spawn(
     resolve(APP_DIR, 'node_modules', '.bin', 'electron'),
-    [resolve(APP_DIR, 'dist', 'main.js'), `--remote-debugging-port=${DEBUG_PORT}`],
+    [
+      resolve(APP_DIR, 'dist', 'main.js'),
+      `--remote-debugging-port=${DEBUG_PORT}`,
+      // A throwaway profile, so the app's own `settings.json` cannot reach this
+      // run. Without it the gate inherits whichever NIC the operator last
+      // picked in the real app; on a machine where that interface is currently
+      // unplugged, every wire check below fails for a reason that has nothing
+      // to do with the code under test. A gate whose result depends on the
+      // developer's saved preferences is a gate that flakes.
+      `--user-data-dir=${join(workspace, 'profile')}`,
+    ],
     {
       cwd: APP_DIR,
       env: {
@@ -625,6 +755,48 @@ try {
     'document.querySelectorAll(\'[aria-label="Network interface"] option\').length')
   check(typeof nicCount === 'number' && nicCount > 0,
     'the Network panel lists at least one interface', `${nicCount} options`)
+
+  // 1b-ii. The Network help panel opens, and Escape closes it.
+  //
+  //     Graded here because it could not be graded where it was built. The
+  //     panel covers the window, and computer-use cannot verify the way out of
+  //     it: an OS-level Escape does not arrive as a DOM `keydown` in this
+  //     Electron, though `cmd+r` works, because that is a native menu
+  //     accelerator rather than a page event. So the one instrument that can
+  //     see it is this one.
+  //
+  //     `popover="auto"` gives click-outside dismissal for free but, measured
+  //     in this build, not Escape — hence the explicit handler in
+  //     `MappingScreen.tsx` that this check exists to keep honest.
+  await page.evaluate(
+    'document.querySelector(\'[aria-label="Why is the floor not receiving?"]\').click()')
+  const helpOpen = await waitFor(
+    'document.getElementById(\'network-help\').matches(\':popover-open\') ? 1 : 0')
+  check(helpOpen === 1, 'the Network help panel opens')
+
+  await page.evaluate(
+    "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))")
+  const helpClosed = await waitFor(
+    'document.getElementById(\'network-help\').matches(\':popover-open\') ? 0 : 1')
+  check(helpClosed === 1, 'Escape closes the Network help panel')
+
+  // 1b-iii. The dropdown and the socket agree.
+  //
+  //     This is the invariant the NIC bug actually violated. The old code kept
+  //     the selection in `MappingScreen`'s own state, which the surface switch
+  //     destroys, and re-defaulted it to `interfaces[0]` on remount while the
+  //     sidecar stayed bound to whatever the operator had really chosen. Both
+  //     halves looked right in isolation; only their disagreement was wrong,
+  //     and nothing compared them.
+  //
+  //     It holds for the unbound case too, which is what this run exercises:
+  //     no `DDF_LOCAL_IP` means `mapper` gets no `--local-ip`, and the select
+  //     has to say so rather than displaying the first interface as though it
+  //     had been chosen.
+  const nicAgrees = await waitFor(
+    '(async () => (document.querySelector(\'[aria-label="Network interface"]\').value ' +
+    '=== await window.ddf.getLocalIp()) ? 1 : 0)()')
+  check(nicAgrees === 1, 'the Network dropdown shows the address the sender is bound to')
 
   // 1c. Rotation is presentation, not orientation — it must not restart anything.
   //
@@ -949,6 +1121,17 @@ try {
   const navGap = tap.maxGapMs(beforeNav)
   check(navGap !== null && navGap < 200, 'navigating between surfaces does not gap the wire',
     navGap === null ? 'no measurement' : `largest silence ${navGap} ms`)
+
+  //     And the NIC selection survived the round trip. This is the exact
+  //     sequence the operator reported: pick an interface, open the Player, come
+  //     back, and find the dropdown pointing somewhere else while the sender was
+  //     still bound where they left it. The Mapping surface has been unmounted
+  //     and rebuilt between the two reads, which is what used to lose it.
+  const nicSurvived = await waitFor(
+    '(async () => (document.querySelector(\'[aria-label="Network interface"]\').value ' +
+    '=== await window.ddf.getLocalIp()) ? 1 : 0)()')
+  check(nicSurvived === 1,
+    'the NIC selection still matches the binding after a trip through the Player')
 
   // 4b. Geometry becomes a runtime variable — the load-bearing half of PR 3.
   //

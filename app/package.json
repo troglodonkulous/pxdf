@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "npm run build:electron && vite --host 127.0.0.1",
+    "dev:floor": "DDF_ADDRESS=255.255.255.255 npm run dev",
     "build": "vite build && npm run build:electron",
     "build:electron": "vite build --mode electron-main && vite build --mode electron-preload",
     "test": "vitest run",
