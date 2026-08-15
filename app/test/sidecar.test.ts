@@ -592,6 +592,32 @@ describe('the reason a child died', () => {
     expect(errors.at(-1)).toContain('code 1');
   });
 
+  it('reports a clean exit too, because the supervisor respawns from it', () => {
+    // Exit 0 is not a success here. `mapper stream` is meant to run until its
+    // stdin closes, so a child that returns 0 on its own has stopped sending
+    // for a reason nobody wrote down — and the supervisor treats it exactly
+    // like any other death: status `stopped`, then another child up the
+    // ladder. Grading the operator-visible consequence rather than the exit
+    // code: the floor went dark and something is looping, so the banner has to
+    // say so. A publish that special-cased 0 as "fine" would be the one death
+    // in the set that respawns behind a blank banner.
+    const { sidecar, children, errors, statuses } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+
+    children[0].exitCode = 0;
+    children[0].emit('exit', 0, null);
+
+    expect(errors.at(-1)).toContain('code 0');
+    // The positive control for the claim in the comment above: if this death
+    // were terminal, the message would be describing something that is over
+    // and the check would be arguing for noise. It is not — the ladder brings
+    // another child up, and the banner is the only account of why.
+    expect(statuses.at(-1)).toBe('stopped');
+    vi.advanceTimersByTime(0);
+    expect(children.length).toBe(2);
+  });
+
   it('attributes a silent death to itself, keeping the earlier cause as history', () => {
     // Stale attribution. Child N dies with stderr; child N+1 dies mute. Left
     // to stand alone, N's message now describes a death that did not happen
