@@ -56,6 +56,7 @@
 import { spawn, execFileSync } from 'node:child_process'
 import { createSocket } from 'node:dgram'
 import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync, chmodSync } from 'node:fs'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve, delimiter } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -74,10 +75,12 @@ const PYTHON = process.env.DDF_PYTHON ?? 'python3'
  * How long the wire may go quiet across a sidecar restart.
  *
  * Not a performance target — a safety margin. `docs/APP-PLAN.md` calls a 200 ms
- * restart fine; controller 1 reverts to the vendor's own content at about five
- * seconds. Two seconds sits well inside that and still fails loudly on the case
- * this bound exists for: a restart that hangs on a Python process which will
- * not exit, which on the floor is somebody else's content mid-show.
+ * restart fine; controller 1, in Master/IR mode, reverts to the vendor's own
+ * content at about five seconds (in slave mode it holds its last frame instead,
+ * same as 2 and 3 — `CLAUDE.md` § The rig). Two seconds sits well inside that
+ * worst case and still fails loudly on the case this bound exists for: a
+ * restart that hangs on a Python process which will not exit, which on the
+ * floor is somebody else's content mid-show.
  */
 const MAX_RESTART_GAP_MS = 2_000
 
@@ -93,11 +96,22 @@ function check(ok, description, detail = '') {
 
 // --------------------------------------------------------------- test clips
 
+/**
+ * How long the clips below run, in milliseconds.
+ *
+ * This file authors its own fixtures, so this is a known quantity rather than
+ * something read back out of the app — which is what makes it usable as an
+ * independent reference. Section 6b grades the timeline's rate against it and
+ * this harness's own clock; asking the app how long its clip is would grade
+ * the app against itself.
+ */
+const CLIP_MS = 3_000
+
 function makeClip(directory, colour) {
   const path = join(directory, `${colour}.mp4`)
   execFileSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y',
-    '-f', 'lavfi', '-i', `color=c=${colour}:s=640x480:r=30:d=3`,
+    '-f', 'lavfi', '-i', `color=c=${colour}:s=640x480:r=30:d=${CLIP_MS / 1_000}`,
     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path,
   ])
   return path
@@ -134,8 +148,9 @@ class WireTap {
      * restart is a real process swap: the old `mapper stream` has to stop being
      * the sender before the new one starts, or two processes interleave frames
      * onto one floor. So some interval with no datagrams is structural, and the
-     * question a gate has to answer is *how long* — controller 1 reverts to the
-     * vendor's own content about five seconds after packets stop. Without
+     * question a gate has to answer is *how long* — controller 1, in Master/IR
+     * mode, reverts to the vendor's own content about five seconds after
+     * packets stop (in slave mode it holds its last frame instead). Without
      * timestamps that interval is unmeasurable and the gate can only assert it
      * by feel.
      *
@@ -472,6 +487,55 @@ const hoverConnectorScript = (tileCol, leave = false) => `(() => {
 })()`
 
 // -------------------------------------------------------------------- main
+
+/**
+ * One wire gate at a time, machine-wide, held by the kernel.
+ *
+ * `PORT` and `DEBUG_PORT` are hardcoded, so two copies of this script — two
+ * worktrees, two agents, a stray `npm run dev` — do not fail cleanly when they
+ * overlap. Each run launches a sender that broadcasts to `PORT`, so a second
+ * run's packets land in the first run's tap: fractional packet counts, which
+ * read as a compositor bug rather than as two runs. A preflight `lsof` does not
+ * fix it, because both runs can pass that check before either one binds. It has
+ * to be taken here, before Electron and the sidecar start, because the harm is
+ * done by the second run's *sender*, not by its tap.
+ *
+ * **A listening socket, not a lockfile.** Two earlier drafts of this used a
+ * pidfile and both were raceable, in the same shape each time: a lock whose
+ * existence *is* the lock can be deleted by somebody who read it a moment ago
+ * and acted a moment late — either the script auto-clearing a dead owner while
+ * another run was mid-acquire, or an operator running the `rm` that a stale-lock
+ * message told them to run, after a newer run had already taken it. There is no
+ * atomic compare-and-delete to close that with, and the versions that did close
+ * it needed a second lock to guard the first.
+ *
+ * A listening socket has no such gap. `listen` is atomic, `EADDRINUSE` is
+ * unambiguous, and **the kernel releases it when the process dies, however it
+ * dies** — so there is no stale state to reclaim, nothing for a human to clear,
+ * and no instruction that can be followed too late. `SIGKILL` mid-run leaves the
+ * next run free to start immediately.
+ *
+ * TCP `PORT`, deliberately the same number as the UDP port being protected,
+ * which nothing here listens on over TCP. `unref` stops it holding the event
+ * loop open: its lifetime is then exactly the process's, which is the invariant
+ * wanted, and it needs no release path to get it.
+ */
+const gateLock = createServer()
+
+await new Promise((acquired) => {
+  gateLock.once('error', (error) => {
+    if (error.code !== 'EADDRINUSE') throw error
+    console.error(`\nanother wire gate is already running on this machine (TCP ${PORT}).`)
+    console.error('Only one may run: UDP 60001 and the DevTools port are hardcoded, and a')
+    console.error("second run's sender lands in the first run's tap rather than failing.")
+    console.error('Wait for it to finish, or stop it, and re-run.')
+    process.exit(2)
+  })
+  gateLock.listen(PORT, '127.0.0.1', () => {
+    gateLock.unref()
+    acquired()
+  })
+})
 
 const workspace = mkdtempSync(join(tmpdir(), 'ddf-e2e-'))
 /**
@@ -1183,12 +1247,12 @@ try {
     'a sibling of a picked file, in the same picked folder, is served though never opened by name',
     `handler returned ${siblingResult}`)
 
-  // 2d and 2e — the Library surface and drag-reorder — run later, right
+  // 6g and 6h — the Library surface and drag-reorder — run later, right
   // before the app quits. Both add or move cues in the stack, and every
-  // section between here and there (3, 3b, 4a-4d) assumes the exact 3-cue
-  // [red, white, rawvideo] arrangement this run started with; running them
-  // here would silently invalidate every assumption downstream instead of
-  // failing loudly where the mistake was made.
+  // section between here and there (3, 3b, 4a-4d, 6a-6f) assumes the exact
+  // 3-cue [red, white, rawvideo] arrangement this run started with; running
+  // them here would silently invalidate every assumption downstream instead
+  // of failing loudly where the mistake was made.
 
   // 3. A cue change. The first two checks establish that the change actually
   //    happened — without them, a second cue that never decodes leaves the
@@ -1420,9 +1484,11 @@ try {
   //     rows) and refuses on 8x8_8P (max 11). Before the limits were per type,
   //     picking 8x8_8P here stopped the running sidecar, spawned a `mapper
   //     stream` that exited on startup with `tile_rows 12 outside 1..11`, and
-  //     left the floor with no sender at all — controller 1 reverting to the
-  //     vendor's own content five seconds later, mid-show. It was reachable
-  //     from a dropdown.
+  //     left the floor with no sender at all — controller 1, in Master/IR
+  //     mode, reverting to the vendor's own content five seconds later,
+  //     mid-show (in slave mode it would have held its last frame instead,
+  //     same as 2 and 3 — either way, no sender is still no sender). It was
+  //     reachable from a dropdown.
   //
   //     Graded on the consequence, not the symptom: the wire keeps carrying
   //     frames, at the shape `mapper plan` gives for the clamped geometry.
@@ -1454,20 +1520,219 @@ try {
   check(typeof clampNotice === 'string' && clampNotice.includes('11'),
     'the operator is told the height was reduced', String(clampNotice))
 
-  // 4e. The Cue Library surface. Run here, after every section that depends
-  //     on the stack being exactly [red, white, rawvideo] in that order — this
-  //     adds a fourth cue and then reorders the stack, and nothing after this
-  //     point reads cue-stack structure: section 5 only checks that quitting
-  //     sends black, which `Sidecar.stop()` does unconditionally regardless of
-  //     what was live.
-  //
-  //     4a sent us to Mapping for the geometry checks in 4b-4d, and nothing
-  //     since has navigated back — the Library button below does not exist
-  //     unless the Play surface is mounted again first.
+  // 4e. Back to Play for PR 2's layout gate. Section 4b-4d drove the Mapping
+  //     surface's Floor selects, which leaves the app standing on Mapping —
+  //     Navigation does not touch engine state (checked in 4a), so the cue
+  //     that was live going into that detour is still live coming out of it.
   await page.evaluate(clickButtonScript('Open Player'))
-  const backOnPlayForLibrary = await waitFor('document.querySelector(".play-screen") !== null ? 1 : 0')
-  check(backOnPlayForLibrary === 1, 'Open Player returns to the Play surface for the Library checks')
+  const backOnPlay = await waitFor('document.querySelector(".play-screen") !== null ? 1 : 0')
+  check(backOnPlay === 1, 'Open Player returns to the Play surface after the Mapping detour')
 
+  // 6. PR 2: bottom bar regrouped to global controls, the timeline reading
+  //    clip position, Standby/GO/preview coupling, Tab, resizable sidebars
+  //    and zoom past 100%. Six checks, matching the PR's Grade list exactly.
+
+  // 6a. The bottom bar is global controls only, left to right in the order
+  //     3a specifies: Master, Crossfade, PAUSE, BLACKOUT. Previous/Next and
+  //     the per-cue timecode/progress bar are not decoration removed from
+  //     here — they are what the new centre timeline panel (6b) replaces, so
+  //     their absence from the bar is as load-bearing as the new order.
+  const transportText = await page.evaluate('document.querySelector(".transport")?.textContent ?? ""')
+  const barOrder = ['Master', 'Crossfade', 'PAUSE', 'BLACKOUT'].map((label) => transportText.indexOf(label))
+  check(barOrder.every((index) => index >= 0) && barOrder.every((index, i) => i === 0 || index > barOrder[i - 1]),
+    'the bottom bar holds Master, Crossfade, PAUSE, BLACKOUT in that order',
+    `positions ${JSON.stringify(barOrder)} in ${JSON.stringify(transportText)}`)
+  check(await page.evaluate('document.querySelector(\'.transport [aria-label="Previous cue"]\') === null'),
+    'per-cue transport (Previous/Next) is no longer in the bottom bar')
+
+  // 6b. The timeline reads clip position, not cue hold — the bug this PR
+  //     fixes. The old bar read `elapsedMs / cueDurationMs`, and
+  //     `cueDurationMs` is `null` for every hold-until-GO cue, so it sat at 0
+  //     for most of the stack. Cue 2 (the white clip) has never had a
+  //     duration set — section 3b only touched cue 1 — so it is still
+  //     hold-until-GO, which is exactly the case the old bar could not move
+  //     for.
+  //
+  //     Graded on *rate*, against this harness's own clock and `CLIP_MS`.
+  //     Movement alone was never the claim: "goes up and does not freeze" is
+  //     satisfied by a bar driven by any moving quantity, including the wrong
+  //     one, which is the entire bug. Both references are outside the app —
+  //     the clip is 3 s because this file builds it that way with ffmpeg, and
+  //     the elapsed time is measured here — and Speed is fixed at 1x on this
+  //     branch, so advance and elapsed have to agree.
+  //
+  //     The timecode beside the bar is the tempting reference and is wrong
+  //     twice over: it renders at one-second resolution, so on a 3 s clip a
+  //     single second of quantisation is 33 points of slack — enough for a bar
+  //     at double or half rate to pass, measured — and it reads the same
+  //     snapshot the bar does, so it is one instrument wearing two labels.
+  //
+  //     Wraps are counted rather than tripped over: the bar is a percentage of
+  //     a looping clip, so advance is the sum of forward steps plus 100 per
+  //     wrap. Two samples 1.2 s apart cannot do this at all — the first
+  //     revision read `96 -> 29` and graded a healthy app red, because 1.2 s
+  //     of a 3 s clip is 40 % of a lap and 96 % put a wrap inside the window.
+  //
+  //     The longest run of identical readings is graded alongside the rate,
+  //     because neither catches what the other does. A bar that freezes and
+  //     then jumps to catch up lands on exactly the right total advance; only
+  //     the flat run sees it. A bar at double rate never repeats a reading;
+  //     only the rate sees it.
+  //     Preconditions established here, not inherited. An earlier revision of
+  //     this section lost its three setup lines in an edit and stayed green,
+  //     because cue 2 happened to still be live from section 6a — the check
+  //     was grading whatever the previous section left behind, and would have
+  //     gone on grading cue 1, a *timed* cue after section 3b types a duration
+  //     into it, the moment anything upstream moved. That is the whole subject
+  //     of the check chosen by accident.
+  await page.evaluate(clickRowScript(1))
+  await page.evaluate(clickButtonScript('GO'))
+  const liveForTimeline = await waitForLive(1)
+  //     Both halves of "hold-until-GO cue is live" asserted, because each can
+  //     fail without the other. The duration field is the app's own tell: it
+  //     is absent exactly when a cue holds, which section 3b's check 26 grades
+  //     from the opposite side. If cue 2 ever acquires a duration upstream,
+  //     this refuses rather than quietly grading the case the section was
+  //     written to exclude.
+  const holdsUntilGo = await page.evaluate(
+    'document.querySelector(\'[aria-label="Cue duration in seconds"]\') === null')
+  check(liveForTimeline === 1 && holdsUntilGo === true,
+    'the cue under the timeline is live and still hold-until-GO',
+    `live row ${liveForTimeline}, duration field ${holdsUntilGo ? 'absent' : 'present'}`)
+  const clipPosition = () => page.evaluate(
+    'Number(document.querySelector(\'[aria-label="Clip position"]\')?.getAttribute("aria-valuenow") ?? "-1")')
+  const positions = []
+  const startedAt = Date.now()
+  for (let sample = 0; sample < 10; sample++) {
+    positions.push(await clipPosition())
+    await sleep(300)
+  }
+  const elapsedMs = Date.now() - startedAt - 300
+  let advance = 0
+  for (let index = 1; index < positions.length; index++) {
+    const step = positions[index] - positions[index - 1]
+    advance += step >= 0 ? step : step + 100
+  }
+  const expected = (elapsedMs / CLIP_MS) * 100
+  //     React republishes engine state on a tick of at least 250 ms, so any
+  //     sample can be that stale — 8 points on a 3 s clip — and the bar rounds
+  //     on top. The band is derived from that rather than picked: two ticks'
+  //     worth either way, plus rounding. It still rejects half rate (~45
+  //     points against ~90 expected) and double (~180) by a wide margin.
+  const band = (500 / CLIP_MS) * 100 + 2
+  let flatRun = 1
+  let longestFlatRun = 1
+  for (let index = 1; index < positions.length; index++) {
+    flatRun = positions[index] === positions[index - 1] ? flatRun + 1 : 1
+    if (flatRun > longestFlatRun) longestFlatRun = flatRun
+  }
+  //     The flat-run grade stays alongside the rate. A bar that freezes and
+  //     then jumps to catch up has the right total advance and is still a
+  //     broken bar; averages hide stalls that a run of identical readings does
+  //     not.
+  check(positions.length === 10 && positions.every((value) => value >= 0)
+    && Math.abs(advance - expected) <= band && longestFlatRun <= 2,
+    'the timeline advances for a hold-until-GO cue, driven by clip position',
+    `${positions.join(' -> ')} · advanced ${advance} points in ${elapsedMs} ms, ` +
+    `expected ${expected.toFixed(1)} ± ${band.toFixed(1)} for a ${CLIP_MS} ms clip, ` +
+    `longest flat run ${longestFlatRun}`)
+
+  // 6c. Tab toggles Live/Preview, and does not fight a focused text field —
+  //     blurring first so a stray focus left over from the duration field
+  //     earlier in this run cannot make the toggle a no-op.
+  await page.evaluate('document.activeElement instanceof HTMLElement && document.activeElement.blur()')
+  const modeBeforeTab = await page.evaluate('document.querySelector(".player-shell")?.className ?? ""')
+  const pressTab = () => page.evaluate(`(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))
+    return true
+  })()`)
+  await pressTab()
+  const modeAfterTab = await waitFor(`(() => {
+    const cls = document.querySelector('.player-shell')?.className ?? ''
+    return cls !== ${JSON.stringify(modeBeforeTab)} ? cls : null
+  })()`)
+  check(modeBeforeTab.includes('mode-live')
+      && typeof modeAfterTab === 'string' && modeAfterTab.includes('mode-preview'),
+    'Tab flips the player shell from Live to Preview', `${modeBeforeTab} -> ${modeAfterTab}`)
+
+  // Back to Live, so every check after this one runs in the mode the rest of
+  // the file assumes.
+  await pressTab()
+  const modeBackToLive = await waitFor(
+    'document.querySelector(".player-shell")?.className.includes("mode-live") ? "live" : null')
+  check(modeBackToLive === 'live', 'Tab flips back from Preview to Live', String(modeBackToLive))
+
+  // 6d. Clicking the live cue's own row parks Standby there rather than
+  //     leaving it wherever it was, and GO greys out — firing Standby here
+  //     would restart the cue already on the floor, which is not what a
+  //     click on the live row means. The Standby badge is hidden on that row
+  //     too, since the row is already marked live and a second badge saying
+  //     "Standby" on the same row is not information, it is the same fact
+  //     twice under two different names.
+  const liveRowForGo = await page.evaluate(liveIndex)
+  await page.evaluate(clickRowScript(liveRowForGo))
+  const goDisabledAfterSelf = await waitFor(
+    'document.querySelector(".go-button")?.disabled === true ? "disabled" : null')
+  check(goDisabledAfterSelf === 'disabled', 'GO is disabled when Standby is parked on the live cue',
+    String(await page.evaluate('document.querySelector(".go-button")?.disabled ?? null')))
+  check(await page.evaluate(
+    `document.querySelectorAll('.cue-row')[${liveRowForGo}]?.querySelector('.standby-marker') === null`),
+    'the Standby badge is hidden on a row that is both live and standby')
+
+  // 6e. A gutter drag resizes the sidebar, live, through the same
+  //     `--w-sidebar` token the design system already sizes the cue stack
+  //     from — a new writer of an existing value, not a new layout
+  //     mechanism. Dispatched on `window` after `pointerdown`, not relying on
+  //     `setPointerCapture` alone: a scripted `PointerEvent` here has no real
+  //     active pointer for the browser to capture, and a resize that only
+  //     works for a mouse the OS is tracking is not one this gate can drive.
+  const widthBeforeDrag = await page.evaluate(
+    'getComputedStyle(document.querySelector(".player-shell")).getPropertyValue("--w-sidebar").trim()')
+  await page.evaluate(`(() => {
+    const gutter = document.querySelector('[data-gutter="sidebar"]')
+    if (gutter === null) throw new Error('no sidebar gutter')
+    const rect = gutter.getBoundingClientRect()
+    const startX = rect.left + rect.width / 2
+    gutter.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, clientX: startX }))
+    window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 1, clientX: startX + 60 }))
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1, clientX: startX + 60 }))
+    return true
+  })()`)
+  const widthAfterDrag = await waitFor(`(() => {
+    const w = getComputedStyle(document.querySelector('.player-shell')).getPropertyValue('--w-sidebar').trim()
+    return w !== ${JSON.stringify(widthBeforeDrag)} ? w : null
+  })()`)
+  check(typeof widthAfterDrag === 'string' && widthAfterDrag !== widthBeforeDrag,
+    'dragging the sidebar gutter changes --w-sidebar', `${widthBeforeDrag} -> ${widthAfterDrag}`)
+
+  // 6f. Layout must not touch the render loop. The gutter drag above and a
+  //     zoom change here happen while a cue is live, and neither may gap or
+  //     black the wire — a resize handler or a zoom recompute that touched
+  //     the compose/writeFrame path would be exactly the kind of defect
+  //     `docs/APP-PLAN.md` describes for the render loop: silent, and
+  //     invisible to anything that is not watching the wire itself.
+  const beforeLayoutChange = tap.packets.length
+  await page.evaluate(clickScript('[aria-label="Zoom in"]'))
+  await page.evaluate(clickScript('[aria-label="Zoom in"]'))
+  await sleep(600)
+  const acrossLayoutChange = tap.packets.slice(beforeLayoutChange)
+  check(acrossLayoutChange.length > 0 && countTone(acrossLayoutChange, 'black') === 0,
+    'the wire stays unbroken across the sidebar resize and a zoom change',
+    `${countTone(acrossLayoutChange, 'black')} of ${acrossLayoutChange.length} packets were all-zero`)
+  await page.evaluate(clickButtonScript('Fit'))
+
+  // 6g. The Cue Library surface. Ordered after 6a-6f deliberately, not by
+  //     accident of the merge: this block adds a fourth cue and then reorders
+  //     the stack, and 6b asserts that the cue under the timeline is cue 2 and
+  //     still hold-until-GO. Run the other way round, 6b would be grading
+  //     whichever cue the Library left live — the exact substitution its
+  //     precondition exists to catch.
+  //
+  //     Nothing after this point reads cue-stack structure: section 5 only
+  //     checks that quitting sends black, which `Sidecar.stop()` does
+  //     unconditionally regardless of what was live. The navigation back to
+  //     Play that this block used to open with is now done once, above, by
+  //     the block that runs first.
   //     `ddf:list-media-dir` takes no path from the renderer — the main
   //     process answers with its own idea of the authorised folder. That is
   //     the property that keeps the handler from being a read-any-directory
@@ -1522,7 +1787,7 @@ try {
     'the Library cue reaches the wire as real, distinct content',
     `other ${countTone(fromLibrary, 'other')} of ${fromLibrary.length} packets`)
 
-  // 4f. Drag-to-reorder, over `playHelpers.ts`'s `moveCue` generalised to an
+  // 6h. Drag-to-reorder, over `playHelpers.ts`'s `moveCue` generalised to an
   //     arbitrary index — `playHelpers.test.ts` grades the function; this
   //     grades that the row wiring actually calls it. Constructed
   //     `DragEvent`s with a real `DataTransfer`, not a mouse-drag simulation:
@@ -1570,7 +1835,7 @@ try {
   check(tail.length > 0 && allBlack(tail), 'the last frame sent before quit is black',
     `${tail.length} trailing packets`)
 
-  // 6. The reauthorisation policy, proved rather than only documented — see
+  // 7. The reauthorisation policy, proved rather than only documented — see
   //    `checkLibrarySurvivesRestart`. Run after the main run's Electron has
   //    quit and before the workspace it wrote `settings.json` into is
   //    removed in the `finally` block below.
@@ -1618,6 +1883,10 @@ try {
   }
   tap.close()
   rmSync(workspace, { recursive: true, force: true })
+
+  // The gate lock needs no release: it is a socket, and the kernel closes it
+  // when this process ends, on every path including the ones that never reach
+  // here.
 }
 
 console.log(failures.length === 0

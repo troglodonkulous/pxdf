@@ -252,8 +252,9 @@ describe('respawn', () => {
     expect(children.length).toBe(2);
     children[1].goLive();
 
-    // Not cosmetic: controller 1 reverts to the vendor's own local content
-    // ~5 s after packets stop, so a silent respawn that waits for the next
+    // Not cosmetic: controller 1, in Master/IR mode, reverts to the vendor's
+    // own local content ~5 s after packets stop (in slave mode it would hold
+    // its last frame instead), so a silent respawn that waits for the next
     // rAF tick risks the floor showing someone else's show.
     expect(children[1].writes[0][0]).toBe(7);
   });

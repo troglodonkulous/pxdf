@@ -148,9 +148,11 @@ describe.each(RIGS)('the gradient24 gate — $name', ({ floor, digest }) => {
 
 describe('the black frame', () => {
   // Not decoration. CLAUDE.md: stopping the send does not black the floor —
-  // controller 1 reverts to vendor local content ~5 s later while 2 and 3 hold
-  // their last frame. So BLACKOUT, cue gaps and idle must all *send* black, and
-  // that frame has exactly one correct digest. PR 2's gate is built on this.
+  // in Master/IR mode controller 1 reverts to vendor local content ~5 s later
+  // while 2 and 3 hold their last frame; in slave mode controller 1 holds its
+  // last frame too. Either way, BLACKOUT, cue gaps and idle must all *send*
+  // black, and that frame has exactly one correct digest. PR 2's gate is
+  // built on this.
   it('has a stable digest that both rigs agree on the shape of', () => {
     for (const { floor } of RIGS) {
       const viaMaster = onePass(gradient24(floor), floor, { ...IDENTITY, master: 0 });

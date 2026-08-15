@@ -254,7 +254,9 @@ function createWindow(): void {
     // The floor would hold whatever was on it with no UI left to change it.
     // Black is the only safe frame to leave behind; the socket stays open,
     // because stopping the send is what makes controller 1 revert to the
-    // vendor's own content.
+    // vendor's own content when it is in Master/IR mode (in slave mode it
+    // would hold its last frame instead, same as 2 and 3 — either way, black
+    // is the only frame safe to leave on the floor with nobody driving it).
     if (BrowserWindow.getAllWindows().length === 0) sidecar?.writeFrame(currentBlackFrame)
   })
   window.webContents.on('did-finish-load', () => {

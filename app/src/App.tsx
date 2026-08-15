@@ -197,7 +197,9 @@ export function App() {
 
       // The floor. Exactly one write per animation frame, on every path —
       // stopping the send is what makes controller 1 revert to the vendor's own
-      // content, so there is no branch here that may skip it.
+      // content when it is in Master/IR mode (in slave mode it would hold its
+      // last frame instead, same as 2 and 3), so there is no branch here that
+      // may skip it either way.
       const wireBytes = tick.wire.kind === 'black'
         ? blackFrameRef.current
         : compose(tick.wire.source, tick.master, wireBufferRef.current)
@@ -368,6 +370,7 @@ export function App() {
           onZoomIn={() => setZoom(zoomIn)}
           onZoomOut={() => setZoom(zoomOut)}
           onZoomFit={() => setZoom(ZOOM_FIT)}
+          onZoomSet={setZoom}
         />
       )}
       {/*
@@ -375,7 +378,8 @@ export function App() {
         `writeFrame` if this ref is null, and this element used to live inside
         Play's JSX. With the app launching on Mapping that would mean nothing
         reaches the sidecar at all until Open Player is clicked, and silence is
-        what makes controller 1 revert to the vendor's own content. `surface`
+        what makes controller 1 revert to the vendor's own content in Master/IR
+        mode (in slave mode it would hold its last frame instead). `surface`
         toggles its visibility in CSS; `PlayScreen` only supplies a container to
         position it into.
 

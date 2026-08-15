@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import type * as React from 'react'
 import type { SenderStatus } from '../electron/sidecar.js'
 import { StatusPill } from './StatusPill.js'
 import type { EngineSnapshot, PlayerEngine, PlayerMode } from './player/engine.js'
@@ -19,6 +20,7 @@ import {
 import { nextCueId, type Cue, type Show } from './player/show.js'
 import { VideoSource } from './player/videoSource.js'
 import { captureThumbnail } from './player/thumbnail.js'
+import { parseZoomPercent, zoomPercentText } from './player/zoom.js'
 import type { FloorGeometry } from './render/geometry.js'
 import { usePopoverEscape } from './popoverEscape.js'
 
@@ -26,6 +28,10 @@ interface RenderStats {
   readonly fps: number
   readonly passMs: number
 }
+
+const TIMELINE_SEGMENTS = 40
+const MIN_PANEL_WIDTH = 180
+const MAX_PANEL_WIDTH = 420
 
 interface PlayScreenProps {
   readonly show: Show
@@ -45,6 +51,7 @@ interface PlayScreenProps {
   readonly onZoomIn: () => void
   readonly onZoomOut: () => void
   readonly onZoomFit: () => void
+  readonly onZoomSet: (zoom: number) => void
 }
 
 type IconName = 'plus' | 'up' | 'down' | 'trash' | 'pencil' | 'previous' | 'next' | 'play' | 'pause'
@@ -95,6 +102,52 @@ function cueRowClass(cue: Cue, selectedCueId: string | null, snapshot: EngineSna
   return classes.join(' ')
 }
 
+/**
+ * GO must never re-fire the cue that is already live: with no distinct
+ * standby cue armed, GO would restart the live cue's decoder mid-playback for
+ * no operator-visible reason. Exported so the mutation-check can grade this
+ * condition without rendering the component.
+ */
+export function isGoDisabled(snapshot: Pick<EngineSnapshot, 'standbyCueId' | 'liveCueId'>): boolean {
+  return snapshot.standbyCueId === null || snapshot.standbyCueId === snapshot.liveCueId
+}
+
+/**
+ * Fraction of the live cue's clip already played, from the engine's actual
+ * decode position — not the cue's elapsed-since-armed clock, which stays at
+ * the cue's own duration bookkeeping and never reflects a cue with no
+ * `durationMs` set (it holds until GO, so `elapsedMs`/`cueDurationMs` isn't
+ * the clip's position). Exported for the mutation-check.
+ */
+export function timelineProgress(snapshot: Pick<EngineSnapshot, 'positionMs' | 'mediaDurationMs'>): number {
+  return snapshot.mediaDurationMs === null || snapshot.mediaDurationMs <= 0
+    ? 0
+    : Math.min(1, Math.max(0, snapshot.positionMs / snapshot.mediaDurationMs))
+}
+
+/**
+ * What clicking a cue row targets — both `selectedCueId` (the inspector,
+ * rotation edit, rename, move, and delete all read it) and the id handed to
+ * `engine.selectCue`. These must always agree: if they diverged, those
+ * controls would silently act on a different cue than the one being
+ * previewed or armed.
+ *
+ * Outside Preview the target is always the clicked cue — Standby only makes
+ * sense for what was actually clicked. In Preview, clicking the row that is
+ * live re-targets the next cue instead, because re-previewing a cue that's
+ * already on the floor shows nothing new; auditioning the next cue does.
+ */
+export function selectCueTarget(
+  cueId: string,
+  cues: readonly Cue[],
+  mode: PlayerMode,
+  liveCueId: string | null,
+): string {
+  if (mode !== 'preview' || cueId !== liveCueId) return cueId
+  const index = cues.findIndex((cue) => cue.id === cueId)
+  return cues[index + 1]?.id ?? cueId
+}
+
 export function PlayScreen({
   show,
   showRef,
@@ -112,8 +165,11 @@ export function PlayScreen({
   onZoomIn,
   onZoomOut,
   onZoomFit,
+  onZoomSet,
 }: PlayScreenProps) {
   const [selectedCueId, setSelectedCueId] = useState<string | null>(null)
+  const [zoomEditing, setZoomEditing] = useState(false)
+  const [zoomDraft, setZoomDraft] = useState('')
   const [renamingCueId, setRenamingCueId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [pickerError, setPickerError] = useState<string | null>(null)
@@ -133,10 +189,12 @@ export function PlayScreen({
    */
   const [durationDraft, setDurationDraft] = useState<{ cueId: string; text: string } | null>(null)
   const [probingDuration, setProbingDuration] = useState(false)
+  const shellRef = useRef<HTMLElement>(null)
 
   const selectCue = (cueId: string): void => {
-    setSelectedCueId(cueId)
-    engine.selectCue(cueId)
+    const target = selectCueTarget(cueId, show.cues, snapshot.mode, snapshot.liveCueId)
+    setSelectedCueId(target)
+    engine.selectCue(target)
     refreshSnapshot()
   }
 
@@ -238,7 +296,66 @@ export function PlayScreen({
     refreshSnapshot()
   }
 
+  // Shared by the ↑/↓ standby-step buttons and the ArrowUp/ArrowDown keys the
+  // helper row underneath them advertises. selectedCueId is resynced to the
+  // engine's own post-step standbyCueId (queried directly, not derived here)
+  // so the inspector/rotation/rename/move/delete keep tracking whatever is
+  // actually armed, the same contract selectCue holds for a direct click.
+  const stepStandby = (direction: 'previous' | 'next'): void => {
+    if (direction === 'previous') engine.selectPrevious()
+    else engine.selectNext()
+    setSelectedCueId(engine.snapshot().standbyCueId)
+    refreshSnapshot()
+  }
+
+  const fireGo = (): void => {
+    if (isGoDisabled(snapshot)) return
+    engine.go()
+    refreshSnapshot()
+  }
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target
+      const isTextInput = target instanceof HTMLElement
+        && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')
+      if (isTextInput) return
+      switch (event.key) {
+        case 'Tab':
+          event.preventDefault()
+          setMode(snapshot.mode === 'live' ? 'preview' : 'live')
+          return
+        case 'ArrowUp':
+          event.preventDefault()
+          stepStandby('previous')
+          return
+        case 'ArrowDown':
+          event.preventDefault()
+          stepStandby('next')
+          return
+        case ' ':
+        case 'Spacebar':
+          // Unlike Tab/ArrowUp/ArrowDown, this one has to yield to a focused
+          // button: Space's native job is activating whatever button has
+          // focus (BLACKOUT, PAUSE, a standby-step…), and Electron does give
+          // clicked buttons focus. Hijacking it globally would silently fire
+          // GO instead of the focused control's own click.
+          if (target instanceof HTMLElement && target.tagName === 'BUTTON') return
+          event.preventDefault()
+          fireGo()
+          return
+        default:
+          return
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [snapshot])
+
   const selectedCue = show.cues.find((cue) => cue.id === selectedCueId) ?? null
+  const selectedLiveCue = show.cues.find((cue) => cue.id === snapshot.liveCueId) ?? null
+  const liveCueIndex = selectedLiveCue === null ? -1 : show.cues.findIndex((cue) => cue.id === selectedLiveCue.id)
+  const progress = timelineProgress(snapshot)
   const holdsUntilGo = selectedCue === null || selectedCue.durationMs === null
   // The draft only speaks for the cue it was typed against; anything else falls
   // back to what that cue actually holds.
@@ -305,16 +422,47 @@ export function PlayScreen({
   }
 
   const selectedIndex = selectedCue === null ? -1 : show.cues.findIndex((cue) => cue.id === selectedCue.id)
-  const progress = snapshot.cueDurationMs === null || snapshot.cueDurationMs <= 0
-    ? 0
-    : Math.min(1, snapshot.elapsedMs / snapshot.cueDurationMs)
   // Sender first. A cue that will not decode is a problem with one cue; a
   // sender that is down is the whole floor, and during a show the operator gets
   // one glance at this line.
   const visibleError = senderError ?? snapshot.lastError ?? pickerError
 
+  const commitZoomDraft = (): void => {
+    const parsed = parseZoomPercent(zoomDraft)
+    if (parsed !== null) onZoomSet(parsed)
+    setZoomEditing(false)
+  }
+
+  const startResize = (
+    cssVar: '--w-sidebar' | '--w-inspector',
+    direction: 1 | -1,
+  ): ((event: React.PointerEvent<HTMLDivElement>) => void) => (event) => {
+    const shell = shellRef.current
+    if (shell === null) return
+    const startX = event.clientX
+    const startWidth = parseFloat(getComputedStyle(shell).getPropertyValue(cssVar)) || 0
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // Losing pointer capture is not fatal: window listeners still resize.
+    }
+
+    const onMove = (moveEvent: PointerEvent): void => {
+      const delta = (moveEvent.clientX - startX) * direction
+      const next = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, startWidth + delta))
+      shell.style.setProperty(cssVar, `${next}px`)
+    }
+    const onUp = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
   return (
-    <main className={`player-shell mode-${snapshot.mode} play-screen`}>
+    <main ref={shellRef} className={`player-shell mode-${snapshot.mode} play-screen`}>
       <header className="title-bar">
         <span className="show-title">DDF Player — {show.name}</span>
         <span className="geometry-readout">
@@ -361,7 +509,12 @@ export function PlayScreen({
                       onBlur={finishRename}
                     />
                   </span>
-                  {cue.id === snapshot.standbyCueId
+                  {cue.id === snapshot.liveCueId && (
+                    <span className="playing-indicator" title="Playing">
+                      <span /><span /><span />
+                    </span>
+                  )}
+                  {cue.id === snapshot.standbyCueId && snapshot.standbyCueId !== snapshot.liveCueId
                     ? <span className="standby-marker">Standby</span>
                     : <span className="cue-duration">{formatTimecode(cue.durationMs)}</span>}
                 </form>
@@ -393,7 +546,12 @@ export function PlayScreen({
                   </span>
                   <span className="cue-number">{(index + 1).toString().padStart(2, '0')}</span>
                   <span className="cue-name">{cue.name}</span>
-                  {cue.id === snapshot.standbyCueId
+                  {cue.id === snapshot.liveCueId && (
+                    <span className="playing-indicator" title="Playing">
+                      <span /><span /><span />
+                    </span>
+                  )}
+                  {cue.id === snapshot.standbyCueId && snapshot.standbyCueId !== snapshot.liveCueId
                     ? <span className="standby-marker">Standby</span>
                     : <span className="cue-duration">{formatTimecode(cue.durationMs)}</span>}
                 </button>
@@ -410,13 +568,13 @@ export function PlayScreen({
             </div>
           )}
 
-          <div className="go-wrap">
-            <button
-              type="button"
-              className="button primary go-button"
-              disabled={snapshot.standbyCueId === null}
-              onClick={() => { engine.go(); refreshSnapshot() }}
-            >GO</button>
+          <div className="standby-controls">
+            <div className="standby-row">
+              <button type="button" className="standby-step" title="Standby previous cue" aria-label="Standby previous cue" onClick={() => stepStandby('previous')}><Icon name="up" size={20} /></button>
+              <button type="button" className="button primary go-button" disabled={isGoDisabled(snapshot)} onClick={fireGo}>GO</button>
+              <button type="button" className="standby-step" title="Standby next cue" aria-label="Standby next cue" onClick={() => stepStandby('next')}><Icon name="down" size={20} /></button>
+            </div>
+            <div className="standby-helper"><span>↑</span><span>Space</span><span>↓</span></div>
           </div>
 
           <section className="library-section" aria-label="Media library">
@@ -450,11 +608,14 @@ export function PlayScreen({
           </section>
         </aside>
 
+        <div className="resize-gutter" data-gutter="sidebar" role="separator" aria-orientation="vertical" aria-label="Resize cue stack" onPointerDown={startResize('--w-sidebar', 1)} />
+
         <section className="preview-column" aria-label="Floor preview">
           <div className="preview-heading">
             <span className="section-label">
               Floor A · {floor.tileCols * floor.tileRows} Tiles
             </span>
+            <span className="key-hint">Tab</span>
             <div className="segmented" aria-label="Player mode">
               {(['live', 'preview'] as const).map((mode) => (
                 <button
@@ -470,7 +631,11 @@ export function PlayScreen({
             </div>
             <div className="segmented" aria-label="Zoom controls">
               <button type="button" className="icon-button compact" title="Zoom out" aria-label="Zoom out" onClick={onZoomOut}>−</button>
-              <span>{Math.round(zoom * 100)}%</span>
+              {zoomEditing ? (
+                <input autoFocus type="text" inputMode="numeric" maxLength={3} className="zoom-percent-input" aria-label="Zoom percent" value={zoomDraft} onChange={(event) => setZoomDraft(event.currentTarget.value.replace(/\D/g, ''))} onBlur={commitZoomDraft} onKeyDown={(event) => { if (event.key === 'Enter') { event.currentTarget.blur() } else if (event.key === 'Escape') { setZoomEditing(false) } }} />
+              ) : (
+                <span onDoubleClick={() => { setZoomDraft(zoomPercentText(zoom)); setZoomEditing(true) }}>{zoomPercentText(zoom)}%</span>
+              )}
               <button type="button" className="icon-button compact" title="Zoom in" aria-label="Zoom in" onClick={onZoomIn}>+</button>
               <button type="button" className="button ghost small" title="Zoom to fit" aria-label="Zoom to fit" onClick={onZoomFit}>Fit</button>
             </div>
@@ -482,12 +647,31 @@ export function PlayScreen({
               style={{ aspectRatio: `${floor.widthPx} / ${floor.heightPx}` }}
             />
           </div>
-          <div className="render-readout">
-            <strong>{snapshot.mode.toUpperCase()}</strong>
-            <span> · {stats.fps.toFixed(1)} fps · {stats.passMs.toFixed(2)} ms one-pass</span>
+          <div className="timeline-panel">
+            <div className="timeline-heading">
+              <span className="section-label">{selectedLiveCue === null ? 'No live cue' : `Cue ${String(liveCueIndex + 1).padStart(2, '0')}`} · clip position</span>
+              <span className="timeline-spacer" />
+              <span className="timeline-time">{formatTimecode(snapshot.positionMs)}<span> / {snapshot.mediaDurationMs === null ? '∞' : formatTimecode(snapshot.mediaDurationMs)}</span></span>
+              <span className="timeline-loop-chip">LOOP ∞</span>
+            </div>
+            <div className="timeline-track" role="progressbar" aria-label="Clip position" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+              {Array.from({ length: TIMELINE_SEGMENTS }, (_, i) => {
+                const segmentProgress = (i + 1) / TIMELINE_SEGMENTS
+                const cursorProgress = (i + 0.5) / TIMELINE_SEGMENTS
+                const isCursor = Math.abs(cursorProgress - progress) < 1 / TIMELINE_SEGMENTS
+                const isPlayed = !isCursor && segmentProgress <= progress
+                return <span key={i} className={`timeline-segment${isCursor ? ' is-cursor' : isPlayed ? ' is-played' : ''}`} />
+              })}
+            </div>
+            <div className="timeline-footer">
+              <span>Read-only while LIVE · scrub in Preview</span>
+              <span className="render-readout"><strong>{snapshot.mode.toUpperCase()}</strong><span> · {stats.fps.toFixed(1)} fps · {stats.passMs.toFixed(2)} ms one-pass</span></span>
+            </div>
           </div>
           {visibleError !== null && <div className="error-banner" role="status">{visibleError}</div>}
         </section>
+
+        <div className="resize-gutter" data-gutter="inspector" role="separator" aria-orientation="vertical" aria-label="Resize inspector" onPointerDown={startResize('--w-inspector', -1)} />
 
         <aside className="inspector" aria-label="Cue inspector">
           <span className="section-label">Cue Control</span>
@@ -596,41 +780,10 @@ export function PlayScreen({
 
           <span title="Cue editing arrives in PR 4"><button type="button" className="button secondary full" disabled>Edit Cue…</button></span>
 
-          <button
-            type="button"
-            className={`blackout-button${snapshot.blackout ? ' is-active' : ''}`}
-            aria-pressed={snapshot.blackout}
-            onClick={() => { engine.setBlackout(!snapshot.blackout); refreshSnapshot() }}
-          >
-            {snapshot.blackout ? 'BLACKOUT ACTIVE' : 'BLACKOUT'}
-          </button>
         </aside>
       </div>
 
       <footer className="transport" aria-label="Transport controls">
-        <div className="transport-buttons">
-          <button type="button" className="icon-button" title="Previous cue" aria-label="Previous cue" onClick={() => { engine.selectPrevious(); refreshSnapshot() }}><Icon name="previous" size={18} /></button>
-          <button
-            type="button"
-            className="icon-button primary transport-play"
-            title={snapshot.transportPaused ? 'Resume' : 'Pause'}
-            aria-label={snapshot.transportPaused ? 'Resume' : 'Pause'}
-            onClick={() => { engine.setPaused(!snapshot.transportPaused); refreshSnapshot() }}
-          ><Icon name={snapshot.transportPaused ? 'play' : 'pause'} size={20} /></button>
-          <button type="button" className="icon-button" title="Next cue" aria-label="Next cue" onClick={() => { engine.selectNext(); refreshSnapshot() }}><Icon name="next" size={18} /></button>
-        </div>
-
-        <div className="timecode">{formatTimecode(snapshot.elapsedMs)} <span>/</span> {formatTimecode(snapshot.cueDurationMs)}</div>
-        <div className="progress" role="progressbar" aria-label="Cue progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
-          <span style={{ width: `${progress * 100}%` }} />
-          <i style={{ left: `calc(${progress * 100}% - 3px)` }} />
-        </div>
-
-        <div className="transport-disabled" title="Global fades arrive in PR 4">
-          <span className="section-label">Fade</span>
-          <button type="button" disabled>1.5 s</button>
-        </div>
-
         <label className="master-control">
           <span className="section-label">Master</span>
           <input
@@ -642,6 +795,12 @@ export function PlayScreen({
           />
           <output>{Math.round(snapshot.master * 100)}%</output>
         </label>
+        <span className="transport-divider" />
+        <div className="crossfade-control" title="Crossfade arrives with the Compositor"><span className="section-label">Crossfade</span><input type="range" min="0" max="60" value="15" disabled readOnly /><output>1.5 s</output></div>
+        <span className="transport-spacer" />
+        <span className="transport-divider" />
+        <div className="transport-action"><button type="button" className="button primary transport-big-button" title={snapshot.transportPaused ? 'Resume' : 'Pause'} onClick={() => { engine.setPaused(!snapshot.transportPaused); refreshSnapshot() }}><Icon name={snapshot.transportPaused ? 'play' : 'pause'} size={18} />{snapshot.transportPaused ? 'RESUME' : 'PAUSE'}</button><span className="key-hint">P</span></div>
+        <div className="transport-action"><button type="button" className={`transport-big-button transport-blackout${snapshot.blackout ? ' is-active' : ''}`} aria-pressed={snapshot.blackout} onClick={() => { engine.setBlackout(!snapshot.blackout); refreshSnapshot() }}>{snapshot.blackout ? 'BLACKOUT ACTIVE' : 'BLACKOUT'}</button><span className="key-hint">⌘B</span></div>
       </footer>
     </main>
   )

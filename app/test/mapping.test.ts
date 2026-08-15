@@ -298,8 +298,10 @@ describe('the floor limits agree with mapper', () => {
     // the old sender still alive. That guard is only as strong as this
     // validator: a row count `floorGeometry` waves through but `mapper` refuses
     // means the old sidecar is stopped, `mapper stream` exits on startup, and
-    // the floor has no sender at all — controller 1 reverts to the vendor's own
-    // content about five seconds later, mid-show.
+    // the floor has no sender at all — controller 1, in Master/IR mode, reverts
+    // to the vendor's own content about five seconds later, mid-show (in slave
+    // mode it would hold its last frame instead — either way, no sender is no
+    // sender).
     //
     // Per-type, and read from mapper rather than written here: the limits are
     // 25 / 17 / 22 / 11 today, and a table copied into TypeScript is a table

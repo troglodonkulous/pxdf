@@ -116,6 +116,23 @@ export interface EngineSnapshot {
   /** The live cue's duration, or null when it holds until GO. */
   readonly cueDurationMs: number | null;
   /**
+   * The live source's own playback position, in milliseconds. 0 when nothing
+   * is live.
+   *
+   * This is what the Player's timeline is driven from, not `cueDurationMs` —
+   * that field is the cue's *hold*, which is `null` for every hold-until-GO
+   * cue, so a progress bar built on it sat at 0 for most of the stack. Clip
+   * position moves for a looping hold-until-GO cue exactly as it does for a
+   * timed one, because it is read off the decoder, not off the advance rule.
+   */
+  readonly positionMs: number;
+  /**
+   * The live source's own media length, in milliseconds. `null` until the
+   * decoder reports one, which is not the same `null` as `cueDurationMs`'s —
+   * that one means "hold forever"; this one means "not known yet".
+   */
+  readonly mediaDurationMs: number | null;
+  /**
    * Set when a cue could not be played, and cleared when the surface it
    * happened on is working again or gone — not when the operator presses GO.
    * See `ErrorSurface`.
@@ -442,6 +459,8 @@ export class PlayerEngine<S extends FrameSource> {
       previewCueId: this.preview?.cue.id ?? null,
       elapsedMs: this.elapsedMs(),
       cueDurationMs: this.live?.cue.durationMs ?? null,
+      positionMs: this.live?.source.positionMs ?? 0,
+      mediaDurationMs: this.live?.source.mediaDurationMs ?? null,
       lastError: this.lastError,
     };
   }
