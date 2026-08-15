@@ -60,6 +60,28 @@ export interface FrameSource {
   readonly ready: boolean;
   /** Terminal: the media will never play. A missing file, a codec, a decode error. */
   readonly failed: boolean;
+  /**
+   * Why it failed, in the source's own words. Non-null whenever `failed` is.
+   *
+   * The engine knows a cue's name and which surface it was on, and nothing
+   * else: `failed` is one bit, and one bit is what the banner used to say — the
+   * cue's name and a verb. Whether the decoder could not open the container,
+   * whether the file is missing, whether the frame decoded fine and the
+   * compositor could not read it back are all distinctions only the source
+   * holds, and it is the second of those the operator can act on during a show.
+   */
+  readonly failureReason: string | null;
+  /**
+   * Set while the source is waiting for data, and cleared when it stops
+   * waiting. Not a failure and never latched.
+   *
+   * This is the mid-run gap. `failed` covers a clip that dies, `ready` covers
+   * one that never starts, and between them sat a clip that plays, stops for
+   * four seconds to buffer, and carries on — during which every field the
+   * engine publishes says the cue is fine. The floor holds a frame and nothing
+   * anywhere says why.
+   */
+  readonly stallReason: string | null;
   /** Playback position within the media, in milliseconds. */
   readonly positionMs: number;
   /** The media's own length, once known. Not the cue's duration. */
@@ -138,6 +160,17 @@ export interface EngineSnapshot {
    * See `ErrorSurface`.
    */
   readonly lastError: string | null;
+  /**
+   * A cue that is playing but waiting for data, right now. Null when nothing is
+   * stalled.
+   *
+   * Separate from `lastError` rather than folded into it, because the two ask
+   * for different things from the operator: an error means that cue is over and
+   * the floor is black, a stall means wait a moment. Reported live off the
+   * source and never latched — it goes away by itself when the clip recovers,
+   * which is the only thing that keeps it worth reading.
+   */
+  readonly stallWarning: string | null;
 }
 
 export interface EngineOptions<S extends FrameSource> {
@@ -191,6 +224,16 @@ interface SurfaceError {
   readonly path: string;
   /** Verb phrase completing `cue "<name>" …`. */
   readonly reason: string;
+  /**
+   * What the source said, appended after an em dash. Null when the failure was
+   * the engine's own — `arm` throwing has no source to ask.
+   *
+   * Held rather than merged into `reason` for the same purpose the split of cue
+   * id from wording serves: `reason` is this engine's account of *where* the
+   * failure was, `detail` is the decoder's account of *what* it was, and they
+   * come from different places at different times.
+   */
+  readonly detail: string | null;
 }
 
 export class PlayerEngine<S extends FrameSource> {
@@ -466,6 +509,7 @@ export class PlayerEngine<S extends FrameSource> {
       positionMs: this.live?.source.positionMs ?? 0,
       mediaDurationMs: this.live?.source.mediaDurationMs ?? null,
       lastError: this.lastError,
+      stallWarning: this.stallWarning,
     };
   }
 
@@ -478,19 +522,22 @@ export class PlayerEngine<S extends FrameSource> {
   }
 
   private reapFailures(): void {
+    // The source's reason is read *before* `release`, which disposes it. A
+    // disposed decoder is entitled to say nothing, and reading afterwards would
+    // reintroduce the empty banner through the back door.
     if (this.pending?.source.failed === true) {
-      this.fail('live', this.pending.cue, 'failed to play');
+      this.fail('live', this.pending.cue, 'failed to play', this.pending.source.failureReason);
       this.pending = this.release(this.pending);
     }
     if (this.live?.source.failed === true) {
       // The floor goes black rather than to the next cue. An automatic advance
       // here would put unrelated content up at the moment something is already
       // wrong, with nothing on screen to say why.
-      this.fail('live', this.live.cue, 'stopped playing');
+      this.fail('live', this.live.cue, 'stopped playing', this.live.source.failureReason);
       this.clearLive();
     }
     if (this.preview?.source.failed === true) {
-      this.fail('preview', this.preview.cue, 'failed to preview');
+      this.fail('preview', this.preview.cue, 'failed to preview', this.preview.source.failureReason);
       this.preview = this.release(this.preview);
     }
   }
@@ -523,8 +570,8 @@ export class PlayerEngine<S extends FrameSource> {
     return { cue, source: slot.source };
   }
 
-  private fail(surface: ErrorSurface, cue: Cue, reason: string): void {
-    const error: SurfaceError = { cueId: cue.id, path: cue.source.path, reason };
+  private fail(surface: ErrorSurface, cue: Cue, reason: string, detail: string | null): void {
+    const error: SurfaceError = { cueId: cue.id, path: cue.source.path, reason, detail };
     if (surface === 'live') this.liveError = error;
     else this.previewError = error;
   }
@@ -549,7 +596,25 @@ export class PlayerEngine<S extends FrameSource> {
     // Renaming the cue that would not play is an ordinary thing to do with the
     // banner up, and the old name is one the operator can no longer find.
     const cue = this.cueById(error.cueId);
-    return cue === null ? null : `cue ${JSON.stringify(cue.name)} ${error.reason}`;
+    if (cue === null) return null;
+    const sentence = `cue ${JSON.stringify(cue.name)} ${error.reason}`;
+    return error.detail === null ? sentence : `${sentence} — ${error.detail}`;
+  }
+
+  /**
+   * The stalled cue, if one is stalled this instant.
+   *
+   * Live first for the same reason `lastError` prefers it: the floor is the
+   * show. Read straight off the source with no state of its own, so it cannot
+   * outlive the condition it reports — the failure mode a latched version would
+   * have, and the one that makes a warning worth ignoring.
+   */
+  private get stallWarning(): string | null {
+    const live = this.live?.source.stallReason ?? null;
+    if (live !== null) return `cue ${JSON.stringify(this.live?.cue.name ?? '')} ${live}`;
+    const preview = this.preview?.source.stallReason ?? null;
+    if (preview !== null) return `cue ${JSON.stringify(this.preview?.cue.name ?? '')} ${preview}`;
+    return null;
   }
 
   /**
@@ -638,8 +703,10 @@ export class PlayerEngine<S extends FrameSource> {
     // black plus a banner, like every other failure, rather than a silent stall.
     try {
       this.pending = this.arm(next);
-    } catch {
-      this.fail('live', next, 'could not be started');
+    } catch (error) {
+      // No source exists to ask, so the thrown value is the only account there
+      // is of why the decoder could not be built.
+      this.fail('live', next, 'could not be started', error instanceof Error ? error.message : String(error));
       // Going idle is also what stops this retrying: with no live cue there is
       // no duration left to expire, so the next tick does not try again.
       this.clearLive();

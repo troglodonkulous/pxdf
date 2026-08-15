@@ -51,6 +51,65 @@ export function trimWrapPoint(currentTimeMs: number, trimStartMs: number, trimEn
   return currentTimeMs >= trimEndMs ? trimStartMs : null
 }
 
+/**
+ * `MediaError.code`, by name.
+ *
+ * Numbered by the HTML spec, not by us, and written out here because the
+ * numbers alone are not a diagnosis: a banner reading `code 4` sends the
+ * operator to a search engine, where `MEDIA_ERR_SRC_NOT_SUPPORTED` sends them
+ * to the file. Both go in the message — the name for the reader, the number
+ * because it is the value in every other account of the same failure.
+ *
+ * This is a plain table rather than `HTMLMediaElement.MEDIA_ERR_*` because the
+ * constants live on the element's *interface object*, which does not exist in
+ * the test environment (no jsdom, by `docs/APP-PLAN.md`); reading them here
+ * would make the whole reason path ungradeable off-hardware, which is the state
+ * that let this defect stand.
+ */
+const MEDIA_ERROR_NAMES: Readonly<Record<number, string>> = {
+  1: 'MEDIA_ERR_ABORTED',
+  2: 'MEDIA_ERR_NETWORK',
+  3: 'MEDIA_ERR_DECODE',
+  4: 'MEDIA_ERR_SRC_NOT_SUPPORTED',
+}
+
+/** The shape of `MediaError` this module reads. Kept structural so tests need no DOM. */
+export interface MediaErrorLike {
+  readonly code: number
+  readonly message?: string
+}
+
+/**
+ * What the element's own diagnosis says, as one line for the banner.
+ *
+ * In Chromium `MediaError.message` carries the real string —
+ * `DEMUXER_ERROR_COULD_NOT_OPEN`, a decoder-init failure, the codec it choked
+ * on — and it was thrown away wholesale before this: `onError` was
+ * `(): void => { this.state.fail() }`, so every unplayable clip in the show
+ * reached the operator as its own name and the word "failed".
+ *
+ * The `null` argument is not padding. `error` is genuinely null-typed on the
+ * element, and an `error` event that arrives with nothing attached is a real
+ * thing a source can do — reporting *that* is the point, because the
+ * alternative is a failure with no reason at all, which is the case this
+ * function exists to abolish.
+ */
+export function mediaErrorReason(error: MediaErrorLike | null | undefined): string {
+  if (error === null || error === undefined) return 'media error with no MediaError attached'
+  const name = MEDIA_ERROR_NAMES[error.code] ?? 'unknown media error'
+  const message = error.message?.trim() ?? ''
+  return message.length === 0 ? `${name} (code ${error.code})` : `${name} (code ${error.code}): ${message}`
+}
+
+/** One line naming a thrown value, for the failure paths that catch one. */
+function thrownReason(prefix: string, error: unknown): string {
+  if (error instanceof Error) {
+    const detail = error.message.trim()
+    return detail.length === 0 ? `${prefix}: ${error.name}` : `${prefix}: ${error.name}: ${detail}`
+  }
+  return `${prefix}: ${String(error)}`
+}
+
 /** A detached, muted video decoder that satisfies the player's frame-source contract. */
 export class VideoSource implements FrameSource {
   private readonly video: HTMLVideoElement
@@ -70,7 +129,52 @@ export class VideoSource implements FrameSource {
   private frameCallbackId: number | null = null
 
   private readonly onError = (): void => {
-    this.state.fail()
+    this.state.fail(mediaErrorReason(this.video.error))
+  }
+
+  // The mid-run channel, and the only one the element gives us for it.
+  //
+  // `stalled` and `waiting` are the element saying it has run out of data, and
+  // they are two different conditions rather than one with two names: `waiting`
+  // is playback actually halted, `stalled` is the fetch having gone quiet for a
+  // couple of seconds while playback may still be running off what is already
+  // buffered. Neither is terminal — a clip that buffers and recovers fires
+  // `waiting` then `playing` — so they set a condition rather than failing the
+  // source, and each is cleared by its own counterpart below.
+  //
+  // Deliberately the element's events and not a position-stall timer. A timer
+  // watching `currentTime` for movement has to pick a threshold, and every
+  // threshold is wrong somewhere: too tight and a single long frame or a
+  // paused transport reads as a stall, too loose and it reports the buffering
+  // after the operator has already seen it. `CLAUDE.md` names that exact shape
+  // — "a channel that cries wolf is a destroyed channel". The element knows
+  // whether it is waiting for bytes; nothing here has to guess.
+  private readonly onStalled = (event: Event): void => {
+    this.state.stall('fetch', `clip is buffering (${event.type})`)
+  }
+
+  private readonly onWaiting = (event: Event): void => {
+    this.state.stall('playback', `clip is buffering (${event.type})`)
+  }
+
+  // `playing` is the resume after a `waiting`; `canplay` is the element saying
+  // it has enough data to play again, which is the resume for a source that
+  // halted while paused or pre-roll and for which `playing` never fires.
+  private readonly onResumed = (): void => {
+    this.state.clearStall('playback')
+  }
+
+  // The end of a `stalled`, and the only event that is.
+  //
+  // A fetch that goes quiet and then resumes need not cross any playback
+  // threshold at all: if the element kept playing from its buffer throughout,
+  // `playing` never fires and `readyState` never falls far enough for `canplay`
+  // to fire again either. Cleared only by `playing`/`canplay`, that warning
+  // stays up for the rest of the show over a clip that recovered in three
+  // seconds — a stale warning outliving its condition, which is the specific
+  // way this project's channels die.
+  private readonly onProgress = (): void => {
+    this.state.clearStall('fetch')
   }
 
   // Readiness has two independent signals on purpose, and neither gates the
@@ -88,11 +192,25 @@ export class VideoSource implements FrameSource {
     this.markReadyFromElement()
   }
 
-  constructor(path: string, rotation: Rotation = 0, trim: { trimStartMs: number; trimEndMs: number | null } = { trimStartMs: 0, trimEndMs: null }) {
+  /**
+   * @param element the decoder to drive, defaulting to a fresh detached one.
+   *        Injected only by tests: everything below this line — which
+   *        `MediaError` code produces which sentence, that a `stalled` is not a
+   *        failure, that a failure after a stall replaces it — is element
+   *        behaviour, and with no jsdom in this project (`docs/APP-PLAN.md`,
+   *        "no third harness") the only alternative to a seam here is grading
+   *        it on hardware, which is where it went ungraded in the first place.
+   */
+  constructor(
+    path: string,
+    rotation: Rotation = 0,
+    trim: { trimStartMs: number; trimEndMs: number | null } = { trimStartMs: 0, trimEndMs: null },
+    element: HTMLVideoElement = document.createElement('video'),
+  ) {
     this.rotation = rotation
     this.trimStartMs = trim.trimStartMs
     this.trimEndMs = trim.trimEndMs
-    this.video = document.createElement('video')
+    this.video = element
     this.video.muted = true
     this.video.playsInline = true
     this.video.loop = false
@@ -100,9 +218,14 @@ export class VideoSource implements FrameSource {
     this.video.addEventListener('error', this.onError)
     this.video.addEventListener('loadeddata', this.onData)
     this.video.addEventListener('canplay', this.onData)
+    this.video.addEventListener('stalled', this.onStalled)
+    this.video.addEventListener('waiting', this.onWaiting)
+    this.video.addEventListener('progress', this.onProgress)
+    this.video.addEventListener('playing', this.onResumed)
+    this.video.addEventListener('canplay', this.onResumed)
 
     if (path.trim().length === 0) {
-      this.state.fail()
+      this.state.fail('no media path on this cue')
       return
     }
 
@@ -125,8 +248,8 @@ export class VideoSource implements FrameSource {
       this.video.load()
       if (trim.trimStartMs > 0) this.video.currentTime = trim.trimStartMs / 1_000
       this.requestDecodedFrame()
-    } catch {
-      this.state.fail()
+    } catch (error) {
+      this.state.fail(thrownReason('could not start loading the media', error))
     }
   }
 
@@ -136,6 +259,14 @@ export class VideoSource implements FrameSource {
 
   get failed(): boolean {
     return this.state.failed
+  }
+
+  get failureReason(): string | null {
+    return this.state.failureReason
+  }
+
+  get stallReason(): string | null {
+    return this.state.stallReason
   }
 
   /**
@@ -152,9 +283,15 @@ export class VideoSource implements FrameSource {
    * the render loop rediscovers the same dead source sixty times a second for
    * ever, with nothing on screen to say so — which is precisely how the taint
    * defect stayed invisible.
+   *
+   * The reason is the caller's because the caller is the only one who has it.
+   * `composeFrame` catches a `SecurityError` off `getImageData`, and that
+   * string is the diagnosis — a tainted canvas and a decoder that died are the
+   * same `failed` flag from here, and telling them apart is the difference
+   * between suspecting the clip and suspecting `corsEnabled`.
    */
-  fail(): void {
-    this.state.fail()
+  fail(reason: string): void {
+    this.state.fail(reason)
   }
 
   /** Called by `PlayerEngine.reseat` when the cue's rotation changes under an already-armed source. */
@@ -179,7 +316,7 @@ export class VideoSource implements FrameSource {
       // is ordinary during a cue change and not a failure. `state.fail()`
       // ignores everything after teardown on its own.
       if (error instanceof DOMException && error.name === 'AbortError') return
-      this.state.fail()
+      this.state.fail(thrownReason('playback was refused', error))
     })
   }
 
@@ -197,6 +334,11 @@ export class VideoSource implements FrameSource {
     this.video.removeEventListener('error', this.onError)
     this.video.removeEventListener('loadeddata', this.onData)
     this.video.removeEventListener('canplay', this.onData)
+    this.video.removeEventListener('stalled', this.onStalled)
+    this.video.removeEventListener('waiting', this.onWaiting)
+    this.video.removeEventListener('progress', this.onProgress)
+    this.video.removeEventListener('playing', this.onResumed)
+    this.video.removeEventListener('canplay', this.onResumed)
     this.video.pause()
     this.video.removeAttribute('src')
     this.video.load()
@@ -229,8 +371,8 @@ export class VideoSource implements FrameSource {
             rect.width,
             rect.height,
           )
-        } catch {
-          this.state.fail()
+        } catch (error) {
+          this.state.fail(thrownReason('the decoded frame could not be drawn', error))
         }
         context.restore()
       }

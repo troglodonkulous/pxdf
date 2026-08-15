@@ -37,6 +37,37 @@ import type { Rotation } from '../src/render/geometry';
 class FakeSource implements FrameSource {
   ready = false;
   failed = false;
+  /**
+   * Defaulted rather than required so the ~30 tests that only care that a
+   * source died stay unchanged — but defaulted to a *string*, not null, so a
+   * test setting `failed = true` without a thought still exercises the engine's
+   * reason path. A null default would make every one of those tests pass
+   * against an engine that dropped the reason on the floor.
+   */
+  reasonWhileAlive: string | null = 'fake source failed';
+  /**
+   * Null once disposed, which is the whole point of it being a getter.
+   *
+   * `reapFailures` reads the reason *before* `release` tears the source down,
+   * and that ordering is load-bearing — reversed, every failure banner loses
+   * its detail again. A plain field cannot grade it: the reason would still be
+   * sitting there after teardown and the reordered engine would pass. This
+   * makes reading late return exactly what a disposed decoder is entitled to
+   * say, so the ordering has somewhere to fail.
+   *
+   * Weaker than a real `VideoSource`, deliberately: that class keeps its reason
+   * across `dispose`, and nothing here asks it to change. The fixture is
+   * stricter than the contract so the test can see a violation of it.
+   */
+  get failureReason(): string | null {
+    return this.disposed ? null : this.reasonWhileAlive;
+  }
+
+  set failureReason(reason: string | null) {
+    this.reasonWhileAlive = reason;
+  }
+
+  stallReason: string | null = null;
   positionMs = 0;
   mediaDurationMs: number | null = null;
   playCalls = 0;
@@ -1023,6 +1054,65 @@ describe('the error banner tracks the failure, not the button press', () => {
     const replaced: Cue = { ...cue('b'), source: { kind: 'video', path: '/media/fixed.mp4' } };
     rig.engine.setShow(show(cue('a'), replaced));
     expect(rig.engine.snapshot().lastError).toBe(null);
+  });
+});
+
+/**
+ * The reason is read before the decoder is released, on all three surfaces.
+ *
+ * `reapFailures` records the failure and then tears the slot down, and swapping
+ * those two lines is an edit that looks like tidying. It is not: a released
+ * decoder is entitled to say nothing, so a reason read afterwards is null and
+ * every failure reaches the operator as the cue name and the bare word
+ * "failed" — the exact banner this whole change exists to abolish, restored
+ * silently, with every other test still green.
+ *
+ * Graded through `FakeSource.failureReason`, which returns null once disposed.
+ * That is stricter than the `FrameSource` contract asks and stricter than
+ * `VideoSource` behaves, on purpose: a fixture that keeps its reason across
+ * teardown gives a reordered engine the same string either way, and the test
+ * that claims to grade the ordering cannot fail.
+ */
+describe('a failure keeps its reason across the release that follows it', () => {
+  it('reads the pending source before releasing it', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.engine.goTo('b');
+    rig.source('b').failureReason = 'MEDIA_ERR_SRC_NOT_SUPPORTED (code 4): DEMUXER_ERROR_COULD_NOT_OPEN';
+    rig.source('b').failed = true;
+    rig.engine.tick();
+
+    expect(rig.source('b').disposed).toBe(true);
+    expect(rig.engine.snapshot().lastError).toContain('DEMUXER_ERROR_COULD_NOT_OPEN');
+  });
+
+  it('reads the live source before releasing it', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.source('a').failureReason = 'MEDIA_ERR_DECODE (code 3): decoder initialization failed';
+    rig.source('a').failed = true;
+    rig.engine.tick();
+
+    expect(rig.source('a').disposed).toBe(true);
+    expect(rig.engine.snapshot().lastError).toContain('decoder initialization failed');
+  });
+
+  it('reads the preview source before releasing it', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.setMode('preview');
+    rig.engine.selectCue('a');
+    rig.source('a').failureReason = 'the composited frame could not be read back: SecurityError';
+    rig.source('a').failed = true;
+    rig.engine.tick();
+
+    expect(rig.source('a').disposed).toBe(true);
+    expect(rig.engine.snapshot().lastError).toContain('SecurityError');
   });
 });
 

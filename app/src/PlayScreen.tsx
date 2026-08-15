@@ -617,6 +617,17 @@ export function PlayScreen({
             </div>
           </div>
           {visibleError !== null && <div className="error-banner" role="status">{visibleError}</div>}
+          {/* Reusing `.notice-banner` rather than adding a colour: its comment in
+              index.css already draws the line this needs — something the operator
+              is being told, not something that went wrong. A buffering clip in
+              danger red is a false alarm, and it recovers on its own.
+
+              Only when nothing has actually failed. There is one line here and
+              one glance at it, and a stall reported underneath a dead cue is the
+              less useful of two true things. */}
+          {visibleError === null && snapshot.stallWarning !== null && (
+            <div className="notice-banner" role="status">{snapshot.stallWarning}</div>
+          )}
         </section>
 
         <div className="resize-gutter" data-gutter="inspector" role="separator" aria-orientation="vertical" aria-label="Resize inspector" onPointerDown={startResize('--w-inspector', -1)} />
