@@ -287,6 +287,12 @@ export function PlayScreen({
           return
         case ' ':
         case 'Spacebar':
+          // Unlike Tab/ArrowUp/ArrowDown, this one has to yield to a focused
+          // button: Space's native job is activating whatever button has
+          // focus (BLACKOUT, PAUSE, a standby-step…), and Electron does give
+          // clicked buttons focus. Hijacking it globally would silently fire
+          // GO instead of the focused control's own click.
+          if (target instanceof HTMLElement && target.tagName === 'BUTTON') return
           event.preventDefault()
           fireGo()
           return
