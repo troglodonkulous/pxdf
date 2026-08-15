@@ -43,12 +43,24 @@ export function rotatedTargetSize(width: number, height: number, rotation: Rotat
 }
 
 /**
- * Per-frame trim-wrap check. Units are milliseconds throughout. An open
- * trimEndMs plays to media end; bounded trims wrap once out-point is reached.
+ * Per-frame trim-wrap check. Units are milliseconds throughout.
+ *
+ * `outPointMs` is the cue's `trimEndMs ?? mediaDurationMs`, resolved by the
+ * caller — an open `trimEndMs` means "play to the end of the media", not "never
+ * wrap", and this function used to be handed the raw `trimEndMs` and return
+ * `null` for it. That was the decoder half of a floor that never looped: the
+ * only wrap in the app was gated on a field no UI can set, so every untrimmed
+ * cue played once and froze on its last frame while the stack still advertised
+ * `LOOP ∞`.
+ *
+ * `null` is now reserved for the one case that genuinely cannot wrap: an
+ * out-point nobody knows yet, because the duration probe has not landed. A
+ * source with no known length has no end to wrap at, and guessing one would put
+ * a seek in the middle of a clip that was playing correctly.
  */
-export function trimWrapPoint(currentTimeMs: number, trimStartMs: number, trimEndMs: number | null): number | null {
-  if (trimEndMs === null) return null
-  return currentTimeMs >= trimEndMs ? trimStartMs : null
+export function trimWrapPoint(currentTimeMs: number, trimStartMs: number, outPointMs: number | null): number | null {
+  if (outPointMs === null) return null
+  return currentTimeMs >= outPointMs ? trimStartMs : null
 }
 
 /**
@@ -192,6 +204,36 @@ export class VideoSource implements FrameSource {
     this.markReadyFromElement()
   }
 
+  // The restart, and the reason `video.loop` stays false.
+  //
+  // Native looping restarts at zero and ignores an out-point, so it is wrong
+  // for every cue this app can author: a clip trimmed to start at 1,200 ms
+  // would loop back to the head the operator trimmed off. The wrap in `draw`
+  // seeks to the in-point instead, and this listener is the same seek driven
+  // off the element's own end-of-stream.
+  //
+  // Both, not either. `draw`'s check is a comparison against `currentTime`, and
+  // the element is entitled to pause itself at EOF before that comparison ever
+  // reads a time at or past the out-point — `currentTime` can settle a frame
+  // short of `duration` and simply stop moving, which is a wrap check that
+  // never fires and a floor frozen on the last frame. `ended` is the element
+  // stating the case outright. `draw`'s check is what handles the case `ended`
+  // cannot see: a bounded `trimEndMs` in the middle of the media, where
+  // playback never reaches the end of the stream at all.
+  //
+  // `failed` and not `failed || disposed`, deliberately. `dispose` removes this
+  // listener, so a disposed source cannot reach here at all and a `disposed`
+  // check would be a branch no test could ever turn red — the teardown in
+  // `dispose` is what grades that case. A *failed* source is reachable: the
+  // element that raised `error` keeps its listeners and can still hit EOF, and
+  // seeking a source the operator already has a banner about would move the
+  // playhead of a cue nothing is showing.
+  private readonly onEnded = (): void => {
+    if (this.state.failed) return
+    this.video.currentTime = this.trimStartMs / 1_000
+    this.play()
+  }
+
   /**
    * @param element the decoder to drive, defaulting to a fresh detached one.
    *        Injected only by tests: everything below this line — which
@@ -213,9 +255,13 @@ export class VideoSource implements FrameSource {
     this.video = element
     this.video.muted = true
     this.video.playsInline = true
+    // Deliberately false, and not the obvious way to make a clip loop. See
+    // `onEnded`: the element's own loop restarts at zero and has no notion of
+    // an in-point, so it would replay the head of every trimmed cue.
     this.video.loop = false
     this.video.preload = 'auto'
     this.video.addEventListener('error', this.onError)
+    this.video.addEventListener('ended', this.onEnded)
     this.video.addEventListener('loadeddata', this.onData)
     this.video.addEventListener('canplay', this.onData)
     this.video.addEventListener('stalled', this.onStalled)
@@ -332,6 +378,7 @@ export class VideoSource implements FrameSource {
       this.frameCallbackId = null
     }
     this.video.removeEventListener('error', this.onError)
+    this.video.removeEventListener('ended', this.onEnded)
     this.video.removeEventListener('loadeddata', this.onData)
     this.video.removeEventListener('canplay', this.onData)
     this.video.removeEventListener('stalled', this.onStalled)
@@ -353,10 +400,16 @@ export class VideoSource implements FrameSource {
     context.fillRect(0, 0, width, height)
 
     if (this.state.ready && !this.state.failed) {
-      if (this.trimEndMs !== null) {
-        const wrapToMs = trimWrapPoint(this.video.currentTime * 1_000, this.trimStartMs, this.trimEndMs)
-        if (wrapToMs !== null) this.video.currentTime = wrapToMs / 1_000
-      }
+      // Unconditional. The out-point of an untrimmed cue is the media's own
+      // length, not "there isn't one" — gating this whole block on
+      // `trimEndMs !== null` meant the only clips that could ever wrap were the
+      // ones no UI in this app can author.
+      const wrapToMs = trimWrapPoint(
+        this.video.currentTime * 1_000,
+        this.trimStartMs,
+        this.trimEndMs ?? this.mediaDurationMs,
+      )
+      if (wrapToMs !== null) this.video.currentTime = wrapToMs / 1_000
       const target = rotatedTargetSize(width, height, this.rotation)
       const rect = coverRect(this.video.videoWidth, this.video.videoHeight, target.width, target.height)
       if (rect.width > 0 && rect.height > 0) {

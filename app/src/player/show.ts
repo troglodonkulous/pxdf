@@ -46,7 +46,19 @@ export interface Cue {
   readonly id: string;
   readonly name: string;
   readonly source: CueSource;
-  /** null = holds until GO (default). N >= 1 = play the trimmed clip N times, then advance. */
+  /**
+   * How many times the trimmed clip plays before the stack advances on its own.
+   *
+   * null = holds until GO (default). N >= 1 = play the trimmed clip N times,
+   * then advance.
+   *
+   * The clip loops at *every* value of this field, including null — a
+   * hold-until-GO cue repeats until the operator fires the next one. Nothing
+   * here plays once and freezes, which is what the field meant in practice for
+   * as long as `VideoSource` had no restart: the model said "N times" and the
+   * decoder stopped after the first, so `loop: 2` and `loop: null` were the same
+   * frozen last frame with different advance behaviour.
+   */
   readonly loop: number | null;
   /** In-point, milliseconds. Default 0. */
   readonly trimStartMs: number;
@@ -73,6 +85,12 @@ export function clipDurationMs(cue: Cue): number | null {
 /**
  * How long the cue holds before the stack advances on its own. null means do
  * not advance: either loop is null or the clip length is not known yet.
+ *
+ * `loop x clipDurationMs` is wall-clock only because the decoder restarts the
+ * clip at its out-point — `VideoSource.onEnded` and the wrap in its `draw`. A
+ * decoder that froze on its last frame instead would still advance here on
+ * schedule, having shown one play and then a still; the arithmetic is the same
+ * either way, which is why this half of the model looked correct throughout.
  */
 export function cueHoldMs(cue: Cue): number | null {
   if (cue.loop === null) return null;

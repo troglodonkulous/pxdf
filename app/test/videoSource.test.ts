@@ -68,9 +68,23 @@ describe('rotatedTargetSize', () => {
  * site so this function stays free of that unit conversion.
  */
 describe('trimWrapPoint', () => {
-  it('never wraps when trimEnd is open (play to the end of the media)', () => {
+  it('never wraps when the out-point is unknown (the duration probe has not landed)', () => {
     expect(trimWrapPoint(0, 0, null)).toBe(null)
     expect(trimWrapPoint(999_999, 1_000, null)).toBe(null)
+  })
+
+  /**
+   * The case the whole loop defect lived in. An untrimmed cue's out-point is
+   * the media's own length, and `VideoSource.draw` resolves it as
+   * `trimEndMs ?? mediaDurationMs` — so `null` here means "no length known",
+   * never "plays for ever". Passing the raw `trimEndMs` instead is the exact
+   * shape of the bug: every cue in the app has an open `trimEndMs` (no UI sets
+   * one), so no cue could ever wrap.
+   */
+  it('wraps at the media duration when the cue has no out-point of its own', () => {
+    expect(trimWrapPoint(2_999, 0, 3_000)).toBe(null)
+    expect(trimWrapPoint(3_000, 0, 3_000)).toBe(0)
+    expect(trimWrapPoint(3_000, 1_200, 3_000)).toBe(1_200)
   })
 
   it('does not wrap before the out-point', () => {
@@ -153,6 +167,7 @@ class FakeVideoElement {
   error: FakeMediaError | null = null
   loadCalls = 0
   pauseCalls = 0
+  playCalls = 0
 
   /** Set to make `play()` reject, as a real element's does under an autoplay or load abort. */
   playRejectsWith: unknown = null
@@ -182,6 +197,7 @@ class FakeVideoElement {
   }
 
   async play(): Promise<void> {
+    this.playCalls += 1
     if (this.playRejectsWith !== null) throw this.playRejectsWith
   }
 
@@ -521,5 +537,172 @@ describe('a MediaError reaches the operator', () => {
 
     element.emit('playing')
     expect(engine.snapshot().stallWarning).toBe(null)
+  })
+})
+
+/**
+ * The restart, which nothing in this app did before.
+ *
+ * ## What was wrong
+ *
+ * `video.loop` was false, and the only wrap in the player was inside
+ * `if (this.trimEndMs !== null)`. No surface in the app can set `trimEndMs` —
+ * it is reachable only through `DDF_CUE_SEED`, a test seam — so the branch was
+ * dead in every real show and every clip played once and froze on its last
+ * frame. `PlayScreen` rendered a `LOOP ∞` chip over it and cue rows rendered
+ * `∞`, so the app stated a behaviour it did not have: at a wedding that is a
+ * still photograph on the floor for the rest of the set, with the UI saying it
+ * is looping.
+ *
+ * ## Why it is graded on both paths
+ *
+ * `draw`'s wrap and the `ended` listener cover different failures and neither
+ * subsumes the other. `draw` compares `currentTime` against the out-point once
+ * per rendered frame, which is the only thing that can see a *bounded*
+ * `trimEndMs` in the middle of the media — playback never reaches end of
+ * stream there, so `ended` never fires. `ended` is the only thing that can see
+ * the untrimmed case reliably, because the element may pause itself at EOF
+ * with `currentTime` settled a frame short of `duration`, leaving `draw`'s
+ * comparison false for ever.
+ *
+ * The wire gate (`test/e2e/wire.mjs` section 3c) grades the operator-visible
+ * consequence — that the bytes on the wire keep changing after one clip length
+ * has elapsed. These grade the two mechanisms that produce it.
+ */
+describe('a clip restarts rather than freezing', () => {
+  /** The part of a 2D context `draw` touches. Records nothing; `draw`'s effect here is the seek. */
+  function fakeContext(): CanvasRenderingContext2D {
+    const noop = (): void => {}
+    return {
+      save: noop,
+      restore: noop,
+      setTransform: noop,
+      fillRect: noop,
+      translate: noop,
+      rotate: noop,
+      drawImage: noop,
+      globalAlpha: 1,
+      globalCompositeOperation: 'source-over',
+      fillStyle: '#000000',
+    } as unknown as CanvasRenderingContext2D
+  }
+
+  /** A ready element sitting at `atSeconds` in a `durationSeconds` media. */
+  function readyAt(atSeconds: number, durationSeconds: number): FakeVideoElement {
+    const element = new FakeVideoElement()
+    element.readyState = 2
+    element.duration = durationSeconds
+    element.currentTime = atSeconds
+    return element
+  }
+
+  it('wraps an untrimmed clip to zero at the media duration', () => {
+    const element = readyAt(0, 3)
+    const source = sourceOver(element)
+    element.emit('loadeddata')
+
+    element.currentTime = 2.9
+    source.draw(fakeContext(), 80, 40)
+    expect(element.currentTime).toBe(2.9)
+
+    element.currentTime = 3
+    source.draw(fakeContext(), 80, 40)
+    expect(element.currentTime).toBe(0)
+  })
+
+  it('wraps a trimmed clip to its in-point, not to zero', () => {
+    const element = readyAt(0, 3)
+    const source = new VideoSource(
+      '/media/clip.mp4',
+      0,
+      { trimStartMs: 1_200, trimEndMs: null },
+      element as unknown as HTMLVideoElement,
+    )
+    element.emit('loadeddata')
+
+    element.currentTime = 3
+    source.draw(fakeContext(), 80, 40)
+    expect(element.currentTime).toBe(1.2)
+  })
+
+  it('does not wrap while the duration is still unknown', () => {
+    // `duration` is NaN until the element has metadata, so `mediaDurationMs` is
+    // null. A wrap here would seek a clip that is playing correctly.
+    const element = new FakeVideoElement()
+    element.readyState = 2
+    element.currentTime = 5
+    const source = sourceOver(element)
+    element.emit('loadeddata')
+
+    source.draw(fakeContext(), 80, 40)
+    expect(element.currentTime).toBe(5)
+  })
+
+  it('seeks to the in-point and plays again when the element reports end of stream', () => {
+    const element = readyAt(3, 3)
+    const source = new VideoSource(
+      '/media/clip.mp4',
+      0,
+      { trimStartMs: 1_200, trimEndMs: null },
+      element as unknown as HTMLVideoElement,
+    )
+    element.emit('loadeddata')
+    const playsBefore = element.playCalls
+
+    element.emit('ended')
+
+    expect(element.currentTime).toBe(1.2)
+    expect(element.playCalls).toBe(playsBefore + 1)
+    expect(source.failed).toBe(false)
+  })
+
+  /**
+   * The seek is what these two grade, not the `play()`.
+   *
+   * `play()` refuses on a disposed or failed source already, so a call count is
+   * blind to `onEnded`'s own guard: delete that guard and every play-count
+   * assertion here still passes. The mutation check found exactly that. The
+   * seek is the guard's one distinct effect, so the seek is what the assertion
+   * has to be about — otherwise this is a pair of tests that cannot fail for
+   * the thing they claim to be about.
+   */
+  it('does not restart a disposed source', () => {
+    // Which is a statement about `dispose`, not about a guard inside
+    // `onEnded`: the listener is gone by the time this event is emitted. That
+    // is the reason `onEnded` checks `failed` alone — see its comment.
+    const element = readyAt(3, 3)
+    const source = sourceOver(element)
+    element.emit('loadeddata')
+    source.dispose()
+    const playsBefore = element.playCalls
+
+    element.emit('ended')
+    expect(element.currentTime).toBe(3)
+    expect(element.playCalls).toBe(playsBefore)
+  })
+
+  it('does not restart a failed source', () => {
+    const element = readyAt(3, 3)
+    const source = sourceOver(element)
+    element.emit('loadeddata')
+    source.fail('the decoded frame could not be drawn')
+    const playsBefore = element.playCalls
+
+    element.emit('ended')
+    expect(element.currentTime).toBe(3)
+    expect(element.playCalls).toBe(playsBefore)
+
+    // And `draw` must not seek a dead source either — the floor is black and
+    // the operator has a banner about this cue.
+    source.draw(fakeContext(), 80, 40)
+    expect(element.currentTime).toBe(3)
+  })
+
+  it('drops the ended listener on dispose along with the rest', () => {
+    const element = new FakeVideoElement()
+    const source = sourceOver(element)
+    expect(element.listenerCount()).toBeGreaterThan(0)
+    source.dispose()
+    expect(element.listenerCount()).toBe(0)
   })
 })

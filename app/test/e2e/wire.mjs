@@ -334,6 +334,26 @@ function tone(packet) {
 
 const countTone = (packets, want) => packets.filter((p) => tone(p) === want).length
 
+/**
+ * The body of the first packet in `packets` carrying `header`, or `null`.
+ *
+ * Two packets are only comparable when they describe the same region of the
+ * floor, and the 5-byte header is what says which: byte 1 is the controller,
+ * byte 3 the port, and the low seven bits of byte 4 the packet's index within
+ * that port's data (`mapper/frame.py:buffer_from_datagrams`). Comparing "a
+ * packet from then" against "a packet from now" without pinning that would
+ * compare two different strips of the floor and call the difference motion.
+ *
+ * `null` rather than an empty buffer when the header is absent, so a caller
+ * cannot mistake "this region never arrived" for "this region is black" —
+ * `Buffer.equals` on two empty buffers is `true`, which would turn a capture
+ * that failed into a check that passed.
+ */
+function bodyWithHeader(packets, header) {
+  const found = packets.find((packet) => packet.subarray(0, HEADER_LEN).equals(header))
+  return found === undefined ? null : found.subarray(HEADER_LEN)
+}
+
 // ------------------------------------------------------- DevTools protocol
 
 async function attachToPage(port = DEBUG_PORT) {
@@ -798,13 +818,32 @@ try {
   // `PlayScreen.tsx`'s `addMedia` — nothing a real launch ever sets.
   //
   // `loopClip` is a plain 1 s clip; `loop: 2` gives it a 1,000 ms x 2 = 2,000 ms
-  // hold. `trimClip` is red for 1.2 s then white — trimmed to start at 1,200 ms,
-  // its first frame on the wire has to be white, never the red in-point.
+  // hold. `trimClip` is red for 1.2 s then white then red again — trimmed to
+  // start at 1,200 ms, its first frame on the wire has to be white, never the
+  // red in-point.
+  //
+  // The third segment is what section 3c is graded on, and its length is not
+  // arbitrary. A `loop: null` cue that froze on its last frame and one that is
+  // looping put *byte-identical* packets on the wire for any clip of one solid
+  // colour, so the fixture has to change over time or the check cannot fail.
+  // Two equal halves after the in-point make the discrimination
+  // phase-independent: any two samples exactly half a lap apart land in
+  // opposite segments whatever the loop's phase happens to be when the
+  // sampling starts, so the check does not depend on timing this file cannot
+  // control.
+  const TRIM_START_MS = 1_200
+  const TRIM_SEGMENT_MS = 1_500
+  /** The trimmed clip's own length: the two segments after the in-point. */
+  const TRIMMED_CLIP_MS = TRIM_SEGMENT_MS * 2
   const loopClip = makeClip(workspace, 'white', 1)
-  const trimClip = makeSplitClip(workspace, [['red', 1.2], ['white', 1.8]])
+  const trimClip = makeSplitClip(workspace, [
+    ['red', TRIM_START_MS / 1_000],
+    ['white', TRIM_SEGMENT_MS / 1_000],
+    ['red', TRIM_SEGMENT_MS / 1_000],
+  ])
   const cueSeed = {
     [loopClip]: { loop: 2, trimStartMs: 0, trimEndMs: null },
-    [trimClip]: { loop: null, trimStartMs: 1_200, trimEndMs: null },
+    [trimClip]: { loop: null, trimStartMs: TRIM_START_MS, trimEndMs: null },
   }
 
   await tap.listen()
@@ -1374,6 +1413,11 @@ try {
   // for the next cue's decode, stacked on top of the hold itself — the same
   // number this file already uses for "does not strand the floor".
   const advancedTo = await waitForLive(4)
+  // Read once, here, because 3c measures a clip length from it. Late rather
+  // than early — `waitForLive` polls at 200 ms — which is the safe direction:
+  // it can only push 3c's first sample further past the end of the first play,
+  // never before it.
+  const trimLiveAt = Date.now()
   const loopElapsed = Date.now() - loopStartedAt
   check(advancedTo === 4, 'loop: 2 on a 1 s clip advances to the next cue with no GO',
     `live row index ${advancedTo} after ${loopElapsed} ms`)
@@ -1399,6 +1443,73 @@ try {
   check(countTone(trimmedOnset, 'white') > 0,
     'the trimmed cue starts already past the in-point',
     `white ${countTone(trimmedOnset, 'white')} of ${trimmedOnset.length} recent packets`)
+
+  // 3c. The clip restarts rather than freezing — a `loop: null` cue keeps
+  //     moving after one clip length has elapsed.
+  //
+  //     What was wrong: nothing in the app ever restarted a clip. `video.loop`
+  //     was false and the only wrap in `VideoSource.draw` was gated on
+  //     `trimEndMs !== null`, a field no surface in the app can set. Every cue
+  //     played once and froze on its last frame, under a `LOOP ∞` chip and a
+  //     cue row rendering `∞`.
+  //
+  //     Why the checks above could not see it. Every wire check in this file
+  //     grades what packets *contain* — lit, black, red, white, a packet count,
+  //     a gap between arrivals. A frozen floor fails none of them: the render
+  //     loop goes on composing the held frame and `Sidecar` goes on sending, so
+  //     the wire stays lit, stays the right colour, stays the right shape and
+  //     never gaps. 3b's own `loop: 2` advance is the same — the *stack*
+  //     advances on a wall-clock hold whether or not the decoder underneath it
+  //     ever replayed anything, so it grades the engine's arithmetic and is
+  //     blind to the decoder. A held frame is still a frame on the wire. The
+  //     only thing that separates the two floors is whether the bytes *change*.
+  //
+  //     Both samples are taken after the first play would have ended, and that
+  //     is the load-bearing part of the design rather than caution. Anchoring
+  //     the first sample at GO instead compares a mid-clip frame against a
+  //     final frame — which differ on a frozen floor too, so the check would
+  //     pass against the exact defect it exists to catch.
+  //
+  //     Half a lap apart, for the reason given at the fixture: it puts the two
+  //     samples in opposite segments of the clip at every phase, so the result
+  //     does not depend on how accurately this file guessed when the cue went
+  //     live.
+  const LOOP_SETTLE_MS = 300
+  const SAMPLE_WINDOW_MS = 150
+  await sleep(Math.max(0, trimLiveAt + TRIMMED_CLIP_MS + LOOP_SETTLE_MS - Date.now()))
+
+  const fromRestart = tap.packets.length
+  const sampleAAt = Date.now()
+  const windowA = await tap.window(SAMPLE_WINDOW_MS)
+  await sleep(Math.max(0, TRIMMED_CLIP_MS / 2 - (Date.now() - sampleAAt)))
+  const windowB = await tap.window(SAMPLE_WINDOW_MS)
+
+  //     The positive control, and it is the whole reason the comparison below
+  //     means anything: "the two bodies differ" is also satisfiable by a
+  //     capture that produced nothing, because `null` is not equal to `null`
+  //     here and two empty buffers compare equal. Refuse on an empty capture
+  //     rather than grade one.
+  const restartHeader = windowA.length > 0 ? windowA[0].subarray(0, HEADER_LEN) : null
+  const bodyA = restartHeader === null ? null : bodyWithHeader(windowA, restartHeader)
+  const bodyB = restartHeader === null ? null : bodyWithHeader(windowB, restartHeader)
+  check(bodyA !== null && bodyB !== null && bodyA.length > 0 && bodyB.length > 0,
+    'both restart captures hold the same region of the floor, non-empty',
+    `${windowA.length} and ${windowB.length} packets · ` +
+    `bodies ${bodyA === null ? 'absent' : bodyA.length} and ${bodyB === null ? 'absent' : bodyB.length} bytes`)
+
+  check(bodyA !== null && bodyB !== null && !bodyA.equals(bodyB),
+    'the floor is still changing one clip length after a loop: null cue went live',
+    `sampled ${TRIMMED_CLIP_MS / 2} ms apart, both past the ${TRIMMED_CLIP_MS} ms clip; ` +
+    `bodies ${bodyA !== null && bodyB !== null && bodyA.equals(bodyB) ? 'identical' : 'differ'}`)
+
+  //     And the same fact stated the way an operator would: the clip's own
+  //     content came back round. A floor frozen on this fixture's last frame is
+  //     red for ever, so white reappearing is the restart itself.
+  const acrossRestart = tap.packets.slice(fromRestart)
+  check(countTone(acrossRestart, 'red') > 0 && countTone(acrossRestart, 'white') > 0,
+    'both halves of the looping clip appear on the wire after it should have ended',
+    `red ${countTone(acrossRestart, 'red')} · white ${countTone(acrossRestart, 'white')} ` +
+    `of ${acrossRestart.length} packets`)
 
   // 4. BLACKOUT is black on the wire, and is not a teardown.
   await page.evaluate(clickButtonScript('BLACKOUT'))
