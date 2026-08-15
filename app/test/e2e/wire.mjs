@@ -1835,6 +1835,19 @@ try {
   check(cueCountAfterLibrary === cueCountBeforeLibrary + 1, 'clicking a Library row adds a cue to the stack',
     `saw ${await page.evaluate('document.querySelectorAll(".cue-row").length')}, want ${cueCountBeforeLibrary + 1}`)
 
+  // A Library cue is added by a different click than the picker's, and for a
+  // while it was built by a different piece of code too — its own `Cue`
+  // literal, with no duration probe behind it. Nothing downstream noticed:
+  // `mediaDurationMs` stayed null for the life of the show, so the inspector
+  // read `—` forever and setting Loop on such a cue gave `cueHoldMs` a null
+  // duration to multiply, which the engine reads as "never advance". Both
+  // paths route through `addCuesFromPaths` now; this is the check that says so.
+  // Same shape as 3b's probe check, on the other entry point.
+  const libraryProbed = await waitFor(
+    'document.querySelector(".cue-duration-readout")?.textContent !== "—" ? "probed" : ""')
+  check(libraryProbed === 'probed', 'a cue added from the Library gets its duration probed too',
+    String(await page.evaluate('document.querySelector(".cue-duration-readout")?.textContent ?? null')))
+
   await page.evaluate(`(() => {
     const rows = [...document.querySelectorAll('.cue-row')]
     rows[${addedIndex}].dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))

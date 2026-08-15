@@ -216,40 +216,55 @@ export function PlayScreen({
     }
   }, [show.cues])
 
+  /**
+   * Build a cue per path, insert them, select the first, and probe each one's
+   * media duration.
+   *
+   * Both ways of adding a cue route through here. They did not once: the
+   * Library row built its own `Cue` literal and never probed, so a cue added
+   * from the Library kept `mediaDurationMs: null` for the rest of the show —
+   * its inspector Duration read `—` forever, and setting Loop on it gave
+   * `cueHoldMs` a null `clipDurationMs` to multiply, which the engine reads as
+   * "never advance". Two literals is how that came back; one is how it stays
+   * fixed.
+   */
+  const addCuesFromPaths = async (paths: readonly string[]): Promise<void> => {
+    if (paths.length === 0) return
+    const seed = await window.ddf.cueSeed()
+
+    let cues = [...showRef.current.cues]
+    // The *first* of the added cues, not the last. Selecting a cue in live
+    // mode arms it as Standby, so selecting the last one means that adding
+    // five clips and pressing GO starts the show on clip five. The wire gate
+    // caught this: it pressed GO expecting cue 1 and got cue 2.
+    let firstAddedId: string | null = null
+    const added: Cue[] = []
+    for (const path of paths) {
+      const override = seed[path]
+      const cue: Cue = {
+        id: nextCueId(cues),
+        name: cueNameFromPath(path),
+        source: { kind: 'video', path },
+        loop: override?.loop ?? null,
+        trimStartMs: override?.trimStartMs ?? 0,
+        trimEndMs: override?.trimEndMs ?? null,
+        mediaDurationMs: null,
+        rotation: 0,
+      }
+      cues = insertCue(cues, cue)
+      added.push(cue)
+      firstAddedId ??= cue.id
+    }
+    applyShow({ ...showRef.current, cues })
+    if (firstAddedId !== null) selectCue(firstAddedId)
+    void refreshLibrary()
+    for (const cue of added) void probeCueDuration(cue.id, cue.source.path)
+  }
+
   const addMedia = async (): Promise<void> => {
     setPickerError(null)
     try {
-      const paths = await window.ddf.pickMedia()
-      if (paths.length === 0) return
-      const seed = await window.ddf.cueSeed()
-
-      let cues = [...showRef.current.cues]
-      // The *first* of the added cues, not the last. Selecting a cue in live
-      // mode arms it as Standby, so selecting the last one means that adding
-      // five clips and pressing GO starts the show on clip five. The wire gate
-      // caught this: it pressed GO expecting cue 1 and got cue 2.
-      let firstAddedId: string | null = null
-      const added: Cue[] = []
-      for (const path of paths) {
-        const override = seed[path]
-        const cue: Cue = {
-          id: nextCueId(cues),
-          name: cueNameFromPath(path),
-          source: { kind: 'video', path },
-          loop: override?.loop ?? null,
-          trimStartMs: override?.trimStartMs ?? 0,
-          trimEndMs: override?.trimEndMs ?? null,
-          mediaDurationMs: null,
-          rotation: 0,
-        }
-        cues = insertCue(cues, cue)
-        added.push(cue)
-        firstAddedId ??= cue.id
-      }
-      applyShow({ ...showRef.current, cues })
-      if (firstAddedId !== null) selectCue(firstAddedId)
-      void refreshLibrary()
-      for (const cue of added) void probeCueDuration(cue.id, cue.source.path)
+      await addCuesFromPaths(await window.ddf.pickMedia())
     } catch (error) {
       setPickerError(error instanceof Error ? error.message : 'Media picker failed')
     }
@@ -534,21 +549,7 @@ export function PlayScreen({
                       type="button"
                       className="library-row"
                       key={path}
-                      onClick={() => {
-                        const cues = showRef.current.cues
-                        const newCue: Cue = {
-                          id: nextCueId(cues),
-                          name: cueNameFromPath(path),
-                          source: { kind: 'video', path },
-                          loop: null,
-                          trimStartMs: 0,
-                          trimEndMs: null,
-                          mediaDurationMs: null,
-                          rotation: 0,
-                        }
-                        applyShow({ ...showRef.current, cues: insertCue(cues, newCue) })
-                        selectCue(newCue.id)
-                      }}
+                      onClick={() => { void addCuesFromPaths([path]) }}
                     >{basename}</button>
                   )
                 }))}
