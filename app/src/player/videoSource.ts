@@ -377,6 +377,22 @@ export class VideoSource implements FrameSource {
   play(): void {
     if (this.state.disposed || this.state.failed) return
     this.paused = false
+    // Before `video.play()`, and this ordering is the whole point.
+    //
+    // The element parks at EOF whenever the transport paused there — the guard
+    // in `onEnded` deliberately leaves it parked rather than restarting under a
+    // PAUSE — and the HTML `play()` algorithm says that starting playback from
+    // the end of the media "seek[s] to the earliest possible position" first,
+    // which is zero and not this cue's in-point. So RESUME on a trimmed cue
+    // paused at its end would restart it at the media head, showing the operator
+    // exactly the footage the trim exists to remove, for a whole lap, with
+    // nothing else able to correct it: `draw`'s wrap sees a playhead at 0, which
+    // is nowhere near the out-point, and `ended` will not fire again until the
+    // clip has played all the way through the head it should never have shown.
+    //
+    // Seeking first makes the element's own rule inapplicable — the playback
+    // position is no longer the end of the resource — rather than racing it.
+    this.wrapIfSpent()
     void this.video.play().catch((error: unknown) => {
       // An `AbortError` means a newer load or pause superseded this play, which
       // is ordinary during a cue change and not a failure. `state.fail()`
@@ -434,14 +450,7 @@ export class VideoSource implements FrameSource {
       // a clip paused at or past its out-point would otherwise be seeked back
       // to its in-point by the very next composite, and PAUSE would jump the
       // floor instead of holding it.
-      if (!this.paused) {
-        const wrapToMs = trimWrapPoint(
-          this.video.currentTime * 1_000,
-          this.trimStartMs,
-          this.trimEndMs ?? this.mediaDurationMs,
-        )
-        if (wrapToMs !== null) this.video.currentTime = wrapToMs / 1_000
-      }
+      if (!this.paused) this.wrapIfSpent()
       const target = rotatedTargetSize(width, height, this.rotation)
       const rect = coverRect(this.video.videoWidth, this.video.videoHeight, target.width, target.height)
       if (rect.width > 0 && rect.height > 0) {
@@ -463,6 +472,26 @@ export class VideoSource implements FrameSource {
       }
     }
     context.restore()
+  }
+
+  /**
+   * Put the playhead back at the in-point if it is at or past the out-point.
+   *
+   * The single definition of where this clip restarts, and idempotent, so every
+   * caller can run it without checking first. Three of them now: `draw` once a
+   * rendered frame, `play` before handing control back to the element, and
+   * `onEnded` by way of `play`. Each has a different trigger and none of them
+   * subsumes the others, but they must all agree on the answer — a second
+   * restart position expressed anywhere is a trimmed cue that plays its own
+   * head on one path and not another.
+   */
+  private wrapIfSpent(): void {
+    const wrapToMs = trimWrapPoint(
+      this.video.currentTime * 1_000,
+      this.trimStartMs,
+      this.trimEndMs ?? this.mediaDurationMs,
+    )
+    if (wrapToMs !== null) this.video.currentTime = wrapToMs / 1_000
   }
 
   private hasVideoFrameCallbacks(): boolean {

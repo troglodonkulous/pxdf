@@ -196,8 +196,24 @@ class FakeVideoElement {
     this.src = ''
   }
 
+  /**
+   * Models one clause of the HTML `play()` algorithm, because a defect lives in
+   * it: "If the media element's playback position is the end of the media
+   * resource, and the direction of playback is forwards, and the media element
+   * does not have a loop attribute specified, then seek to the earliest
+   * possible position."
+   *
+   * The earliest possible position is zero — not this cue's in-point. So an
+   * element parked at EOF answers `play()` by jumping to the media head, and
+   * `VideoSource` sets `loop = false`, which is exactly the condition the clause
+   * requires. Without this clause here the fake would let a resume-at-EOF look
+   * correct while the real element showed the trimmed-off head of the clip.
+   */
   async play(): Promise<void> {
     this.playCalls += 1
+    if (!this.loop && Number.isFinite(this.duration) && this.currentTime >= this.duration) {
+      this.currentTime = 0
+    }
     if (this.playRejectsWith !== null) throw this.playRejectsWith
   }
 
@@ -791,5 +807,84 @@ describe('a paused transport is not a restart', () => {
     element.currentTime = 3
     element.emit('ended')
     expect(element.currentTime).toBe(1.2)
+  })
+})
+
+/**
+ * RESUME from a clip parked at its end, which the pause guard above created.
+ *
+ * Before that guard, an `ended` restarted the clip immediately and the element
+ * was never left sitting at EOF. Guarding the restart so PAUSE holds the frame
+ * is correct, and it makes "paused at the end of the media" a state the app can
+ * actually be in — at which point the element's own rule for `play()` applies:
+ * starting playback from the end of the resource seeks to the earliest possible
+ * position first, which is zero.
+ *
+ * Zero is the media head, not the cue's in-point. For a trimmed cue that is the
+ * footage the operator trimmed off, on the floor, for a full lap — and nothing
+ * downstream can correct it: `draw`'s wrap sees a playhead at 0, nowhere near
+ * the out-point, and `ended` will not fire again until the clip has played all
+ * the way through the head it should never have shown.
+ *
+ * Graded here rather than on the wire. Reaching "paused at EOF" from outside the
+ * app means landing PAUSE in the frame or so between end-of-stream and the
+ * restart, which `wire.mjs` cannot target; the phase is set directly here.
+ */
+describe('resuming a clip parked at its end', () => {
+  function atEndPaused(trimStartMs: number): { element: FakeVideoElement; source: VideoSource } {
+    const element = new FakeVideoElement()
+    element.readyState = 2
+    element.duration = 3
+    const source = new VideoSource(
+      '/media/clip.mp4',
+      0,
+      { trimStartMs, trimEndMs: null },
+      element as unknown as HTMLVideoElement,
+    )
+    element.emit('loadeddata')
+    source.play()
+    // Playback reached the end and the transport paused before `ended` could be
+    // answered, so the element is left parked there rather than restarted.
+    element.currentTime = 3
+    source.pause()
+    element.emit('ended')
+    return { element, source }
+  }
+
+  it('resumes a trimmed cue at its in-point, not at the media head', () => {
+    const { element, source } = atEndPaused(1_200)
+    source.play()
+    expect(element.currentTime).toBe(1.2)
+  })
+
+  it('resumes an untrimmed cue at zero, which is its in-point', () => {
+    // The same rule, and it happens to agree with the element's own default
+    // here. Asserted anyway: it is the case that makes the trimmed one above a
+    // statement about the in-point rather than about seeking somewhere else.
+    const { element, source } = atEndPaused(0)
+    source.play()
+    expect(element.currentTime).toBe(0)
+  })
+
+  it('leaves a mid-clip resume where it was', () => {
+    // The guard must be the out-point, not "always seek on play". A transport
+    // paused in the middle of a clip has to carry on from where it stopped, or
+    // every PAUSE becomes a restart.
+    const element = new FakeVideoElement()
+    element.readyState = 2
+    element.duration = 3
+    const source = new VideoSource(
+      '/media/clip.mp4',
+      0,
+      { trimStartMs: 1_200, trimEndMs: null },
+      element as unknown as HTMLVideoElement,
+    )
+    element.emit('loadeddata')
+    source.play()
+    element.currentTime = 2
+    source.pause()
+
+    source.play()
+    expect(element.currentTime).toBe(2)
   })
 })
