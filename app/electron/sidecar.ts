@@ -97,6 +97,14 @@ export class Sidecar {
   private stopping = false
   private suspended = false
   private stopPromise: Promise<void> | null = null
+  /**
+   * The last thing a child itself said about why it died — its stderr, or the
+   * `Error` Node handed us — and nothing else. Held so that a later death which
+   * says nothing at all can quote it *as history* rather than being reported
+   * under it. Cleared wherever the banner is cleared, so it can never outlive
+   * the failure it describes.
+   */
+  private lastReported: string | null = null
 
   constructor(options: SidecarOptions | Omit<SidecarOptions, 'onError'>) {
     this.options = 'onError' in options
@@ -166,7 +174,7 @@ export class Sidecar {
     // the address exists again, retaining the crash ladder's old rung would
     // leave a recovered floor dark for up to five unnecessary seconds.
     this.retryIndex = 0
-    this.options.onError(null)
+    this.clearError()
     this.spawnChild()
   }
 
@@ -222,6 +230,58 @@ export class Sidecar {
         reapTimer = setTimeout(finish, REAP_GRACE_MS)
       }, 2_000)
     })
+  }
+
+  /**
+   * Take the banner down, and forget the cause with it.
+   *
+   * The two must move together. A `lastReported` left standing after the banner
+   * is cleared would be quoted into the next silent death's message as though
+   * the old fault were still live — the cry-wolf failure, arriving by a side
+   * door.
+   */
+  private clearError(): void {
+    this.lastReported = null
+    this.options.onError(null)
+  }
+
+  /**
+   * Say why a child died. Always — this publish has no guard on it.
+   *
+   * It used to have one: the message went out only if the child had written to
+   * stderr. That is silent on exactly the deaths that print nothing. A `spawn
+   * python3 ENOENT` (wrong venv, no Python on `PATH`) never creates a process,
+   * so there is not one byte of stderr and the `Error` carrying ENOENT was
+   * dropped into an ignored parameter; a signal kill and any silent nonzero
+   * exit are the same shape. The operator got a pill cycling Stopped →
+   * Restarting forever behind a blank banner, which is a floor that is down
+   * with nothing on screen saying so.
+   *
+   * Precedence is the child's own words first: stderr, then the `Error` Node
+   * raised, then a sentence synthesised from the exit status. The synthesised
+   * case also carries the last thing a child *did* report, explicitly labelled
+   * as prior — a crash loop whose first child explained itself and whose later
+   * children die mute must not lose that explanation, and must not have the
+   * later deaths reported under it either.
+   */
+  private publishDeath(stderr: string, cause: Error | null, code: number | null, signal: string | null): void {
+    const reported = stderr.length > 0 ? stderr : (cause?.message ?? '')
+    if (reported.length > 0) {
+      this.lastReported = reported
+      this.options.onError(reported)
+      return
+    }
+
+    const synthesised = signal !== null
+      ? `sender killed by ${signal}`
+      : code !== null
+        ? `sender exited with code ${code}`
+        : 'sender exited'
+    this.options.onError(
+      this.lastReported === null
+        ? synthesised
+        : `${synthesised}; last reported: ${this.lastReported}`,
+    )
   }
 
   private clearTimer(which: 'retryTimer' | 'stableTimer' | 'sendingTimer'): void {
@@ -298,7 +358,7 @@ export class Sidecar {
     })
 
     let failed = false
-    const handleDeath = (): void => {
+    const handleDeath = (cause: Error | null, code: number | null, signal: string | null): void => {
       if (failed) return
       failed = true
       this.clearTimer('stableTimer')
@@ -332,15 +392,23 @@ export class Sidecar {
         .slice(-STDERR_LINE_LIMIT)
         .join('\n')
         .trimEnd()
-      if (stderr.trim().length > 0) this.options.onError(stderr)
+      this.publishDeath(stderr.trim().length > 0 ? stderr : '', cause, code, signal)
 
       this.options.onStatus('stopped')
       this.scheduleRespawn()
     }
 
-    child.on('error', handleDeath)
-    child.once('exit', handleDeath)
-    child.stdin?.on('error', handleDeath)
+    // Wrappers, not a bare `handleDeath` on each of these. `exit` emits
+    // `(code, signal)`, so the moment `handleDeath` takes a cause as its first
+    // parameter a bare reference binds the exit code to it — a number, whose
+    // `.message` is `undefined`. The publish would then fall through to a
+    // synthesised sentence with no code and no signal on the commonest death
+    // there is, while the diff still read like a fix.
+    child.on('error', (cause: Error) => handleDeath(cause, null, null))
+    child.once('exit', (code: number | null, signal: NodeJS.Signals | null) => {
+      handleDeath(null, code, signal)
+    })
+    child.stdin?.on('error', (cause: Error) => handleDeath(cause, null, null))
     child.stdin?.on('drain', () => {
       if (this.child === child && !failed) this.writable = true
     })
@@ -370,7 +438,7 @@ export class Sidecar {
         this.stableTimer = null
         if (this.child === child && !failed) {
           this.retryIndex = 0
-          this.options.onError(null)
+          this.clearError()
         }
       }, STABLE_AFTER_MS)
     })

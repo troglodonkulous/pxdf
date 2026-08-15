@@ -561,6 +561,57 @@ describe('the reason a child died', () => {
     expect(errors.at(-1)).not.toContain('noise 0');
   });
 
+  it('reports a child that never started and said nothing', () => {
+    // `spawn python3 ENOENT` — a wrong venv, or no Python on `PATH` at all.
+    // No process is created, so there is not one byte of stderr to gate on,
+    // and the `Error` carrying ENOENT arrived in a parameter the handler did
+    // not take. The whole account of the failure was therefore dropped, and
+    // the operator watched the pill cycle Stopped → Restarting forever with a
+    // blank banner over it. This is the commonest way a machine that has never
+    // run the app fails, and it was the one death that said least.
+    const { sidecar, children, errors } = makeSidecar();
+    sidecar.start();
+
+    children[0].emit('error', new Error('spawn python3 ENOENT'));
+
+    expect(errors.at(-1)).toContain('ENOENT');
+  });
+
+  it('reports a child that exited silently', () => {
+    // The other half of the same hole: a nonzero exit that prints nothing —
+    // a signal kill, or an exit path that returns before it can write. Exit
+    // code 3 is not the case that matters here; `mapper/cli.py:515` prints
+    // before `_exit_now(EXIT_NETWORK_GONE)`, so on that path stderr already
+    // has the message. It is the silent ones this covers.
+    const { sidecar, children, errors } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+
+    children[0].die(); // exit(1, null), nothing on stderr
+
+    expect(errors.at(-1)).toContain('code 1');
+  });
+
+  it('attributes a silent death to itself, keeping the earlier cause as history', () => {
+    // Stale attribution. Child N dies with stderr; child N+1 dies mute. Left
+    // to stand alone, N's message now describes a death that did not happen
+    // that way — while erasing it would throw away the only explanation the
+    // crash loop ever produced. The message has to do both: name this death,
+    // and quote the earlier one as prior.
+    const { sidecar, children, errors } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+    children[0].stderr.emit('data', 'floor NIC 10.200.50.78 unusable\n');
+    children[0].die();
+
+    vi.advanceTimersByTime(0);
+    children[1].goLive();
+    children[1].die(); // says nothing of its own
+
+    expect(errors.at(-1)).toContain('code 1');
+    expect(errors.at(-1)).toContain('10.200.50.78');
+  });
+
   it('clears the error once a replacement has stayed up', () => {
     // A banner that outlives its cause is the cry-wolf failure in `CLAUDE.md`:
     // one channel left permanently red trains the operator to ignore it, and
