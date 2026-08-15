@@ -1171,52 +1171,52 @@ try {
   //     hold-until-GO, which is exactly the case the old bar could not move
   //     for.
   //
-  //     GO does not buy a fresh lap. Cue 2 has been live on and off for
-  //     several seconds by this point, and GO on an already-live cue does not
-  //     reseek its clip — so the first sample lands wherever the clip happens
-  //     to be. Sampling twice 1.2 s apart and demanding the second be larger
-  //     read `96 -> 29` and graded a healthy app red: 1.2 s of a looping 3 s
-  //     clip is 40 % of a lap, and starting at 96 % put a wrap inside the
-  //     window. Two samples cannot tell a wrap from a stall.
+  //     Graded on *rate*, against this harness's own clock and `CLIP_MS`.
+  //     Movement alone was never the claim: "goes up and does not freeze" is
+  //     satisfied by a bar driven by any moving quantity, including the wrong
+  //     one, which is the entire bug. Both references are outside the app —
+  //     the clip is 3 s because this file builds it that way with ffmpeg, and
+  //     the elapsed time is measured here — and Speed is fixed at 1x on this
+  //     branch, so advance and elapsed have to agree.
   //
-  //     Nor can "at least one rising step across the window", which replaced
-  //     it: a bar that ticks once and then freezes rises once and passes. The
-  //     grade has to catch a *partial* stall, not just a total one.
-  //
-  //     So the window is sampled at 300 ms — comfortably above the ~250 ms
-  //     tick React republishes engine state on, so a live bar should move on
-  //     every step — and graded on the longest run of identical readings. A
-  //     healthy bar repeats at most once where a sample lands inside a tick;
-  //     three in a row means it stopped for 900 ms while the clip kept
-  //     playing, which is the freeze. A wrap costs no flat run at all, so the
-  //     `96 -> 29` case this replaced now passes on its merits rather than by
-  //     the grade being loosened until it did.
-  //
-  //     Both ends still asserted: one rising step, so the bug this section
-  //     exists for — the bar reading `elapsedMs / cueDurationMs`, null for
-  //     every hold-until-GO cue, pinned at a constant — fails on flat run
-  //     *and* on no rise; and every sample non-negative with the count
-  //     checked, so a readout that vanished mid-window (`-1` from the
-  //     missing-element fallback) cannot pass as silence.
-  //     Movement alone is not the claim. "Advances" was graded as "goes up and
-  //     does not freeze", which any bar driven by any moving quantity
-  //     satisfies — including one driven by the wrong quantity, which is the
-  //     entire bug. The check's own name says *driven by clip position*, and
-  //     nothing was testing the "driven by" half.
-  //
-  //     Graded on rate, against this harness's own clock and `CLIP_MS`. Both
-  //     are outside the app: the clip is 3 s because this file built it that
-  //     way, and the elapsed time is measured here. The timecode beside the
-  //     bar was the tempting reference and is the wrong one — it renders at
-  //     one-second resolution, so on a 3 s clip a single second of
-  //     quantisation is 33 points of tolerance, wide enough for a bar running
-  //     at double or half rate to sail through. It also comes off the same
-  //     snapshot as the bar, which makes it one instrument, not two.
+  //     The timecode beside the bar is the tempting reference and is wrong
+  //     twice over: it renders at one-second resolution, so on a 3 s clip a
+  //     single second of quantisation is 33 points of slack — enough for a bar
+  //     at double or half rate to pass, measured — and it reads the same
+  //     snapshot the bar does, so it is one instrument wearing two labels.
   //
   //     Wraps are counted rather than tripped over: the bar is a percentage of
-  //     a looping clip, so total advance is the sum of forward steps plus 100
-  //     for each wrap. Speed is fixed at 1x on this branch (the Speed control
-  //     reads "Available in PR 4"), so advance and elapsed must agree.
+  //     a looping clip, so advance is the sum of forward steps plus 100 per
+  //     wrap. Two samples 1.2 s apart cannot do this at all — the first
+  //     revision read `96 -> 29` and graded a healthy app red, because 1.2 s
+  //     of a 3 s clip is 40 % of a lap and 96 % put a wrap inside the window.
+  //
+  //     The longest run of identical readings is graded alongside the rate,
+  //     because neither catches what the other does. A bar that freezes and
+  //     then jumps to catch up lands on exactly the right total advance; only
+  //     the flat run sees it. A bar at double rate never repeats a reading;
+  //     only the rate sees it.
+  //     Preconditions established here, not inherited. An earlier revision of
+  //     this section lost its three setup lines in an edit and stayed green,
+  //     because cue 2 happened to still be live from section 6a — the check
+  //     was grading whatever the previous section left behind, and would have
+  //     gone on grading cue 1, a *timed* cue after section 3b types a duration
+  //     into it, the moment anything upstream moved. That is the whole subject
+  //     of the check chosen by accident.
+  await page.evaluate(clickRowScript(1))
+  await page.evaluate(clickButtonScript('GO'))
+  const liveForTimeline = await waitForLive(1)
+  //     Both halves of "hold-until-GO cue is live" asserted, because each can
+  //     fail without the other. The duration field is the app's own tell: it
+  //     is absent exactly when a cue holds, which section 3b's check 26 grades
+  //     from the opposite side. If cue 2 ever acquires a duration upstream,
+  //     this refuses rather than quietly grading the case the section was
+  //     written to exclude.
+  const holdsUntilGo = await page.evaluate(
+    'document.querySelector(\'[aria-label="Cue duration in seconds"]\') === null')
+  check(liveForTimeline === 1 && holdsUntilGo === true,
+    'the cue under the timeline is live and still hold-until-GO',
+    `live row ${liveForTimeline}, duration field ${holdsUntilGo ? 'absent' : 'present'}`)
   const clipPosition = () => page.evaluate(
     'Number(document.querySelector(\'[aria-label="Clip position"]\')?.getAttribute("aria-valuenow") ?? "-1")')
   const positions = []
