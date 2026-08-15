@@ -139,6 +139,25 @@ export class VideoSource implements FrameSource {
   /** Ready / failed / disposed, and the ordering between them. */
   private readonly state = new SourceReadiness()
   private frameCallbackId: number | null = null
+  /**
+   * Whether the engine has told this source to stop, as opposed to the element
+   * having stopped on its own.
+   *
+   * `HTMLMediaElement.paused` cannot answer that question: it is equally true
+   * of a transport the operator paused, a clip sitting at EOF, and one that has
+   * not been started yet. Restarting is only correct for the second, so the
+   * distinction has to be held here — this tracks `pause()`/`play()`, which are
+   * the engine's two words for its intent (`PlayerEngine.setPaused`, and
+   * `arm`/`promotePending`).
+   *
+   * Both restart paths read it. Without it, PAUSE is not a pause: `compose`
+   * keeps calling `draw` on a paused source every frame, so the wrap would seek
+   * a held frame back to its in-point, and an `ended` already queued when the
+   * engine paused would run afterwards and call `play()` — the floor resuming
+   * under a PAUSE the operator pressed. `PlayerEngine.setPaused` promises the
+   * opposite in as many words: the floor holds the paused frame.
+   */
+  private paused = false
 
   private readonly onError = (): void => {
     this.state.fail(mediaErrorReason(this.video.error))
@@ -229,7 +248,7 @@ export class VideoSource implements FrameSource {
   // seeking a source the operator already has a banner about would move the
   // playhead of a cue nothing is showing.
   private readonly onEnded = (): void => {
-    if (this.state.failed) return
+    if (this.state.failed || this.paused) return
     this.video.currentTime = this.trimStartMs / 1_000
     this.play()
   }
@@ -357,6 +376,7 @@ export class VideoSource implements FrameSource {
 
   play(): void {
     if (this.state.disposed || this.state.failed) return
+    this.paused = false
     void this.video.play().catch((error: unknown) => {
       // An `AbortError` means a newer load or pause superseded this play, which
       // is ordinary during a cue change and not a failure. `state.fail()`
@@ -367,6 +387,9 @@ export class VideoSource implements FrameSource {
   }
 
   pause(): void {
+    // Set before the disposed guard, and unconditionally: a source nobody is
+    // going to play again is the last one that should be able to restart itself.
+    this.paused = true
     if (!this.state.disposed) this.video.pause()
   }
 
@@ -400,16 +423,25 @@ export class VideoSource implements FrameSource {
     context.fillRect(0, 0, width, height)
 
     if (this.state.ready && !this.state.failed) {
-      // Unconditional. The out-point of an untrimmed cue is the media's own
-      // length, not "there isn't one" — gating this whole block on
-      // `trimEndMs !== null` meant the only clips that could ever wrap were the
-      // ones no UI in this app can author.
-      const wrapToMs = trimWrapPoint(
-        this.video.currentTime * 1_000,
-        this.trimStartMs,
-        this.trimEndMs ?? this.mediaDurationMs,
-      )
-      if (wrapToMs !== null) this.video.currentTime = wrapToMs / 1_000
+      // Gated on the transport and nothing else. The out-point of an untrimmed
+      // cue is the media's own length, not "there isn't one" — gating this on
+      // `trimEndMs !== null`, as it was, meant the only clips that could ever
+      // wrap were the ones no UI in this app can author.
+      //
+      // `draw` runs while the transport is paused: `compose` composites the
+      // live source every frame regardless, which is what keeps a *sent* frame
+      // on the floor rather than stopping the send. So the wrap has to check —
+      // a clip paused at or past its out-point would otherwise be seeked back
+      // to its in-point by the very next composite, and PAUSE would jump the
+      // floor instead of holding it.
+      if (!this.paused) {
+        const wrapToMs = trimWrapPoint(
+          this.video.currentTime * 1_000,
+          this.trimStartMs,
+          this.trimEndMs ?? this.mediaDurationMs,
+        )
+        if (wrapToMs !== null) this.video.currentTime = wrapToMs / 1_000
+      }
       const target = rotatedTargetSize(width, height, this.rotation)
       const rect = coverRect(this.video.videoWidth, this.video.videoHeight, target.width, target.height)
       if (rect.width > 0 && rect.height > 0) {

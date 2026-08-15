@@ -706,3 +706,90 @@ describe('a clip restarts rather than freezing', () => {
     expect(element.listenerCount()).toBe(0)
   })
 })
+
+/**
+ * PAUSE is a pause, including at the end of a clip.
+ *
+ * `PlayerEngine.setPaused` says it in as many words — "Pause freezes the media,
+ * so the floor holds the paused frame" — and the restart above is the first
+ * thing in this file capable of breaking that promise, in two places at once:
+ *
+ *   - `compose` composites the live source on *every* frame, paused or not
+ *     (that is what keeps a sent frame on the floor rather than stopping the
+ *     send), so `draw`'s wrap runs while paused. A clip paused at or past its
+ *     out-point would be seeked back to its in-point by the next composite, and
+ *     the floor would jump rather than hold.
+ *   - An `ended` already queued when the engine pauses runs afterwards, and an
+ *     unguarded handler answers it by calling `play()` — the floor resuming
+ *     under a PAUSE the operator pressed.
+ *
+ * `HTMLMediaElement.paused` cannot be the guard: it is equally true of a paused
+ * transport, a clip at EOF and a clip not yet started, and only the middle one
+ * should restart. `VideoSource` tracks the engine's own `pause()`/`play()`
+ * instead.
+ */
+describe('a paused transport is not a restart', () => {
+  function fakeContext(): CanvasRenderingContext2D {
+    const noop = (): void => {}
+    return {
+      save: noop,
+      restore: noop,
+      setTransform: noop,
+      fillRect: noop,
+      translate: noop,
+      rotate: noop,
+      drawImage: noop,
+      globalAlpha: 1,
+      globalCompositeOperation: 'source-over',
+      fillStyle: '#000000',
+    } as unknown as CanvasRenderingContext2D
+  }
+
+  function pausedAtEnd(): { element: FakeVideoElement; source: VideoSource } {
+    const element = new FakeVideoElement()
+    element.readyState = 2
+    element.duration = 3
+    const source = new VideoSource(
+      '/media/clip.mp4',
+      0,
+      { trimStartMs: 1_200, trimEndMs: null },
+      element as unknown as HTMLVideoElement,
+    )
+    element.emit('loadeddata')
+    source.play()
+    element.currentTime = 3
+    source.pause()
+    return { element, source }
+  }
+
+  it('does not seek a paused clip that is sitting on its out-point', () => {
+    const { element, source } = pausedAtEnd()
+    source.draw(fakeContext(), 80, 40)
+    expect(element.currentTime).toBe(3)
+  })
+
+  it('does not restart on an ended that arrives after the transport paused', () => {
+    const { element, source } = pausedAtEnd()
+    const playsBefore = element.playCalls
+
+    element.emit('ended')
+    expect(element.currentTime).toBe(3)
+    expect(element.playCalls).toBe(playsBefore)
+    expect(source.failed).toBe(false)
+  })
+
+  it('loops again once the transport resumes', () => {
+    // The other half, and the reason the guard is a flag rather than a refusal:
+    // a pause that permanently disarmed the restart would be the original
+    // frozen floor with an extra step in front of it.
+    const { element, source } = pausedAtEnd()
+    source.play()
+
+    source.draw(fakeContext(), 80, 40)
+    expect(element.currentTime).toBe(1.2)
+
+    element.currentTime = 3
+    element.emit('ended')
+    expect(element.currentTime).toBe(1.2)
+  })
+})

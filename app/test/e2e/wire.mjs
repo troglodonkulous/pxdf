@@ -1413,11 +1413,6 @@ try {
   // for the next cue's decode, stacked on top of the hold itself — the same
   // number this file already uses for "does not strand the floor".
   const advancedTo = await waitForLive(4)
-  // Read once, here, because 3c measures a clip length from it. Late rather
-  // than early — `waitForLive` polls at 200 ms — which is the safe direction:
-  // it can only push 3c's first sample further past the end of the first play,
-  // never before it.
-  const trimLiveAt = Date.now()
   const loopElapsed = Date.now() - loopStartedAt
   check(advancedTo === 4, 'loop: 2 on a 1 s clip advances to the next cue with no GO',
     `live row index ${advancedTo} after ${loopElapsed} ms`)
@@ -1476,7 +1471,28 @@ try {
   //     live.
   const LOOP_SETTLE_MS = 300
   const SAMPLE_WINDOW_MS = 150
-  await sleep(Math.max(0, trimLiveAt + TRIMMED_CLIP_MS + LOOP_SETTLE_MS - Date.now()))
+
+  //     Anchored on the wire going lit, not on the cue row going live. Those
+  //     are different moments: the row is React's mirror of engine state and a
+  //     cue is live the instant it is promoted, while the decoder may still be
+  //     seeking to the in-point and producing nothing. On a loaded machine that
+  //     gap ran past this section's whole margin and put both samples inside a
+  //     still-black floor — which is identical to itself half a lap later, so
+  //     the check went red reporting the harness's own impatience as a frozen
+  //     floor. Observed, once, in a run whose loop-advance check (3b) was red
+  //     for the same starvation.
+  //
+  //     Waiting for light instead removes the decoder's latency from the
+  //     measurement entirely, and errs late: the anchor is at or after real
+  //     playback start, which can only push the samples further past the end of
+  //     the first play, never before it.
+  let litAt = null
+  for (let attempt = 0; attempt < 50 && litAt === null; attempt++) {
+    if (anyLit(await tap.window(100))) litAt = Date.now()
+  }
+  check(litAt !== null, 'the looping cue puts light on the wire before it is sampled',
+    litAt === null ? 'still black after 5 s — nothing below this line is a measurement' : 'lit')
+  await sleep(Math.max(0, (litAt ?? Date.now()) + TRIMMED_CLIP_MS + LOOP_SETTLE_MS - Date.now()))
 
   const fromRestart = tap.packets.length
   const sampleAAt = Date.now()
@@ -1492,12 +1508,20 @@ try {
   const restartHeader = windowA.length > 0 ? windowA[0].subarray(0, HEADER_LEN) : null
   const bodyA = restartHeader === null ? null : bodyWithHeader(windowA, restartHeader)
   const bodyB = restartHeader === null ? null : bodyWithHeader(windowB, restartHeader)
-  check(bodyA !== null && bodyB !== null && bodyA.length > 0 && bodyB.length > 0,
-    'both restart captures hold the same region of the floor, non-empty',
+  //     Lit, not merely present. Both fixtures fill the floor, so every strip
+  //     of a real frame carries colour — a black body means the decoder was
+  //     not producing, and two black bodies compare equal, so without this the
+  //     black-floor case fails the *next* check with a message blaming the loop
+  //     for the harness having sampled too early.
+  const litBodies = bodyA !== null && bodyB !== null
+    && bodyA.some((byte) => byte !== 0) && bodyB.some((byte) => byte !== 0)
+  check(litBodies,
+    'both restart captures hold the same lit region of the floor',
     `${windowA.length} and ${windowB.length} packets · ` +
-    `bodies ${bodyA === null ? 'absent' : bodyA.length} and ${bodyB === null ? 'absent' : bodyB.length} bytes`)
+    `bodies ${bodyA === null ? 'absent' : `${bodyA.length} bytes`} and ` +
+    `${bodyB === null ? 'absent' : `${bodyB.length} bytes`}`)
 
-  check(bodyA !== null && bodyB !== null && !bodyA.equals(bodyB),
+  check(litBodies && bodyA !== null && bodyB !== null && !bodyA.equals(bodyB),
     'the floor is still changing one clip length after a loop: null cue went live',
     `sampled ${TRIMMED_CLIP_MS / 2} ms apart, both past the ${TRIMMED_CLIP_MS} ms clip; ` +
     `bodies ${bodyA !== null && bodyB !== null && bodyA.equals(bodyB) ? 'identical' : 'differ'}`)
@@ -1510,6 +1534,95 @@ try {
     'both halves of the looping clip appear on the wire after it should have ended',
     `red ${countTone(acrossRestart, 'red')} · white ${countTone(acrossRestart, 'white')} ` +
     `of ${acrossRestart.length} packets`)
+
+  // 3d. And PAUSE still holds the frame, which is the promise the restart above
+  //     is the first thing in this app capable of breaking.
+  //
+  //     `compose` composites the live source on every frame whether or not the
+  //     transport is paused — that is what keeps a *sent* frame on the floor
+  //     rather than stopping the send — so `draw`'s wrap runs while paused. An
+  //     unguarded wrap seeks a clip held at its out-point back to its in-point
+  //     on the very next composite, and an `ended` queued as the operator
+  //     pressed PAUSE answers with `play()`. Either one makes PAUSE jump the
+  //     floor or resume it. `PlayerEngine.setPaused` promises the opposite in
+  //     as many words.
+  //
+  //     Graded as the mirror of 3c, on the same cue, same helper, same spacing:
+  //     bodies sampled half a lap apart must now be *identical*.
+  //
+  //     What this section does NOT grade, stated because its green would
+  //     otherwise be read as covering it. The two guards in `VideoSource` fire
+  //     only when the playhead is at or past the out-point, and PAUSE pressed
+  //     from here lands at an arbitrary phase — almost always mid-lap, where a
+  //     paused clip holds whether or not the guards exist. Measured, not
+  //     assumed: removing both guards and re-running leaves every check in this
+  //     section green. The window in which they matter is the frame or so
+  //     between EOF and the restart, which is not targetable from outside the
+  //     app, so it is graded in `videoSource.test.ts` ("a paused transport is
+  //     not a restart") where the phase is set directly.
+  //
+  //     What it does grade is the contract around them, none of which had any
+  //     wire coverage before: that PAUSE reaches the element at all, that the
+  //     send continues while paused, and — the one check here that a mutation
+  //     turns red — that resuming brings the loop back. That last is the trap
+  //     this pair invites: a pause implemented as a permanent disarm passes
+  //     every "held frame" check ever written and is the frozen floor of 3c
+  //     with a button press in front of it.
+  const pauseLabel = await page.evaluate(
+    'document.querySelector(".transport-big-button")?.textContent ?? null')
+  await page.evaluate(clickButtonScript('PAUSE'))
+  const resumeLabel = await waitFor(
+    'document.querySelector(".transport-big-button")?.textContent?.includes("RESUME") ? "RESUME" : null')
+  //     The button's own label is the independent witness that the transport
+  //     flipped. Without it a PAUSE that silently did nothing would still be
+  //     graded by the identical-bodies check below — and would fail it, but for
+  //     the wrong reason and with a message pointing at the decoder.
+  check(pauseLabel !== null && pauseLabel.includes('PAUSE') && resumeLabel === 'RESUME',
+    'PAUSE flips the transport and the button says so',
+    `${JSON.stringify(pauseLabel)} -> ${JSON.stringify(resumeLabel)}`)
+
+  //     Settle first: the click reaches the engine, the engine pauses the
+  //     element, and the render loop composites one more frame from wherever
+  //     the decoder actually stopped. Sampling before that grades the coast.
+  await sleep(500)
+  const pausedA = await tap.window(SAMPLE_WINDOW_MS)
+  await sleep(TRIMMED_CLIP_MS / 2 - SAMPLE_WINDOW_MS)
+  const pausedB = await tap.window(SAMPLE_WINDOW_MS)
+
+  const pausedHeader = pausedA.length > 0 ? pausedA[0].subarray(0, HEADER_LEN) : null
+  const pausedBodyA = pausedHeader === null ? null : bodyWithHeader(pausedA, pausedHeader)
+  const pausedBodyB = pausedHeader === null ? null : bodyWithHeader(pausedB, pausedHeader)
+  //     Non-empty is also the "PAUSE is not a teardown" check: the socket stays
+  //     open and the sender keeps sending the held frame, because a floor that
+  //     stops receiving is a floor that reverts to vendor content in Master/IR
+  //     mode (`CLAUDE.md`, § The rig).
+  check(pausedBodyA !== null && pausedBodyB !== null && pausedA.length > 0 && pausedB.length > 0,
+    'the wire keeps carrying the held frame while paused — PAUSE is not a teardown',
+    `${pausedA.length} and ${pausedB.length} packets`)
+
+  check(pausedBodyA !== null && pausedBodyB !== null && pausedBodyA.equals(pausedBodyB),
+    'a paused clip holds its frame instead of looping under the operator',
+    `sampled ${TRIMMED_CLIP_MS / 2} ms apart; bodies ` +
+    `${pausedBodyA !== null && pausedBodyB !== null && pausedBodyA.equals(pausedBodyB) ? 'identical' : 'differ'}`)
+
+  //     Resume, and the loop has to come back. A pause that permanently
+  //     disarmed the restart would pass every check above and be the original
+  //     frozen floor with an extra button press in front of it.
+  await page.evaluate(clickButtonScript('RESUME'))
+  const backToPause = await waitFor(
+    'document.querySelector(".transport-big-button")?.textContent?.includes("PAUSE") ? "PAUSE" : null')
+  await sleep(300)
+  const resumedA = await tap.window(SAMPLE_WINDOW_MS)
+  await sleep(TRIMMED_CLIP_MS / 2 - SAMPLE_WINDOW_MS)
+  const resumedB = await tap.window(SAMPLE_WINDOW_MS)
+  const resumedHeader = resumedA.length > 0 ? resumedA[0].subarray(0, HEADER_LEN) : null
+  const resumedBodyA = resumedHeader === null ? null : bodyWithHeader(resumedA, resumedHeader)
+  const resumedBodyB = resumedHeader === null ? null : bodyWithHeader(resumedB, resumedHeader)
+  check(backToPause === 'PAUSE' && resumedBodyA !== null && resumedBodyB !== null
+      && !resumedBodyA.equals(resumedBodyB),
+    'the clip loops again once the transport resumes',
+    `button ${JSON.stringify(backToPause)}; bodies ` +
+    `${resumedBodyA !== null && resumedBodyB !== null && resumedBodyA.equals(resumedBodyB) ? 'identical' : 'differ'}`)
 
   // 4. BLACKOUT is black on the wire, and is not a teardown.
   await page.evaluate(clickButtonScript('BLACKOUT'))
