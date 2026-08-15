@@ -328,7 +328,7 @@ export function PlayScreen({
         <aside className="cue-stack" aria-label="Cue stack">
           <div className="panel-heading">
             <span className="section-label">Cue Stack</span>
-            <button type="button" className="icon-button compact" title="Add cue" aria-label="Add cue" popoverTarget={ADD_CUE_MENU_ID}>
+            <button type="button" className="icon-button compact add-cue-trigger" title="Add cue" aria-label="Add cue" popoverTarget={ADD_CUE_MENU_ID}>
               <Icon name="plus" size={15} />
             </button>
             <div id={ADD_CUE_MENU_ID} popover="auto" className="add-menu" role="menu">

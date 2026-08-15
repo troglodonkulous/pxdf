@@ -1007,6 +1007,27 @@ try {
     'Create in editor ships visible and disabled — the Edit surface is not built yet',
     JSON.stringify(menuItems))
 
+  //    Where the menu opened, not just what is in it. A `popover` lives in the
+  //    top layer, and the UA sheet's `position: fixed; inset: 0; margin: auto`
+  //    centres an unstyled one in the *viewport* — this menu was opening in the
+  //    middle of the preview, a screen away from the `+` that owns it. Every
+  //    assertion above passed the whole time, because reading `[role=menuitem]`
+  //    out of the DOM cannot see where the DOM is painted. Graded as geometry
+  //    for that reason: the menu's top edge sits just under the trigger's
+  //    bottom, and the two overlap horizontally.
+  const menuBox = await page.evaluate(
+    '(() => { const t = document.querySelector(".add-cue-trigger"); ' +
+    'const m = document.querySelector(".add-menu"); ' +
+    'if (t === null || m === null) return null; ' +
+    'const a = t.getBoundingClientRect(); const b = m.getBoundingClientRect(); ' +
+    'return { drop: Math.round(b.top - a.bottom), ' +
+    'overlap: Math.round(Math.min(a.right, b.right) - Math.max(a.left, b.left)), ' +
+    'onscreen: b.left >= 0 && b.right <= innerWidth && b.bottom <= innerHeight }; })()')
+  check(menuBox !== null && menuBox.drop >= 0 && menuBox.drop <= 12
+    && menuBox.overlap > 0 && menuBox.onscreen === true,
+    'the + menu opens anchored under the + it belongs to, fully on screen',
+    JSON.stringify(menuBox))
+
   await page.evaluate(clickButtonScript('Upload'))
   // Polled, not slept. The picker is an IPC round trip and the rows are a React
   // render behind it, and a fixed wait that is long enough on a warm machine

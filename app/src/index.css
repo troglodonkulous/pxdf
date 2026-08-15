@@ -1219,7 +1219,23 @@ select:focus-visible {
   display: flex;
 }
 
+.add-cue-trigger {
+  anchor-name: --add-cue;
+}
+
 .add-menu {
+  /* A `popover` lives in the top layer, where the UA sheet sets
+     `position: fixed; inset: 0; margin: auto` — an unstyled popover centres
+     itself in the *viewport*, which is exactly where this menu was landing:
+     mid-preview, nowhere near the `+` that opened it. The top layer also
+     escapes ancestor containment, so wrapping it in a `position: relative`
+     parent cannot pull it back. Anchor positioning is the fix; `margin: 0`
+     is load-bearing, it defeats the UA's centring shorthand. */
+  position: fixed;
+  position-anchor: --add-cue;
+  position-area: block-end span-inline-start;
+  position-try-fallbacks: flip-block, flip-inline;
+  margin: var(--sp-1) 0 0 0;
   width: 240px;
   max-width: min(80vw, 240px);
   flex-direction: column;
