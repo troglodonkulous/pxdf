@@ -41,7 +41,7 @@ export function App() {
   if (engineRef.current === null) {
     engineRef.current = new PlayerEngine({
       show: INITIAL_SHOW,
-      createSource: (cue) => new VideoSource(cue.source.path, cue.rotation),
+      createSource: (cue) => new VideoSource(cue.source.path, cue.rotation, { trimStartMs: cue.trimStartMs, trimEndMs: cue.trimEndMs }),
     })
   }
   const engine = engineRef.current

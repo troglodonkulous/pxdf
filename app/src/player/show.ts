@@ -27,7 +27,7 @@ import type { Rotation } from '../render/geometry'
  * file half-understood is worse than one that will not open, because the half
  * that was understood goes on the floor.
  */
-export const SHOW_FILE_VERSION = 1;
+export const SHOW_FILE_VERSION = 2;
 
 export interface CueSource {
   /** Only `video` in PR 2. Generators and text are PR 5. */
@@ -46,21 +46,38 @@ export interface Cue {
   readonly id: string;
   readonly name: string;
   readonly source: CueSource;
-  /**
-   * How long the cue holds, in milliseconds.
-   *
-   * `null` means it holds until the operator presses GO, with the media
-   * looping underneath — the `∞` in the cue stack, and the default. A finite
-   * duration means the cue ends on its own and the stack advances; the last
-   * cue ending that way leaves the player idle, which puts black on the wire.
-   *
-   * Loop N is Requirements §2 and lands in PR 4 with per-cue speed and trim.
-   * PR 3 is the Mapping surface and owns none of them — see `APP-PLAN.md`'s
-   * build order, which is the authority.
-   */
-  readonly durationMs: number | null;
+  /** null = holds until GO (default). N >= 1 = play the trimmed clip N times, then advance. */
+  readonly loop: number | null;
+  /** In-point, milliseconds. Default 0. */
+  readonly trimStartMs: number;
+  /** Out-point, milliseconds. null = play to the end of the media. */
+  readonly trimEndMs: number | null;
+  /** Probed once at add time via probeDurationMs. null = not probed yet, or the probe failed. */
+  readonly mediaDurationMs: number | null;
   /** Per-cue compensation for Mapping's floor Rotation, independent of `mapper/orientation.py`. */
   readonly rotation: Rotation;
+}
+
+/**
+ * The trimmed clip's own length, independent of loop. `trimEndMs ??
+ * mediaDurationMs` is the out-point. Unknown or non-positive results stay
+ * null: an asynchronous probe may not have landed yet.
+ */
+export function clipDurationMs(cue: Cue): number | null {
+  const end = cue.trimEndMs ?? cue.mediaDurationMs;
+  if (end === null) return null;
+  const duration = end - cue.trimStartMs;
+  return duration > 0 ? duration : null;
+}
+
+/**
+ * How long the cue holds before the stack advances on its own. null means do
+ * not advance: either loop is null or the clip length is not known yet.
+ */
+export function cueHoldMs(cue: Cue): number | null {
+  if (cue.loop === null) return null;
+  const duration = clipDurationMs(cue);
+  return duration === null ? null : cue.loop * duration;
 }
 
 export interface ShowFloor {
@@ -123,16 +140,34 @@ function parseCue(value: unknown, index: number, seen: Set<string>): Cue {
   const source = asRecord(raw.source, `cues[${index}].source`);
   if (source.kind !== 'video') fail(`cues[${index}].source.kind ${JSON.stringify(source.kind)} is not supported`);
 
-  const durationRaw = raw.durationMs ?? null;
-  if (durationRaw !== null && (typeof durationRaw !== 'number' || !Number.isFinite(durationRaw) || durationRaw <= 0)) {
-    fail(`cues[${index}].durationMs is neither null nor a positive number`);
+  const loop = raw.loop ?? null;
+  if (loop !== null && (typeof loop !== 'number' || !Number.isInteger(loop) || loop < 1)) {
+    fail(`cues[${index}].loop is neither null nor a positive integer`);
+  }
+  const trimStartMs = raw.trimStartMs ?? 0;
+  if (typeof trimStartMs !== 'number' || !Number.isFinite(trimStartMs) || trimStartMs < 0) {
+    fail(`cues[${index}].trimStartMs is not a non-negative finite number`);
+  }
+  const trimEndMs = raw.trimEndMs ?? null;
+  if (trimEndMs !== null && (typeof trimEndMs !== 'number' || !Number.isFinite(trimEndMs) || trimEndMs <= 0)) {
+    fail(`cues[${index}].trimEndMs is neither null nor a positive finite number`);
+  }
+  if (trimEndMs !== null && trimEndMs <= trimStartMs) {
+    fail(`cues[${index}].trimEndMs must be greater than trimStartMs`);
+  }
+  const mediaDurationMs = raw.mediaDurationMs ?? null;
+  if (mediaDurationMs !== null && (typeof mediaDurationMs !== 'number' || !Number.isFinite(mediaDurationMs) || mediaDurationMs <= 0)) {
+    fail(`cues[${index}].mediaDurationMs is neither null nor a positive finite number`);
   }
 
   return {
     id,
     name: asString(raw.name, `cues[${index}].name`),
     source: { kind: 'video', path: asString(source.path, `cues[${index}].source.path`) },
-    durationMs: durationRaw as number | null,
+    loop: loop as number | null,
+    trimStartMs,
+    trimEndMs: trimEndMs as number | null,
+    mediaDurationMs: mediaDurationMs as number | null,
     rotation: asRotation(raw.rotation ?? 0, `cues[${index}].rotation`),
   };
 }

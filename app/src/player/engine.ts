@@ -41,7 +41,7 @@
  */
 
 import type { Rotation } from '../render/geometry';
-import type { Cue, Show } from './show';
+import { cueHoldMs, type Cue, type Show } from './show';
 
 /**
  * One playable piece of media, as the engine needs to see it.
@@ -113,7 +113,7 @@ export interface EngineSnapshot {
   readonly previewCueId: string | null;
   /** How long the live cue has been live, in milliseconds. */
   readonly elapsedMs: number;
-  /** The live cue's duration, or null when it holds until GO. */
+  /** Live cue hold, or null for loop: null or an unknown clip length. */
   readonly cueDurationMs: number | null;
   /**
    * The live source's own playback position, in milliseconds. 0 when nothing
@@ -458,7 +458,11 @@ export class PlayerEngine<S extends FrameSource> {
       pendingCueId: this.pending?.cue.id ?? null,
       previewCueId: this.preview?.cue.id ?? null,
       elapsedMs: this.elapsedMs(),
-      cueDurationMs: this.live?.cue.durationMs ?? null,
+      // `cue.durationMs` no longer exists — #18 replaced it with the
+      // loop/trim model, and `cueHoldMs` derives the hold from that. The
+      // position fields are #17's, and are independent of it: they read the
+      // clip, not the cue.
+      cueDurationMs: this.live === null ? null : cueHoldMs(this.live.cue),
       positionMs: this.live?.source.positionMs ?? 0,
       mediaDurationMs: this.live?.source.mediaDurationMs ?? null,
       lastError: this.lastError,
@@ -601,12 +605,12 @@ export class PlayerEngine<S extends FrameSource> {
     const live = this.live;
     if (live === null || this.transportPaused) return;
 
-    const duration = live.cue.durationMs;
-    // A null duration holds until GO with the media looping underneath. An
+    const hold = cueHoldMs(live.cue);
+    // A null hold means loop: null or an unknown clip length. An
     // already-armed cue means the change is in flight, and re-arming it here
     // would restart the decode every frame and guarantee the gap it is meant
     // to prevent.
-    if (duration === null || this.pending !== null || this.elapsedMs() < duration) return;
+    if (hold === null || this.pending !== null || this.elapsedMs() < hold) return;
 
     // Standby is what fires next, and a timed cue is an automatic GO — but not
     // when Standby *is* the cue that is playing. Selecting a cue is how Standby

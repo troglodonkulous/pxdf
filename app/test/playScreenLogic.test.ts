@@ -6,7 +6,10 @@ const cue = (id: string): Cue => ({
   id,
   name: `Cue ${id}`,
   source: { kind: 'video', path: `/media/${id}.mp4` },
-  durationMs: null,
+  loop: null,
+  trimStartMs: 0,
+  trimEndMs: null,
+  mediaDurationMs: null,
   rotation: 0,
 })
 const cues = [cue('cue-1'), cue('cue-2'), cue('cue-3')]

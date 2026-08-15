@@ -42,6 +42,15 @@ export function rotatedTargetSize(width: number, height: number, rotation: Rotat
   return rotation === 90 || rotation === 270 ? { width: height, height: width } : { width, height }
 }
 
+/**
+ * Per-frame trim-wrap check. Units are milliseconds throughout. An open
+ * trimEndMs plays to media end; bounded trims wrap once out-point is reached.
+ */
+export function trimWrapPoint(currentTimeMs: number, trimStartMs: number, trimEndMs: number | null): number | null {
+  if (trimEndMs === null) return null
+  return currentTimeMs >= trimEndMs ? trimStartMs : null
+}
+
 /** A detached, muted video decoder that satisfies the player's frame-source contract. */
 export class VideoSource implements FrameSource {
   private readonly video: HTMLVideoElement
@@ -54,6 +63,8 @@ export class VideoSource implements FrameSource {
    * below is only the rotation a freshly armed cue starts with.
    */
   private rotation: Rotation
+  private readonly trimStartMs: number
+  private readonly trimEndMs: number | null
   /** Ready / failed / disposed, and the ordering between them. */
   private readonly state = new SourceReadiness()
   private frameCallbackId: number | null = null
@@ -77,12 +88,14 @@ export class VideoSource implements FrameSource {
     this.markReadyFromElement()
   }
 
-  constructor(path: string, rotation: Rotation = 0) {
+  constructor(path: string, rotation: Rotation = 0, trim: { trimStartMs: number; trimEndMs: number | null } = { trimStartMs: 0, trimEndMs: null }) {
     this.rotation = rotation
+    this.trimStartMs = trim.trimStartMs
+    this.trimEndMs = trim.trimEndMs
     this.video = document.createElement('video')
     this.video.muted = true
     this.video.playsInline = true
-    this.video.loop = true
+    this.video.loop = false
     this.video.preload = 'auto'
     this.video.addEventListener('error', this.onError)
     this.video.addEventListener('loadeddata', this.onData)
@@ -110,6 +123,7 @@ export class VideoSource implements FrameSource {
       // subresource from the second — see `mediaUrl.ts`.
       this.video.src = mediaUrl(path)
       this.video.load()
+      if (trim.trimStartMs > 0) this.video.currentTime = trim.trimStartMs / 1_000
       this.requestDecodedFrame()
     } catch {
       this.state.fail()
@@ -197,6 +211,10 @@ export class VideoSource implements FrameSource {
     context.fillRect(0, 0, width, height)
 
     if (this.state.ready && !this.state.failed) {
+      if (this.trimEndMs !== null) {
+        const wrapToMs = trimWrapPoint(this.video.currentTime * 1_000, this.trimStartMs, this.trimEndMs)
+        if (wrapToMs !== null) this.video.currentTime = wrapToMs / 1_000
+      }
       const target = rotatedTargetSize(width, height, this.rotation)
       const rect = coverRect(this.video.videoWidth, this.video.videoHeight, target.width, target.height)
       if (rect.width > 0 && rect.height > 0) {

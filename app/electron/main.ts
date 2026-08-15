@@ -6,7 +6,7 @@ import { floorGeometry, SHOP_RIG } from '../src/render/geometry.js'
 import { blackFrame } from '../src/render/onePass.js'
 import { PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
 import { MEDIA_SCHEME, mediaPath, mediaUrl } from '../src/player/mediaUrl.js'
-import type { ShowFloor } from '../src/player/show.js'
+import type { Cue, ShowFloor } from '../src/player/show.js'
 import { runMapperPlan } from './mapperPlan.js'
 import { nicVerdict } from './nicWatch.js'
 import { flushSettings, loadSettings, updateSettings } from './settings.js'
@@ -322,6 +322,17 @@ ipcMain.handle('ddf:pick-media', async (): Promise<string[]> => {
     }
   }
   return chosen
+})
+
+ipcMain.handle('ddf:cue-seed', (): Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>> => {
+  const raw = process.env.DDF_CUE_SEED
+  if (raw === undefined || raw.length === 0) return {}
+  try {
+    return JSON.parse(raw) as Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>>
+  } catch {
+    // A malformed hand-written test seed must not abort application launch.
+    return {}
+  }
 })
 
 /**

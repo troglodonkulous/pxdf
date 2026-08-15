@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { SenderStatus } from './sidecar.js'
+import type { Cue } from '../src/player/show.js'
 
 export interface DdfApi {
   writeFrame(frame: Uint8Array): void
@@ -8,6 +9,7 @@ export interface DdfApi {
   onInterfaces(callback: (list: { name: string; address: string }[]) => void): () => void
   pickMedia(): Promise<string[]>
   listMediaDir(): Promise<{ dir: string; files: string[] } | null>
+  cueSeed(): Promise<Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>>>
   mapperPlan(type: string, cols: number, rows: number): Promise<string>
   listInterfaces(): Promise<{ name: string; address: string }[]>
   getLocalIp(): Promise<string>
@@ -74,6 +76,9 @@ const api: DdfApi = {
   },
   listMediaDir() {
     return ipcRenderer.invoke('ddf:list-media-dir') as Promise<{ dir: string; files: string[] } | null>
+  },
+  cueSeed() {
+    return ipcRenderer.invoke('ddf:cue-seed') as Promise<Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>>>
   },
   mapperPlan(type, cols, rows) {
     return ipcRenderer.invoke('ddf:mapper-plan', type, cols, rows) as Promise<string>
