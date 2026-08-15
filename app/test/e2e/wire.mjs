@@ -96,11 +96,22 @@ function check(ok, description, detail = '') {
 
 // --------------------------------------------------------------- test clips
 
+/**
+ * How long the clips below run, in milliseconds.
+ *
+ * This file authors its own fixtures, so this is a known quantity rather than
+ * something read back out of the app — which is what makes it usable as an
+ * independent reference. Section 6b grades the timeline's rate against it and
+ * this harness's own clock; asking the app how long its clip is would grade
+ * the app against itself.
+ */
+const CLIP_MS = 3_000
+
 function makeClip(directory, colour) {
   const path = join(directory, `${colour}.mp4`)
   execFileSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y',
-    '-f', 'lavfi', '-i', `color=c=${colour}:s=640x480:r=30:d=3`,
+    '-f', 'lavfi', '-i', `color=c=${colour}:s=640x480:r=30:d=${CLIP_MS / 1_000}`,
     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path,
   ])
   return path
@@ -1187,28 +1198,61 @@ try {
   //     *and* on no rise; and every sample non-negative with the count
   //     checked, so a readout that vanished mid-window (`-1` from the
   //     missing-element fallback) cannot pass as silence.
-  await page.evaluate(clickRowScript(1))
-  await page.evaluate(clickButtonScript('GO'))
-  await waitForLive(1)
+  //     Movement alone is not the claim. "Advances" was graded as "goes up and
+  //     does not freeze", which any bar driven by any moving quantity
+  //     satisfies — including one driven by the wrong quantity, which is the
+  //     entire bug. The check's own name says *driven by clip position*, and
+  //     nothing was testing the "driven by" half.
+  //
+  //     Graded on rate, against this harness's own clock and `CLIP_MS`. Both
+  //     are outside the app: the clip is 3 s because this file built it that
+  //     way, and the elapsed time is measured here. The timecode beside the
+  //     bar was the tempting reference and is the wrong one — it renders at
+  //     one-second resolution, so on a 3 s clip a single second of
+  //     quantisation is 33 points of tolerance, wide enough for a bar running
+  //     at double or half rate to sail through. It also comes off the same
+  //     snapshot as the bar, which makes it one instrument, not two.
+  //
+  //     Wraps are counted rather than tripped over: the bar is a percentage of
+  //     a looping clip, so total advance is the sum of forward steps plus 100
+  //     for each wrap. Speed is fixed at 1x on this branch (the Speed control
+  //     reads "Available in PR 4"), so advance and elapsed must agree.
   const clipPosition = () => page.evaluate(
     'Number(document.querySelector(\'[aria-label="Clip position"]\')?.getAttribute("aria-valuenow") ?? "-1")')
   const positions = []
+  const startedAt = Date.now()
   for (let sample = 0; sample < 10; sample++) {
     positions.push(await clipPosition())
     await sleep(300)
   }
-  const rising = positions.filter(
-    (value, index) => index > 0 && value > positions[index - 1] && positions[index - 1] >= 0).length
+  const elapsedMs = Date.now() - startedAt - 300
+  let advance = 0
+  for (let index = 1; index < positions.length; index++) {
+    const step = positions[index] - positions[index - 1]
+    advance += step >= 0 ? step : step + 100
+  }
+  const expected = (elapsedMs / CLIP_MS) * 100
+  //     React republishes engine state on a tick of at least 250 ms, so any
+  //     sample can be that stale — 8 points on a 3 s clip — and the bar rounds
+  //     on top. The band is derived from that rather than picked: two ticks'
+  //     worth either way, plus rounding. It still rejects half rate (~45
+  //     points against ~90 expected) and double (~180) by a wide margin.
+  const band = (500 / CLIP_MS) * 100 + 2
   let flatRun = 1
   let longestFlatRun = 1
   for (let index = 1; index < positions.length; index++) {
     flatRun = positions[index] === positions[index - 1] ? flatRun + 1 : 1
     if (flatRun > longestFlatRun) longestFlatRun = flatRun
   }
+  //     The flat-run grade stays alongside the rate. A bar that freezes and
+  //     then jumps to catch up has the right total advance and is still a
+  //     broken bar; averages hide stalls that a run of identical readings does
+  //     not.
   check(positions.length === 10 && positions.every((value) => value >= 0)
-    && rising > 0 && longestFlatRun <= 2,
+    && Math.abs(advance - expected) <= band && longestFlatRun <= 2,
     'the timeline advances for a hold-until-GO cue, driven by clip position',
-    `${positions.join(' -> ')} · ${rising} rising of ${positions.length - 1}, ` +
+    `${positions.join(' -> ')} · advanced ${advance} points in ${elapsedMs} ms, ` +
+    `expected ${expected.toFixed(1)} ± ${band.toFixed(1)} for a ${CLIP_MS} ms clip, ` +
     `longest flat run ${longestFlatRun}`)
 
   // 6c. Tab toggles Live/Preview, and does not fight a focused text field —
