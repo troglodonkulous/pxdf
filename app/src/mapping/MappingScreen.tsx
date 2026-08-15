@@ -17,6 +17,7 @@ import {
 } from './diagramLayout.js'
 import { parsePlanTable, type PlanTable } from './mapperPlan.js'
 import { StatusPill } from '../StatusPill.js'
+import { usePopoverEscape } from '../popoverEscape.js'
 
 export interface NetworkInterface {
   readonly name: string
@@ -105,18 +106,7 @@ const NETWORK_HELP_ID = 'network-help'
  * described in a comment as something the platform provides.
  */
 function NetworkHelp() {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
-      const panel = document.getElementById(NETWORK_HELP_ID)
-      // `:popover-open` rather than a piece of React state: the popover's
-      // openness lives in the DOM, and mirroring it here would be a second
-      // copy that can disagree with the first.
-      if (panel instanceof HTMLElement && panel.matches(':popover-open')) panel.hidePopover()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  usePopoverEscape(NETWORK_HELP_ID)
 
   return (
     <div id={NETWORK_HELP_ID} popover="auto" className="popover">

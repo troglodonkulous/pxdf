@@ -1,4 +1,4 @@
-import { useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import type { SenderStatus } from '../electron/sidecar.js'
 import { StatusPill } from './StatusPill.js'
 import type { EngineSnapshot, PlayerEngine, PlayerMode } from './player/engine.js'
@@ -18,7 +18,9 @@ import {
 } from './player/playHelpers.js'
 import { nextCueId, type Cue, type Show } from './player/show.js'
 import { VideoSource } from './player/videoSource.js'
+import { captureThumbnail } from './player/thumbnail.js'
 import type { FloorGeometry } from './render/geometry.js'
+import { usePopoverEscape } from './popoverEscape.js'
 
 interface RenderStats {
   readonly fps: number
@@ -46,6 +48,8 @@ interface PlayScreenProps {
 }
 
 type IconName = 'plus' | 'up' | 'down' | 'trash' | 'pencil' | 'previous' | 'next' | 'play' | 'pause'
+
+const ADD_CUE_MENU_ID = 'add-cue-menu'
 
 function Icon({ name, size = 16 }: { readonly name: IconName; readonly size?: number }): ReactNode {
   const common = {
@@ -113,6 +117,10 @@ export function PlayScreen({
   const [renamingCueId, setRenamingCueId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [pickerError, setPickerError] = useState<string | null>(null)
+  const [libraryOpen, setLibraryOpen] = useState(false)
+  const [library, setLibrary] = useState<{ dir: string; files: string[] } | null>(null)
+  const [thumbnails, setThumbnails] = useState<ReadonlyMap<string, string>>(new Map())
+  const thumbAttempted = useRef(new Set<string>())
   /**
    * The duration field's text, tagged with the cue it was typed for.
    *
@@ -131,6 +139,40 @@ export function PlayScreen({
     engine.selectCue(cueId)
     refreshSnapshot()
   }
+
+  const refreshLibrary = async (): Promise<void> => {
+    setLibrary(await window.ddf.listMediaDir())
+  }
+
+  usePopoverEscape(ADD_CUE_MENU_ID)
+
+  useEffect(() => {
+    void refreshLibrary()
+  }, [])
+
+  useEffect(() => {
+    const cueIds = new Set(show.cues.map((cue) => cue.id))
+    thumbAttempted.current.forEach((cueId) => {
+      if (!cueIds.has(cueId)) thumbAttempted.current.delete(cueId)
+    })
+    setThumbnails((prev) => {
+      const next = new Map([...prev].filter(([cueId]) => cueIds.has(cueId)))
+      return next.size === prev.size ? prev : next
+    })
+
+    for (const cue of show.cues) {
+      if (thumbAttempted.current.has(cue.id)) continue
+      thumbAttempted.current.add(cue.id)
+      void captureThumbnail(cue.source.path).then((canvas) => {
+        const url = canvas.toDataURL()
+        setThumbnails((prev) => {
+          const next = new Map(prev)
+          next.set(cue.id, url)
+          return next
+        })
+      }).catch(() => {})
+    }
+  }, [show.cues])
 
   const addMedia = async (): Promise<void> => {
     setPickerError(null)
@@ -157,6 +199,7 @@ export function PlayScreen({
       }
       applyShow({ ...showRef.current, cues })
       if (firstAddedId !== null) selectCue(firstAddedId)
+      void refreshLibrary()
     } catch (error) {
       setPickerError(error instanceof Error ? error.message : 'Media picker failed')
     }
@@ -164,7 +207,9 @@ export function PlayScreen({
 
   const moveSelected = (offset: -1 | 1): void => {
     if (selectedCueId === null) return
-    applyShow({ ...showRef.current, cues: moveCue(showRef.current.cues, selectedCueId, offset) })
+    const from = showRef.current.cues.findIndex((cue) => cue.id === selectedCueId)
+    if (from < 0) return
+    applyShow({ ...showRef.current, cues: moveCue(showRef.current.cues, selectedCueId, from + offset) })
   }
 
   const removeSelected = (): void => {
@@ -283,9 +328,13 @@ export function PlayScreen({
         <aside className="cue-stack" aria-label="Cue stack">
           <div className="panel-heading">
             <span className="section-label">Cue Stack</span>
-            <button type="button" className="icon-button compact" title="Add cue" aria-label="Add cue" onClick={() => void addMedia()}>
+            <button type="button" className="icon-button compact add-cue-trigger" title="Add cue" aria-label="Add cue" popoverTarget={ADD_CUE_MENU_ID}>
               <Icon name="plus" size={15} />
             </button>
+            <div id={ADD_CUE_MENU_ID} popover="auto" className="add-menu" role="menu">
+              <button type="button" role="menuitem" onClick={() => { document.getElementById(ADD_CUE_MENU_ID)?.hidePopover(); void addMedia() }}>Upload media…</button>
+              <button type="button" role="menuitem" disabled title="Cue editing arrives with the Edit surface, not yet built">Create in editor</button>
+            </div>
           </div>
 
           <div className="cue-list">
@@ -299,6 +348,9 @@ export function PlayScreen({
                   className={cueRowClass(cue, selectedCueId, snapshot)}
                   onSubmit={(event) => { event.preventDefault(); finishRename() }}
                 >
+                  <span className="cue-thumb" aria-hidden="true">
+                    {thumbnails.has(cue.id) ? <img src={thumbnails.get(cue.id)} alt="" width={40} height={24} /> : null}
+                  </span>
                   <span className="cue-number">{(index + 1).toString().padStart(2, '0')}</span>
                   <span className="rename-form">
                     <input
@@ -318,6 +370,16 @@ export function PlayScreen({
                   type="button"
                   key={cue.id}
                   className={cueRowClass(cue, selectedCueId, snapshot)}
+                  draggable
+                  onDragStart={(event) => event.dataTransfer.setData('text/plain', cue.id)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault()
+                    const draggedId = event.dataTransfer.getData('text/plain')
+                    if (draggedId.length > 0) {
+                      applyShow({ ...showRef.current, cues: moveCue(showRef.current.cues, draggedId, index) })
+                    }
+                  }}
                   onClick={() => selectCue(cue.id)}
                   onDoubleClick={() => {
                     if (snapshot.mode === 'live') {
@@ -326,6 +388,9 @@ export function PlayScreen({
                     }
                   }}
                 >
+                  <span className="cue-thumb" aria-hidden="true">
+                    {thumbnails.has(cue.id) ? <img src={thumbnails.get(cue.id)} alt="" width={40} height={24} /> : null}
+                  </span>
                   <span className="cue-number">{(index + 1).toString().padStart(2, '0')}</span>
                   <span className="cue-name">{cue.name}</span>
                   {cue.id === snapshot.standbyCueId
@@ -353,6 +418,36 @@ export function PlayScreen({
               onClick={() => { engine.go(); refreshSnapshot() }}
             >GO</button>
           </div>
+
+          <section className="library-section" aria-label="Media library">
+            <button type="button" className="library-toggle" aria-expanded={libraryOpen} onClick={() => setLibraryOpen((v) => !v)}>Library</button>
+            {libraryOpen && (library === null
+              ? <div className="empty-cues">No folder picked yet</div>
+              : library.files.length === 0
+                ? <div className="empty-cues">This folder is empty</div>
+                : library.files.map((path) => {
+                  const basename = path.split('/').pop() ?? path
+                  return (
+                    <button
+                      type="button"
+                      className="library-row"
+                      key={path}
+                      onClick={() => {
+                        const cues = showRef.current.cues
+                        const newCue: Cue = {
+                          id: nextCueId(cues),
+                          name: cueNameFromPath(path),
+                          source: { kind: 'video', path },
+                          durationMs: null,
+                          rotation: 0,
+                        }
+                        applyShow({ ...showRef.current, cues: insertCue(cues, newCue) })
+                        selectCue(newCue.id)
+                      }}
+                    >{basename}</button>
+                  )
+                }))}
+          </section>
         </aside>
 
         <section className="preview-column" aria-label="Floor preview">

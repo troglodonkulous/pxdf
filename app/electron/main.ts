@@ -9,7 +9,8 @@ import { MEDIA_SCHEME, mediaPath, mediaUrl } from '../src/player/mediaUrl.js'
 import type { ShowFloor } from '../src/player/show.js'
 import { runMapperPlan } from './mapperPlan.js'
 import { nicVerdict } from './nicWatch.js'
-import { flushSettings, loadSettings, saveSettings } from './settings.js'
+import { flushSettings, loadSettings, updateSettings } from './settings.js'
+import { canonicalDir, listLibraryFiles, servableLibraryFile } from './mediaAuth.js'
 import { Sidecar, type SenderStatus } from './sidecar.js'
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
@@ -62,6 +63,35 @@ let pendingNicVerdict: ReturnType<typeof nicVerdict> | null = null
 let nicVerdictQueued = false
 let quitAfterStop = false
 let stopInProgress = false
+/**
+ * The one folder the Cue Library may list and `ddf-media://` may serve
+ * library files from, beyond the individually-picked files in `allowedMedia`.
+ * Canonical (realpath'd) or null — see `mediaAuth.ts` for what canonical
+ * means here and why it matters against a symlink.
+ *
+ * DECISION: a persisted `lastMediaDir` DOES re-authorise its folder
+ * automatically at launch, with no picker interaction. The alternative —
+ * clearing it every launch and re-populating the Library only after a fresh
+ * pick — was rejected: the Library exists to repopulate on launch, the same
+ * way `localIp` is restored from `settings.ts` rather than re-asked for
+ * every time. A folder only ever enters this variable in one of two ways:
+ * read back from `settings.json`, which only this process writes and only
+ * ever from a value the operator produced by clicking through the native
+ * `dialog.showOpenDialog` in some earlier session; or set fresh from
+ * `dirname()` of a path that same dialog just returned. The renderer
+ * cannot set this value, cannot pass a directory into `ddf:list-media-dir`
+ * (it takes no argument — see the handler), and cannot reach a folder this
+ * way that the operator did not, at some point, choose a file from through
+ * the OS's own picker. Restoring it at launch is re-granting a capability
+ * the operator already granted, not handing the untrusted renderer a new
+ * one.
+ *
+ * If the folder has since been renamed, unmounted or deleted,
+ * `canonicalDir` returns null and the Library is simply empty until
+ * something is picked again — the same "say nothing rather than guess"
+ * shape `nicWatch.ts` uses for a NIC that has vanished.
+ */
+let authorizedMediaDir: string | null = null
 
 function publishStatus(status: SenderStatus): void {
   currentStatus = status
@@ -190,7 +220,7 @@ function setFloor(next: ShowFloor): Promise<void> {
 function setLocalIp(address: string | undefined): Promise<void> {
   if (address !== undefined && address.length > 0) process.env.DDF_LOCAL_IP = address
   else delete process.env.DDF_LOCAL_IP
-  saveSettings({ localIp: process.env.DDF_LOCAL_IP ?? '' })
+  updateSettings({ localIp: process.env.DDF_LOCAL_IP ?? '' })
   // Re-spawns at the current geometry so the new env var takes effect.
   // Sidecar's spawn reads process.env.DDF_LOCAL_IP fresh on every call;
   // there is simply no path that rebinds a live child.
@@ -256,6 +286,10 @@ ipcMain.handle('ddf:list-interfaces', () => {
 ipcMain.handle('ddf:get-local-ip', () => process.env.DDF_LOCAL_IP ?? '')
 ipcMain.handle('ddf:set-floor', (_event, floor: ShowFloor) => setFloor(floor))
 ipcMain.handle('ddf:set-local-ip', (_event, address: string | undefined) => setLocalIp(address))
+ipcMain.handle('ddf:list-media-dir', (): { dir: string; files: string[] } | null => {
+  if (authorizedMediaDir === null) return null
+  return { dir: authorizedMediaDir, files: listLibraryFiles(authorizedMediaDir, PICKER_EXTENSIONS) }
+})
 
 /**
  * Every path the operator has chosen this session, and the only paths the media
@@ -278,6 +312,13 @@ const allowedMedia = new Set<string>()
 ipcMain.handle('ddf:pick-media', async (): Promise<string[]> => {
   const chosen = await chooseMedia()
   for (const path of chosen) allowedMedia.add(servedForm(path))
+  if (chosen.length > 0) {
+    const dir = canonicalDir(dirname(chosen[0]))
+    if (dir !== null) {
+      authorizedMediaDir = dir
+      updateSettings({ lastMediaDir: dir })
+    }
+  }
   return chosen
 })
 
@@ -315,6 +356,7 @@ async function chooseMedia(): Promise<string[]> {
 
   const result = await dialog.showOpenDialog({
     title: 'Add media cues',
+    defaultPath: authorizedMediaDir ?? app.getPath('downloads'),
     properties: ['openFile', 'multiSelections'],
     filters: [
       {
@@ -345,9 +387,12 @@ void app.whenReady().then(() => {
   protocol.handle(MEDIA_SCHEME, async (request) => {
     const path = mediaPath(request.url)
     if (path === null) return new Response('bad media url', { status: 400 })
-    if (!allowedMedia.has(path)) return new Response('not an opened file', { status: 403 })
+    const servable = allowedMedia.has(path)
+      ? path
+      : servableLibraryFile(path, authorizedMediaDir, PICKER_EXTENSIONS)
+    if (servable === null) return new Response('not an opened file', { status: 403 })
 
-    const file = await net.fetch(pathToFileURL(path).toString())
+    const file = await net.fetch(pathToFileURL(servable).toString())
     // The response half of the CORS pair set up in `registerSchemesAsPrivileged`.
     // Electron 43 was measured to let a `corsEnabled` scheme through without
     // this header, but that is a shortcut in its protocol layer rather than
@@ -376,10 +421,11 @@ void app.whenReady().then(() => {
   // the poll below then correctly suspended a sender that could never work —
   // silencing the whole wire gate. The failure was loud and immediate, which
   // is the only reason it cost minutes instead of a session.
-  const storedLocalIp = loadSettings().localIp
-  if (process.env.DDF_LOCAL_IP === undefined && storedLocalIp.length > 0) {
-    process.env.DDF_LOCAL_IP = storedLocalIp
+  const storedSettings = loadSettings()
+  if (process.env.DDF_LOCAL_IP === undefined && storedSettings.localIp.length > 0) {
+    process.env.DDF_LOCAL_IP = storedSettings.localIp
   }
+  authorizedMediaDir = canonicalDir(storedSettings.lastMediaDir)
 
   sidecar = new Sidecar({
     isPackaged: app.isPackaged,

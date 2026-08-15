@@ -270,7 +270,7 @@ input:disabled {
 .cue-row {
   display: flex;
   width: 100%;
-  min-height: 42px;
+  min-height: 48px;
   align-items: center;
   gap: var(--sp-6);
   padding: 0 var(--sp-6);
@@ -284,6 +284,23 @@ input:disabled {
     background var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.cue-thumb {
+  display: block;
+  width: 40px;
+  height: 24px;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--r-cell);
+  background: var(--surface-well);
+}
+
+.cue-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .cue-row:hover {
@@ -380,6 +397,50 @@ input:disabled {
 
 .go-wrap {
   padding: var(--sp-6) var(--sp-10) var(--sp-8);
+}
+
+.library-section {
+  display: flex;
+  max-height: 220px;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-3);
+  overflow: auto;
+  padding: var(--sp-5);
+  border-top: 1px solid var(--border-hairline);
+}
+
+.library-toggle,
+.library-row {
+  width: 100%;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-md);
+  color: var(--text-secondary);
+  background: var(--surface-well);
+  cursor: pointer;
+  text-align: left;
+}
+
+.library-toggle {
+  height: var(--h-control);
+  padding: 0 var(--sp-6);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+}
+
+.library-row {
+  min-height: 32px;
+  padding: var(--sp-3) var(--sp-5);
+  overflow: hidden;
+  font-size: var(--fs-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-toggle:hover,
+.library-row:hover {
+  background: var(--surface-raised);
 }
 
 .go-button {
@@ -1152,6 +1213,59 @@ select:focus-visible {
 .popover-note {
   color: var(--text-muted);
   font-size: var(--fs-micro);
+}
+
+.add-menu:popover-open {
+  display: flex;
+}
+
+.add-cue-trigger {
+  anchor-name: --add-cue;
+}
+
+.add-menu {
+  /* A `popover` lives in the top layer, where the UA sheet sets
+     `position: fixed; inset: 0; margin: auto` — an unstyled popover centres
+     itself in the *viewport*, which is exactly where this menu was landing:
+     mid-preview, nowhere near the `+` that opened it. The top layer also
+     escapes ancestor containment, so wrapping it in a `position: relative`
+     parent cannot pull it back. Anchor positioning is the fix; `margin: 0`
+     is load-bearing, it defeats the UA's centring shorthand. */
+  position: fixed;
+  position-anchor: --add-cue;
+  position-area: block-end span-inline-start;
+  position-try-fallbacks: flip-block, flip-inline;
+  margin: var(--sp-1) 0 0 0;
+  width: 240px;
+  max-width: min(80vw, 240px);
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-body);
+}
+
+.add-menu [role="menuitem"] {
+  width: 100%;
+  min-height: var(--h-control);
+  padding: 0 var(--sp-5);
+  border: 0;
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.add-menu [role="menuitem"]:hover:not(:disabled) {
+  background: var(--surface-raised);
+}
+
+.add-menu [role="menuitem"]:disabled {
+  opacity: 0.4;
 }
 
 .mapping-readout {

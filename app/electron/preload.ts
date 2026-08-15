@@ -7,6 +7,7 @@ export interface DdfApi {
   onSenderError(callback: (payload: { message: string } | null) => void): () => void
   onInterfaces(callback: (list: { name: string; address: string }[]) => void): () => void
   pickMedia(): Promise<string[]>
+  listMediaDir(): Promise<{ dir: string; files: string[] } | null>
   mapperPlan(type: string, cols: number, rows: number): Promise<string>
   listInterfaces(): Promise<{ name: string; address: string }[]>
   getLocalIp(): Promise<string>
@@ -70,6 +71,9 @@ const api: DdfApi = {
   },
   pickMedia() {
     return ipcRenderer.invoke('ddf:pick-media') as Promise<string[]>
+  },
+  listMediaDir() {
+    return ipcRenderer.invoke('ddf:list-media-dir') as Promise<{ dir: string; files: string[] } | null>
   },
   mapperPlan(type, cols, rows) {
     return ipcRenderer.invoke('ddf:mapper-plan', type, cols, rows) as Promise<string>

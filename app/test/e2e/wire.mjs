@@ -55,7 +55,7 @@
 
 import { spawn, execFileSync } from 'node:child_process'
 import { createSocket } from 'node:dgram'
-import { mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync, chmodSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync, chmodSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, delimiter } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -370,7 +370,14 @@ function open(url) {
             awaitPromise: true,
           })
           if (reply.result?.exceptionDetails !== undefined) {
-            throw new Error(`page threw: ${reply.result.exceptionDetails.text}`)
+            // `.text` alone is Chrome's generic marker — literally the string
+            // "Uncaught" — for a thrown `Error`. The message is one level
+            // deeper, in `.exception.description`, which is exactly what the
+            // passive `Runtime.exceptionThrown` listener above already knows
+            // to read. Without it this is the loud channel CLAUDE.md asks for
+            // saying nothing louder than "something happened".
+            const details = reply.result.exceptionDetails
+            throw new Error(`page threw: ${details.exception?.description ?? details.text}`)
           }
           return reply.result?.result?.value
         },
@@ -565,6 +572,71 @@ async function checkNoRespawnStorm(workspace) {
   }
 }
 
+/**
+ * Whether a persisted `lastMediaDir` re-authorises its folder after a
+ * restart, with no picker interaction at all — the policy decision
+ * `main.ts`'s `authorizedMediaDir` comment documents and this checks rather
+ * than merely asserts.
+ *
+ * Reuses the exact `--user-data-dir` the main run wrote `settings.json`
+ * into — a fresh profile would prove nothing, since an empty
+ * `lastMediaDir` trivially "restores" to nothing. Run after the main run has
+ * quit, so this is the only Electron holding that profile.
+ */
+async function checkLibrarySurvivesRestart(workspace, expectedFile) {
+  const RESTART_DEBUG_PORT = DEBUG_PORT + 2
+  let child = null
+  let restartPage = null
+  try {
+    child = spawn(
+      resolve(APP_DIR, 'node_modules', '.bin', 'electron'),
+      [
+        resolve(APP_DIR, 'dist', 'main.js'),
+        `--remote-debugging-port=${RESTART_DEBUG_PORT}`,
+        // The SAME profile the main run used — this is the whole point.
+        `--user-data-dir=${join(workspace, 'profile')}`,
+      ],
+      {
+        cwd: APP_DIR,
+        env: {
+          ...process.env,
+          DDF_ADDRESS: '127.0.0.1',
+          DDF_PORT: String(PORT + 2),
+          // Deliberately absent: DDF_PICK_MEDIA. This run must not need to
+          // pick anything to see the folder it already knows about.
+        },
+        stdio: 'ignore',
+        detached: true,
+      },
+    )
+    restartPage = await attachToPage(RESTART_DEBUG_PORT)
+    const listing = await restartPage.evaluate(`
+      (async () => {
+        for (let attempt = 0; attempt < 25; attempt++) {
+          const result = await window.ddf.listMediaDir()
+          if (result !== null) return result
+          await new Promise((r) => setTimeout(r, 200))
+        }
+        return null
+      })()
+    `)
+    const names = listing === null ? [] : listing.files.map((path) => path.split('/').pop())
+    check(listing !== null && names.includes(expectedFile),
+      'a picked folder re-authorises itself after a restart, with no picker interaction',
+      JSON.stringify(listing))
+  } finally {
+    restartPage?.close()
+    if (child !== null) {
+      try {
+        process.kill(-child.pid, 'SIGKILL')
+      } catch {
+        // Already gone.
+      }
+      await sleep(300)
+    }
+  }
+}
+
 const tap = new WireTap()
 let electron = null
 let page = null
@@ -589,7 +661,22 @@ try {
     )
   }
 
-  const clips = [makeClip(workspace, 'red'), makeClip(workspace, 'white')]
+  /**
+   * The folder the picker's clips live in.
+   *
+   * Cue Library widens `ddf-media://` from "files the operator individually
+   * opened" to "files living in the folder the operator opened one from" —
+   * see `authorizedMediaDir` in `main.ts`. Putting the picked clips in their
+   * own subdirectory rather than loose in `workspace` is what makes that
+   * widening something this file can actually grade: `unpicked`, below,
+   * stays a genuine sibling of this folder rather than a sibling of the
+   * files inside it, so "an unrelated file is still refused" keeps meaning
+   * what it always meant once a folder-wide grant exists alongside the
+   * individual one.
+   */
+  const libraryDir = join(workspace, 'library')
+  mkdirSync(libraryDir)
+  const clips = [makeClip(libraryDir, 'red'), makeClip(libraryDir, 'white')]
   // A container this build cannot demux, measured in `mediaFormats.ts`: rawvideo
   // in AVI, which is what every test pattern in this repo actually is. Seeded
   // through the picker like the others, because `DDF_PICK_MEDIA` bypasses the
@@ -598,12 +685,29 @@ try {
   //
   // If this check ever goes red saying the wire lit up, the likely cause is an
   // Electron upgrade that decodes AVI. That is a change to `mediaFormats.ts`'s
-  // measured table, not a bug in the player.
-  const undecodable = makeUndecodableClip(workspace)
-  // Never seeded into the picker, and therefore never in `main.ts`'s
-  // `allowedMedia`. Identical in every other respect to the two above, which is
-  // the point: the only thing that decides whether it is served is whether a
-  // human chose it.
+  // measured table, not a bug in the player. It also has to sit outside the
+  // extension the Library listing accepts, so it doubles as proof that listing
+  // filters by extension rather than by "every file in the folder."
+  const undecodable = makeUndecodableClip(libraryDir)
+  /**
+   * A sibling of the two picked clips — same folder, never itself passed
+   * through `DDF_PICK_MEDIA` or opened through the dialog. This is the file
+   * the folder-wide grant exists for: the Library section is supposed to
+   * list it and serve it because the folder it lives in was authorised when
+   * its neighbours were picked, not because anyone opened it by name.
+   *
+   * Yellow, not blue. `tone`'s own header comment explains why red and blue
+   * cannot be told apart from one packet: neither is RGB-aligned to the
+   * packet framing. Yellow is two channels lit rather than one, which lands
+   * in a different lit-byte fraction band — enough to prove distinct content
+   * reached the wire without teaching `tone` a colour it has no other use
+   * for.
+   */
+  const sibling = makeClip(libraryDir, 'yellow')
+  // Outside `libraryDir` entirely — a sibling of the folder, not of the files
+  // in it. Identical to the picked clips in every other respect, which is the
+  // point: the only thing that decides whether it is served is whether it was
+  // opened, or lives in a folder that was.
   const unpicked = makeClip(workspace, 'green')
 
   // Before the tap opens, and in its own Electron on its own ports, because
@@ -880,7 +984,51 @@ try {
   // 2. A cue reaches the wire. This is also the only place the readiness path
   //    is exercised for real: the video elements are detached from the
   //    document, and if `ready` never flipped, GO would silently do nothing.
+  //
+  //    "+" now opens a menu rather than picking a file directly — `Upload` is
+  //    the old behaviour with a new name in front of it, and `Create in
+  //    editor` ships visible and disabled because the Edit surface does not
+  //    exist on this branch. Both are graded here, not just clicked past:
+  //    a menu that opened with the wrong items in it would still let the
+  //    Upload click below succeed, so the items themselves have to be read.
   await page.evaluate(clickScript('[aria-label="Add cue"]'))
+  const menuItems = await waitFor(
+    "[...document.querySelectorAll('[role=\"menuitem\"]')].map((el) => ({ " +
+    'text: el.textContent.trim(), disabled: el.disabled === true })).length > 0 ' +
+    "? [...document.querySelectorAll('[role=\"menuitem\"]')].map((el) => ({ " +
+    'text: el.textContent.trim(), disabled: el.disabled === true })) : null')
+  const upload = Array.isArray(menuItems) ? menuItems.find((item) => item.text.startsWith('Upload')) : undefined
+  const createInEditor = Array.isArray(menuItems)
+    ? menuItems.find((item) => item.text.startsWith('Create in editor'))
+    : undefined
+  check(upload !== undefined && upload.disabled === false,
+    'the + menu offers Upload, enabled', JSON.stringify(menuItems))
+  check(createInEditor !== undefined && createInEditor.disabled === true,
+    'Create in editor ships visible and disabled — the Edit surface is not built yet',
+    JSON.stringify(menuItems))
+
+  //    Where the menu opened, not just what is in it. A `popover` lives in the
+  //    top layer, and the UA sheet's `position: fixed; inset: 0; margin: auto`
+  //    centres an unstyled one in the *viewport* — this menu was opening in the
+  //    middle of the preview, a screen away from the `+` that owns it. Every
+  //    assertion above passed the whole time, because reading `[role=menuitem]`
+  //    out of the DOM cannot see where the DOM is painted. Graded as geometry
+  //    for that reason: the menu's top edge sits just under the trigger's
+  //    bottom, and the two overlap horizontally.
+  const menuBox = await page.evaluate(
+    '(() => { const t = document.querySelector(".add-cue-trigger"); ' +
+    'const m = document.querySelector(".add-menu"); ' +
+    'if (t === null || m === null) return null; ' +
+    'const a = t.getBoundingClientRect(); const b = m.getBoundingClientRect(); ' +
+    'return { drop: Math.round(b.top - a.bottom), ' +
+    'overlap: Math.round(Math.min(a.right, b.right) - Math.max(a.left, b.left)), ' +
+    'onscreen: b.left >= 0 && b.right <= innerWidth && b.bottom <= innerHeight }; })()')
+  check(menuBox !== null && menuBox.drop >= 0 && menuBox.drop <= 12
+    && menuBox.overlap > 0 && menuBox.onscreen === true,
+    'the + menu opens anchored under the + it belongs to, fully on screen',
+    JSON.stringify(menuBox))
+
+  await page.evaluate(clickButtonScript('Upload'))
   // Polled, not slept. The picker is an IPC round trip and the rows are a React
   // render behind it, and a fixed wait that is long enough on a warm machine
   // reads zero cues on a cold one — grading a healthy app red. This file argues
@@ -889,6 +1037,35 @@ try {
     'document.querySelectorAll(".cue-row").length === 3 ? 3 : 0')
   check(cueCount === 3, 'all three seeded cues land in the stack',
     `saw ${await page.evaluate('document.querySelectorAll(".cue-row").length')}`)
+
+  // 2a-i. Thumbnails are real decoded frames, not a placeholder reused for
+  //       every row. A `.cue-thumb img` existing on each row would pass for a
+  //       single static image copy-pasted onto every cue — exactly the kind
+  //       of conclusion that survives its own disproof `CLAUDE.md` warns
+  //       about — so this reads the pixels back and checks that the red cue's
+  //       thumbnail and the white cue's actually differ, by drawing each into
+  //       an offscreen canvas and averaging its bytes. The third row
+  //       (`rawvideo.avi`) gets no assertion: it cannot decode, so "no
+  //       thumbnail" is the correct outcome for it, not a defect to grade.
+  const averageBrightnessScript = (rowIndex) => `(async () => {
+    const img = document.querySelectorAll('.cue-row')[${rowIndex}]?.querySelector('.cue-thumb img')
+    if (!img) return null
+    if (!img.complete) await new Promise((r) => img.addEventListener('load', r, { once: true }))
+    const canvas = document.createElement('canvas')
+    canvas.width = img.naturalWidth || 40
+    canvas.height = img.naturalHeight || 24
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(img, 0, 0)
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    let sum = 0
+    for (let i = 0; i < data.length; i += 4) sum += data[i] + data[i + 1] + data[i + 2]
+    return sum / (data.length / 4)
+  })()`
+  const redThumb = await waitFor(averageBrightnessScript(0))
+  const whiteThumb = await waitFor(averageBrightnessScript(1))
+  check(typeof redThumb === 'number' && typeof whiteThumb === 'number' && whiteThumb - redThumb > 100,
+    'the first two cues show distinct, real thumbnails rather than a shared placeholder',
+    `red-cue thumb avg ${redThumb} · white-cue thumb avg ${whiteThumb}`)
 
   // 2a. A cue that cannot decode, fired from idle.
   //
@@ -983,6 +1160,35 @@ try {
   `)
   check(refused === 'refused', 'a file the operator never opened is refused, not merely slow',
     `handler returned ${refused}`)
+
+  // 2c. The protocol-level half of the folder-wide grant: a direct
+  //     `ddf-media://` request for a sibling of the picked clips — never
+  //     itself opened by name — bypassing the UI entirely. This is what "the
+  //     Library can serve it" means at the layer that actually decides it;
+  //     the DOM checks below only prove the UI *asks* correctly.
+  const siblingUrl = `ddf-media://file${sibling.split('/').map(encodeURIComponent).join('/')}`
+  const siblingResult = await page.evaluate(`
+    new Promise((done) => {
+      const v = document.createElement('video')
+      v.muted = true
+      v.crossOrigin = 'anonymous'
+      v.addEventListener('error', () => done('refused'))
+      v.addEventListener('loadeddata', () => done('SERVED'))
+      setTimeout(() => done('TIMEOUT'), 4000)
+      v.src = ${JSON.stringify(siblingUrl)}
+      v.load()
+    })
+  `)
+  check(siblingResult === 'SERVED',
+    'a sibling of a picked file, in the same picked folder, is served though never opened by name',
+    `handler returned ${siblingResult}`)
+
+  // 2d and 2e — the Library surface and drag-reorder — run later, right
+  // before the app quits. Both add or move cues in the stack, and every
+  // section between here and there (3, 3b, 4a-4d) assumes the exact 3-cue
+  // [red, white, rawvideo] arrangement this run started with; running them
+  // here would silently invalidate every assumption downstream instead of
+  // failing loudly where the mistake was made.
 
   // 3. A cue change. The first two checks establish that the change actually
   //    happened — without them, a second cue that never decodes leaves the
@@ -1248,6 +1454,113 @@ try {
   check(typeof clampNotice === 'string' && clampNotice.includes('11'),
     'the operator is told the height was reduced', String(clampNotice))
 
+  // 4e. The Cue Library surface. Run here, after every section that depends
+  //     on the stack being exactly [red, white, rawvideo] in that order — this
+  //     adds a fourth cue and then reorders the stack, and nothing after this
+  //     point reads cue-stack structure: section 5 only checks that quitting
+  //     sends black, which `Sidecar.stop()` does unconditionally regardless of
+  //     what was live.
+  //
+  //     4a sent us to Mapping for the geometry checks in 4b-4d, and nothing
+  //     since has navigated back — the Library button below does not exist
+  //     unless the Play surface is mounted again first.
+  await page.evaluate(clickButtonScript('Open Player'))
+  const backOnPlayForLibrary = await waitFor('document.querySelector(".play-screen") !== null ? 1 : 0')
+  check(backOnPlayForLibrary === 1, 'Open Player returns to the Play surface for the Library checks')
+
+  //     `ddf:list-media-dir` takes no path from the renderer — the main
+  //     process answers with its own idea of the authorised folder. That is
+  //     the property that keeps the handler from being a read-any-directory
+  //     primitive handed to the untrusted side of `contextIsolation`; a
+  //     handler that took a directory argument would pass every check below
+  //     just as well while being a different, much worse, feature.
+  const listing = await page.evaluate('window.ddf.listMediaDir()')
+  const listedNames = listing === null ? [] : listing.files.map((path) => path.split('/').pop()).sort()
+  check(listing !== null && typeof listing.dir === 'string' && listing.dir.endsWith('/library'),
+    'ddf:list-media-dir answers with the folder the operator actually picked from',
+    JSON.stringify(listing))
+  check(JSON.stringify(listedNames) === JSON.stringify(['red.mp4', 'white.mp4', 'yellow.mp4']),
+    'the listing holds exactly the PICKER_EXTENSIONS files in that folder — not the AVI, not the outsider',
+    JSON.stringify(listedNames))
+
+  // The DOM side of the same fact: the collapsible Library section, expanded,
+  // shows one row per listed file.
+  await page.evaluate(clickButtonScript('Library'))
+  const libraryRowCount = await waitFor(
+    'document.querySelectorAll(".library-row").length === 3 ? 3 : 0')
+  check(libraryRowCount === 3, 'the Library section lists the three servable files',
+    `saw ${await page.evaluate('document.querySelectorAll(".library-row").length')}`)
+
+  // Clicking the sibling clip — never picked, never opened by name — adds a
+  // cue, and that cue has to actually play: listed-but-unservable would be a
+  // library that lies to the operator about what GO will do.
+  await page.evaluate(`(() => {
+    const row = [...document.querySelectorAll('.library-row')]
+      .find((el) => el.textContent.includes('yellow'))
+    if (!row) throw new Error('no library row for yellow.mp4')
+    row.click()
+    return true
+  })()`)
+  const cueCountAfterLibrary = await waitFor(
+    'document.querySelectorAll(".cue-row").length === 4 ? 4 : 0')
+  check(cueCountAfterLibrary === 4, 'clicking a Library row adds a cue to the stack',
+    `saw ${await page.evaluate('document.querySelectorAll(".cue-row").length')}`)
+
+  await page.evaluate(`(() => {
+    const rows = [...document.querySelectorAll('.cue-row')]
+    rows[3].dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    return true
+  })()`)
+  const libraryLive = await waitFor(
+    '[...document.querySelectorAll(".cue-row")][3]?.classList.contains("is-live") ? 1 : 0')
+  check(libraryLive === 1, 'the cue added from the Library becomes live')
+  let fromLibrary = []
+  for (let attempt = 0; attempt < 25 && countTone(fromLibrary, 'other') === 0; attempt++) {
+    fromLibrary = await tap.window(200)
+  }
+  check(countTone(fromLibrary, 'other') > 0,
+    'the Library cue reaches the wire as real, distinct content',
+    `other ${countTone(fromLibrary, 'other')} of ${fromLibrary.length} packets`)
+
+  // 4f. Drag-to-reorder, over `playHelpers.ts`'s `moveCue` generalised to an
+  //     arbitrary index — `playHelpers.test.ts` grades the function; this
+  //     grades that the row wiring actually calls it. Constructed
+  //     `DragEvent`s with a real `DataTransfer`, not a mouse-drag simulation:
+  //     HTML5 drag-and-drop fires its own event sequence and a page script can
+  //     dispatch it directly without needing OS-level trust, which is exactly
+  //     what a *programmatic* drag is for.
+  const cueNamesScript =
+    "[...document.querySelectorAll('.cue-row .cue-name')].map((el) => el.textContent)"
+  const namesBeforeDrag = await page.evaluate(cueNamesScript)
+  // Dispatched exactly once — deliberately outside `waitFor`, whose retry
+  // loop re-evaluates its expression on every poll. A drag dispatch living
+  // inside that loop would fire again on every unsuccessful attempt, which
+  // on a slow render would reorder the stack more than once and this check
+  // would be grading a different mutation than the one it dispatched.
+  await page.evaluate(`(() => {
+    const rows = [...document.querySelectorAll('.cue-row')]
+    const from = rows[3]
+    const to = rows[0]
+    if (!from || !to) throw new Error('missing row for drag')
+    const dataTransfer = new DataTransfer()
+    const fire = (type, target) => target.dispatchEvent(
+      new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer }))
+    fire('dragstart', from)
+    fire('dragover', to)
+    fire('drop', to)
+    fire('dragend', from)
+    return true
+  })()`)
+  const namesBeforeDragJson = JSON.stringify(JSON.stringify(namesBeforeDrag))
+  const namesAfterDrag = await waitFor(`(() => {
+    const after = ${cueNamesScript}
+    return JSON.stringify(after) !== ${namesBeforeDragJson} ? after : null
+  })()`)
+  const expectedAfterDrag = [namesBeforeDrag[3], ...namesBeforeDrag.slice(0, 3)]
+  check(Array.isArray(namesAfterDrag) && JSON.stringify(namesAfterDrag) === JSON.stringify(expectedAfterDrag),
+    'dragging the last row onto the first reorders the cue stack',
+    `before ${JSON.stringify(namesBeforeDrag)} · after ${JSON.stringify(namesAfterDrag)}`)
+
   // 5. Quitting leaves the floor black. Controllers 2 and 3 hold their last
   //    frame indefinitely, so the last frame sent is the one that stays lit.
   const beforeQuit = tap.packets.length
@@ -1256,6 +1569,12 @@ try {
   const tail = tap.packets.slice(beforeQuit).slice(-20)
   check(tail.length > 0 && allBlack(tail), 'the last frame sent before quit is black',
     `${tail.length} trailing packets`)
+
+  // 6. The reauthorisation policy, proved rather than only documented — see
+  //    `checkLibrarySurvivesRestart`. Run after the main run's Electron has
+  //    quit and before the workspace it wrote `settings.json` into is
+  //    removed in the `finally` block below.
+  await checkLibrarySurvivesRestart(workspace, 'yellow.mp4')
 } catch (error) {
   check(false, 'the run completed', String(error))
 } finally {
