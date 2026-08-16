@@ -19,11 +19,15 @@
  *
  * ## The three arms
  *
- * 1. **App path.** Adds the picked clips through the real `DDF_PICK_MEDIA`
- *    picker seam and counts cue rows that ended up with a thumbnail. This is
- *    the operator-visible consequence: `PlayScreen` swallows a thumbnail
- *    rejection (`.catch(() => {})`), so a decoder that failed shows up as a
- *    blank thumbnail square and nothing else. It also reads the error banner.
+ * 1. **App path, both fan-outs.** Adds the picked clips through the real
+ *    `DDF_PICK_MEDIA` picker seam, then counts the cue rows that ended up with
+ *    a thumbnail *and* the cues that ended up with a Duration. Both are
+ *    operator-visible consequences of a lost throwaway decoder, and they are
+ *    separate channels: `PlayScreen` swallows a thumbnail rejection
+ *    (`.catch(() => {})`) into a blank square, and swallows a duration
+ *    rejection into `mediaDurationMs: null`, which is an em dash in the
+ *    inspector and a Loop that never advances. Grading one would pass a run in
+ *    which the other lost every probe. It also reads the error banner.
  * 2. **Serial, then concurrent.** All six loaded through `ddf-media://` the way
  *    `captureThumbnail` loads them — `crossOrigin`, `src`, `loadedmetadata`,
  *    seek, `drawImage` — reporting the raw `MediaError` name and message rather
@@ -38,7 +42,9 @@
  * ## Measured 2026-08-15, Electron 43.4.0, macOS, five runs
  *
  *   app path, 6 clips        6/6 thumbnails, 1.29-1.65 s, no banner
- *   app path, 24 clips       24/24 thumbnails, 2.49 s, no banner
+ *                            6/6 Durations, matching ffprobe to the second
+ *   app path, 24 clips       24/24 thumbnails, 2.49-2.81 s, no banner
+ *                            24/24 Durations
  *   serial arm               6/6 DECODES, every run
  *   concurrent arm           6/6 DECODES, every run
  *   12 / 24 / 48 decoders    all decode in 3 runs of 5; in the other 2,
@@ -267,11 +273,50 @@ try {
   }
   const banner = await page.evaluate('document.querySelector(".error-banner")?.textContent ?? ""')
 
+  /**
+   * The second fan-out. `probeCueDuration` is fired per added cue exactly as
+   * `captureThumbnail` is, and it fails even more quietly: a rejected probe
+   * leaves `mediaDurationMs: null` and nothing is logged at all. Grading
+   * thumbnails alone would pass a run in which every duration probe died --
+   * the `allBlack([])` shape, a fan-out with no channel -- and the consequence
+   * is not cosmetic: `clipDurationMs` null makes `cueHoldMs` null, which the
+   * engine reads as "never advance", so a Loop set on that cue does nothing.
+   *
+   * The inspector's Duration readout is that null, rendered: with no
+   * `DDF_CUE_SEED` in play `trimEndMs` is null and `trimStartMs` is 0, so the
+   * readout is an em dash exactly when the probe did not land. Selecting a cue
+   * is how the operator reads it, so the probe selects each one and reads it.
+   */
+  const durations = []
+  for (let index = 0; index < PICKED.length; index++) {
+    await page.evaluate(`(() => {
+      const rows = [...document.querySelectorAll('.cue-row')]
+      if (rows[${index}] === undefined) throw new Error('no cue row ${index}')
+      rows[${index}].click()
+    })()`)
+    let readout = '—'
+    // Poll: React republishes on its own tick, and a probe still in flight is
+    // not the same as one that failed.
+    for (let attempt = 0; attempt < 40; attempt++) {
+      readout = await page.evaluate('document.querySelector(".cue-duration-readout")?.textContent?.trim() ?? "(absent)"')
+      if (readout !== '—') break
+      await sleep(250)
+    }
+    durations.push(readout)
+  }
+  const measured = durations.filter((readout) => readout !== '—' && readout !== '(absent)').length
+
   console.log(`\napp path: ${thumbs}/${PICKED.length} cue rows show a thumbnail` +
     (allThumbsMs === null ? ' (never reached them all)' : ` after ${allThumbsMs} ms`))
+  console.log(`          ${measured}/${PICKED.length} cues show a Duration: ${JSON.stringify(durations)}`)
   console.log(`banner:   ${banner === '' ? '(none)' : JSON.stringify(banner)}`)
   if (thumbs < PICKED.length) {
     problems.push(`${PICKED.length - thumbs} of ${PICKED.length} thumbnails never arrived — the fan-out lost decoders`)
+  }
+  if (measured < PICKED.length) {
+    problems.push(
+      `${PICKED.length - measured} of ${PICKED.length} cues have no Duration — the duration fan-out lost probes, ` +
+      'and Loop on those cues will never advance')
   }
 
   // Serial first: it is the positive control.
@@ -338,6 +383,7 @@ try {
 if (problems.length > 0) {
   console.log(`\nPROBE UNUSABLE OR CONTRADICTED — ${problems.length} problem(s):\n  - ${problems.join('\n  - ')}`)
 } else {
-  console.log('\nProbe complete. Positive control passed, app path lost no thumbnails, no process leaked.')
+  console.log('\nProbe complete. Positive control passed, the app path lost no thumbnails and no durations, ' +
+    'no process leaked.')
 }
 process.exit(problems.length === 0 ? 0 : 1)
