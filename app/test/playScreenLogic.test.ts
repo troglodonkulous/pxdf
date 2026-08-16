@@ -51,24 +51,18 @@ describe('timelineProgress', () => {
 })
 
 describe('selectCueTarget', () => {
-  it('targets exactly the clicked cue outside Preview, even when it is live', () => {
-    // Load-bearing: selectedCueId (inspector/rotation/rename/move/delete)
-    // must equal what was clicked in Live mode. A code-review pass caught an
-    // earlier version that redirected this to the next cue unconditionally,
-    // silently pointing those controls at a cue nobody clicked.
-    expect(selectCueTarget('cue-1', cues, 'live', 'cue-1')).toBe('cue-1')
-    expect(selectCueTarget('cue-2', cues, 'live', 'cue-1')).toBe('cue-2')
-  })
-
-  it('redirects Preview clicks on the live row to the next cue', () => {
-    expect(selectCueTarget('cue-1', cues, 'preview', 'cue-1')).toBe('cue-2')
-  })
-
-  it('falls back to the clicked (live) cue in Preview when it is last in the show', () => {
-    expect(selectCueTarget('cue-3', cues, 'preview', 'cue-3')).toBe('cue-3')
-  })
-
-  it('targets exactly the clicked cue in Preview when it is not live', () => {
-    expect(selectCueTarget('cue-2', cues, 'preview', 'cue-1')).toBe('cue-2')
+  // Once the Preview re-target was removed there is nothing left for a unit
+  // test to disprove: the mode and live-cue parameters are gone, so no caller
+  // can reach a target other than the clicked cue and this describe block
+  // cannot fail for the reason it exists. Said plainly rather than dressed up
+  // — a passing assertion here is not evidence that standby and preview agree
+  // in the running app.
+  //
+  // That evidence is `wire.mjs` § 6i-d, which clicks rows in both modes and reads
+  // the standby marker and the inspector back out of the real UI. This keeps
+  // the promise stated where a future caller will read it, and keeps the export
+  // honest about being total.
+  it('targets exactly the clicked cue, for every cue in the show', () => {
+    for (const c of cues) expect(selectCueTarget(c.id)).toBe(c.id)
   })
 })

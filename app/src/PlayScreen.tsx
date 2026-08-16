@@ -143,24 +143,27 @@ export function timelineProgress(snapshot: Pick<EngineSnapshot, 'positionMs' | '
 /**
  * What clicking a cue row targets — both `selectedCueId` (the inspector,
  * rotation edit, rename, move, and delete all read it) and the id handed to
- * `engine.selectCue`. These must always agree: if they diverged, those
- * controls would silently act on a different cue than the one being
- * previewed or armed.
+ * `engine.selectCue`. It is the clicked cue, in every mode. Kept as a named
+ * function rather than inlined because the mutation-check grades it, and
+ * because the thing it must keep being is a promise, not an implementation:
+ * **standby ≡ preview ≡ what was clicked.**
  *
- * Outside Preview the target is always the clicked cue — Standby only makes
- * sense for what was actually clicked. In Preview, clicking the row that is
- * live re-targets the next cue instead, because re-previewing a cue that's
- * already on the floor shows nothing new; auditioning the next cue does.
+ * Until 2026-08-15 this re-targeted the *next* cue when the live row was
+ * clicked in Preview, on the reasoning that re-previewing what is already on
+ * the floor shows nothing new while auditioning the next cue does. MEASURED
+ * the same day, with a real click on the live row in Preview: the live row
+ * keeps its green glow, the row *below* it takes the blue preview selection,
+ * and the inspector reads that next cue's name. Two rows carry an affordance
+ * and the operator's rename, rotate, move and delete now aim one row below
+ * where they clicked — the divergence the paragraph above forbids, written in
+ * deliberately.
+ *
+ * The convenience it bought is available without the divergence: click the
+ * next cue. The cost it charged was a silent aiming error on four destructive
+ * controls, during a show.
  */
-export function selectCueTarget(
-  cueId: string,
-  cues: readonly Cue[],
-  mode: PlayerMode,
-  liveCueId: string | null,
-): string {
-  if (mode !== 'preview' || cueId !== liveCueId) return cueId
-  const index = cues.findIndex((cue) => cue.id === cueId)
-  return cues[index + 1]?.id ?? cueId
+export function selectCueTarget(cueId: string): string {
+  return cueId
 }
 
 export function PlayScreen({
@@ -195,7 +198,7 @@ export function PlayScreen({
   const shellRef = useRef<HTMLElement>(null)
 
   const selectCue = (cueId: string): void => {
-    const target = selectCueTarget(cueId, show.cues, snapshot.mode, snapshot.liveCueId)
+    const target = selectCueTarget(cueId)
     setSelectedCueId(target)
     engine.selectCue(target)
     refreshSnapshot()

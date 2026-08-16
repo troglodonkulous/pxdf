@@ -2293,6 +2293,62 @@ try {
       (row) => `${row.index}:${row.name}${row.selected ? ' selected' : ''}${row.ring ? ' ring' : ''}`))}` +
     ` · activeElement ${afterArrow.focused}`)
 
+  // 6i-d. The selection bar, the inspector and Standby all name one cue: the
+  //       one that was clicked, in both modes. `selectCueTarget` used to
+  //       re-target the *next* cue when the live row was clicked in Preview,
+  //       which aimed rename, rotate, move and delete one row below the
+  //       operator's click and put a second row's name in the inspector. Every
+  //       selection path is walked, because the divergence appeared on one.
+  //
+  //       Standby is graded in Live only, and that is the engine's contract
+  //       rather than a hole in this check: `engine.selectCue` arms Standby in
+  //       Live and *auditions* in Preview (`engine.ts:355`), deliberately
+  //       leaving whatever GO is aimed at alone while the operator previews
+  //       something else. So Preview asserts the other half — that selecting
+  //       does not move Standby — which is a thing this check can still be
+  //       wrong about, rather than a clause quietly dropped because it was red.
+  //       MEASURED 2026-08-15: the first version of this section asserted
+  //       Standby follows the click in Preview too and failed on exactly that,
+  //       against an app whose actual defect was already fixed.
+  const selectionPaths = []
+  for (const mode of ['live', 'preview']) {
+    if (mode === 'preview') await pressTab()
+    const shell = await waitFor(
+      `document.querySelector('.player-shell')?.className.includes('mode-${mode}') ? '${mode}' : null`)
+    const state = await page.evaluate(rowReadout)
+    const standbyBefore = state.rows.filter((row) => row.standby).map((row) => row.index)
+    const liveRow = state.rows.find((row) => row.live)
+    const otherRow = state.rows.find((row) => !row.live)
+    for (const row of [liveRow, otherRow]) {
+      await realClick(page, '.cue-row', row.index)
+      const seen = await page.evaluate(rowReadout)
+      selectionPaths.push({
+        path: `${mode}/${row.live ? 'live row' : 'other row'} ${row.index} "${row.name}"`,
+        shell,
+        selected: seen.rows.filter((r) => r.selected).map((r) => r.index),
+        standby: seen.rows.filter((r) => r.standby).map((r) => r.index),
+        wantStandby: mode === 'live' ? [row.index] : standbyBefore,
+        inspector: seen.inspector,
+        want: row.index,
+        wantName: row.name,
+      })
+    }
+  }
+  await pressTab()
+  const backToLive = await waitFor(
+    'document.querySelector(".player-shell")?.className.includes("mode-live") ? "live" : null')
+  const divergent = selectionPaths.filter((p) => p.shell === null
+    || JSON.stringify(p.selected) !== JSON.stringify([p.want])
+    || JSON.stringify(p.standby) !== JSON.stringify(p.wantStandby)
+    || p.inspector !== p.wantName)
+  check(selectionPaths.length === 4 && divergent.length === 0 && backToLive === 'live',
+    'the selection bar, the inspector and Standby all name the clicked cue',
+    divergent.length === 0
+      ? `${selectionPaths.length} paths walked, back on ${backToLive}`
+      : divergent.map((p) => `${p.path}: selected ${JSON.stringify(p.selected)}, ` +
+        `standby ${JSON.stringify(p.standby)} wanted ${JSON.stringify(p.wantStandby)}, ` +
+        `inspector "${p.inspector}"`).join(' · '))
+
   // 5. Quitting leaves the floor black. Controllers 2 and 3 hold their last
   //    frame indefinitely, so the last frame sent is the one that stays lit.
   const beforeQuit = tap.packets.length
