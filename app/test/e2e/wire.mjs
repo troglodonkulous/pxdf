@@ -2349,6 +2349,72 @@ try {
         `standby ${JSON.stringify(p.standby)} wanted ${JSON.stringify(p.wantStandby)}, ` +
         `inspector "${p.inspector}"`).join(' · '))
 
+  // 6i-e. The listbox is operable, not just correctly shaped. 6i-c takes focus
+  //       off the rows; that is only half a widget, and the missing half is
+  //       not a smaller feature but a broken one — a `role="listbox"` with
+  //       nowhere for focus to land and no `aria-activedescendant` announces
+  //       itself to assistive tech as a list of options it then cannot reach.
+  //       A code review caught it after the first four commits; this is the
+  //       check that would have.
+  //
+  //       Graded on the consequence an AT user gets rather than on the
+  //       attributes in isolation: focus can enter the list, and the option it
+  //       reports as active is the same row the sighted operator sees the
+  //       accent bar on. Reading the attribute alone would stay green against
+  //       an id that resolves to nothing.
+  //
+  //       `tabbable` is the discriminator, and `focusable` is not, which the
+  //       first version of this check got wrong: `.cue-list` is `overflow:
+  //       auto`, and Chromium makes a scrollable container focusable on its
+  //       own, so `.focus()` succeeds and `document.activeElement === list`
+  //       reads true with the tabIndex deleted. MEASURED 2026-08-15 — the
+  //       mutation-check for this fix passed 103 of 103, which is the check
+  //       saying nothing rather than the fix being unnecessary. An implicit
+  //       scroll focus is `tabIndex === -1`: reachable programmatically,
+  //       absent from sequential navigation, and gone entirely the moment the
+  //       show is short enough not to overflow. Tab order membership is the
+  //       behaviour, so that is what is read.
+  const readListbox = `(() => {
+    const list = document.querySelector('.cue-list')
+    if (list === null) throw new Error('no cue list')
+    list.focus()
+    const rows = [...document.querySelectorAll('.cue-row')]
+    const active = list.getAttribute('aria-activedescendant')
+    const target = active === null ? null : document.getElementById(active)
+    return {
+      role: list.getAttribute('role'),
+      tabbable: list.tabIndex === 0,
+      focusable: document.activeElement === list,
+      active,
+      activeRole: target === null ? null : target.getAttribute('role'),
+      activeSelected: target === null ? null : target.getAttribute('aria-selected'),
+      activeIndex: target === null ? -1 : rows.indexOf(target),
+      barIndex: rows.findIndex((row) => row.classList.contains('is-selected')),
+      options: rows.filter((row) => row.getAttribute('role') === 'option').length,
+      rows: rows.length,
+    }
+  })()`
+  const listbox = await page.evaluate(readListbox)
+  check(listbox.role === 'listbox' && listbox.tabbable && listbox.focusable
+      && listbox.options === listbox.rows
+      && listbox.activeRole === 'option' && listbox.activeSelected === 'true'
+      && listbox.activeIndex >= 0 && listbox.activeIndex === listbox.barIndex,
+    'the cue listbox takes focus and names the selected row as its active option',
+    `${JSON.stringify(listbox)}`)
+
+  // And it tracks: an ArrowDown moves the accent bar and the active option
+  // together. A one-shot read would pass against an activedescendant rendered
+  // once and never updated, which is the failure an AT user actually hits.
+  await pressKey(page, ARROW_DOWN)
+  const listboxAfter = await page.evaluate(readListbox)
+  check(listboxAfter.activeIndex === listboxAfter.barIndex
+      && listboxAfter.activeIndex !== listbox.activeIndex
+      && listboxAfter.activeSelected === 'true',
+    'the active option follows the selection when it moves',
+    `active ${listbox.activeIndex} -> ${listboxAfter.activeIndex}, ` +
+    `bar ${listboxAfter.barIndex}, aria-selected ${listboxAfter.activeSelected}`)
+  await page.evaluate('document.activeElement instanceof HTMLElement && document.activeElement.blur()')
+
   // 5. Quitting leaves the floor black. Controllers 2 and 3 hold their last
   //    frame indefinitely, so the last frame sent is the one that stays lit.
   const beforeQuit = tap.packets.length

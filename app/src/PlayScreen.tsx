@@ -478,8 +478,25 @@ export function PlayScreen({
               `.cue-row.is-selected`'s left bar, on a different row. `role=option`
               on a div is not focusable, so that ring has nowhere to land, and
               ↑/↓/Space are window-level handlers already: none of the keyboard
-              behaviour lived on the button. */}
-          <div className="cue-list" role="listbox" aria-label="Cues">
+              behaviour lived on the button.
+
+              Focus moves to the *list*, not to a row: that is the second half
+              of the same decision, and without it this is a malformed widget
+              rather than a smaller one. A listbox has to have somewhere for
+              focus to land, and it names its current option with
+              `aria-activedescendant` instead of by focusing it — which is
+              exactly the shape wanted here, since the whole point is that no
+              row is ever focused. Assistive tech reads the active option and
+              its `aria-selected` off the ids below; a sighted operator sees
+              the same thing as the accent bar. `button:focus-visible` cannot
+              match a div, so the ring still has nowhere to land. */}
+          <div
+            className="cue-list"
+            role="listbox"
+            aria-label="Cues"
+            tabIndex={0}
+            aria-activedescendant={selectedCueId === null ? undefined : `cue-row-${selectedCueId}`}
+          >
             {show.cues.length === 0 && (
               <div className="empty-cues" role="presentation">Add a video to build this show.</div>
             )}
@@ -487,8 +504,15 @@ export function PlayScreen({
               renamingCueId === cue.id ? (
                 <form
                   key={cue.id}
-                  role="option"
-                  aria-selected={cue.id === selectedCueId}
+                  // Not `role="option"`, even though it takes an option's slot
+                  // and wears its class: an option may not contain a focusable
+                  // descendant, and this one is a text field the operator is
+                  // typing into. `presentation` hands the row's own semantics
+                  // back to the input, which is the only thing to interact
+                  // with while a rename is open. The row it replaces is gone
+                  // from `aria-activedescendant` for exactly as long as the
+                  // rename lasts, which is true rather than merely convenient.
+                  role="presentation"
                   className={cueRowClass(cue, selectedCueId, snapshot)}
                   onSubmit={(event) => { event.preventDefault(); finishRename() }}
                 >
@@ -517,6 +541,9 @@ export function PlayScreen({
               ) : (
                 <div
                   key={cue.id}
+                  // Prefixed rather than bare `cue.id`, which is only unique
+                  // within the show — an id has to be unique in the document.
+                  id={`cue-row-${cue.id}`}
                   role="option"
                   aria-selected={cue.id === selectedCueId}
                   className={cueRowClass(cue, selectedCueId, snapshot)}
