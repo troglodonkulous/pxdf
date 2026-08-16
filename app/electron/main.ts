@@ -11,10 +11,11 @@ import { runMapperPlan } from './mapperPlan.js'
 import { nicVerdict } from './nicWatch.js'
 import { flushSettings, loadSettings, updateSettings } from './settings.js'
 import { canonicalDir, listLibraryFiles, servableLibraryFile } from './mediaAuth.js'
+import { mapperCwd, resolvePythonEnv } from './paths.js'
 import { Sidecar, type SenderStatus } from './sidecar.js'
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
-const repoRoot = resolve(currentDirectory, '../..')
+const devRepoRoot = resolve(currentDirectory, '../..')
 
 // Must run before the app is ready, which is why it is at module scope rather
 // than inside `whenReady`. `standard` gives media URLs a real origin, `secure`
@@ -200,7 +201,7 @@ async function doSetFloor(next: ShowFloor): Promise<void> {
   const black = blackFrame(geometry)
   sidecar = new Sidecar({
     isPackaged: app.isPackaged,
-    repoRoot,
+    repoRoot: mapperCwd(app.isPackaged, devRepoRoot),
     type: next.type,
     cols: next.tileCols,
     rows: next.tileRows,
@@ -278,7 +279,7 @@ ipcMain.on('ddf:frame', (_event: unknown, frame: Uint8Array) => {
 })
 
 ipcMain.handle('ddf:mapper-plan', (_event, type: string, cols: number, rows: number) => {
-  return runMapperPlan(type, cols, rows)
+  return runMapperPlan(type, cols, rows, app.isPackaged)
 })
 
 ipcMain.handle('ddf:list-interfaces', () => {
@@ -440,9 +441,23 @@ void app.whenReady().then(() => {
   }
   authorizedMediaDir = canonicalDir(storedSettings.lastMediaDir)
 
+  // Packaged only, and to stderr rather than the UI: this is the one record of
+  // which interpreter a `.app` launched from Finder actually reached for. The
+  // spawn itself already reports failure — `sidecar.ts`'s `publishDeath` turns
+  // `spawn python3 ENOENT` into a banner — but a sender that comes up on the
+  // *wrong* python fails no differently from one that comes up on the right
+  // one, and there is otherwise nothing to read afterwards in Console.app.
+  if (app.isPackaged) {
+    const env = resolvePythonEnv(true)
+    process.stderr.write(
+      `ddf: mapper cwd ${mapperCwd(true, devRepoRoot)}\n` +
+      `ddf: python "${process.env.DDF_PYTHON ?? 'python3'}" PATH=${env.PATH ?? ''}\n`,
+    )
+  }
+
   sidecar = new Sidecar({
     isPackaged: app.isPackaged,
-    repoRoot,
+    repoRoot: mapperCwd(app.isPackaged, devRepoRoot),
     type: currentFloor.type,
     cols: currentFloor.tileCols,
     rows: currentFloor.tileRows,

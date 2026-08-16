@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { resolvePythonEnv } from './paths.js'
 
 /**
  * What the sender process is doing. Not what the floor is doing.
@@ -335,6 +336,7 @@ export class Sidecar {
 
     const child = spawn(python, args, {
       cwd: this.options.repoRoot,
+      env: resolvePythonEnv(this.options.isPackaged),
       stdio: ['pipe', 'ignore', 'pipe'],
     })
     this.child = child

@@ -3,25 +3,65 @@
   "version": "0.1.0",
   "private": true,
   "description": "Geometry-independent sender UI for the Symphonia LED dance floor. Drives mapper/ as a sidecar.",
+  "author": "Symphonia",
   "type": "module",
+  "main": "dist/main.js",
   "scripts": {
     "dev": "npm run build:electron && vite --host 127.0.0.1",
     "dev:floor": "DDF_ADDRESS=255.255.255.255 npm run dev",
     "build": "vite build && npm run build:electron",
     "build:electron": "vite build --mode electron-main && vite build --mode electron-preload",
+    "dist": "npm run build && electron-builder --mac",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "com.symphonia.ddf-sender",
+    "productName": "DDF Sender",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../mapper",
+        "to": "mapper",
+        "filter": [
+          "**/*.py",
+          "README.md",
+          "!tests/**",
+          "!**/__pycache__/**"
+        ]
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": "universal"
+        },
+        {
+          "target": "zip",
+          "arch": "universal"
+        }
+      ],
+      "category": "public.app-category.utilities"
+    }
   },
   "dependencies": {
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@types/node": "^26.2.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@types/node": "^26.2.0",
     "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^7.0.2",
     "vite": "^8.1.5",
     "vitest": "^4.1.10"
