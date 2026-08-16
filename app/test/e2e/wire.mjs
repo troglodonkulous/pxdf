@@ -536,6 +536,7 @@ async function pressKey(page, { key, code, keyCode, text }) {
 
 const SPACE = { key: ' ', code: 'Space', keyCode: 32, text: ' ' }
 const ARROW_DOWN = { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40 }
+const TAB = { key: 'Tab', code: 'Tab', keyCode: 9 }
 
 /**
  * Change a `<select>` the way the operator does.
@@ -2363,27 +2364,44 @@ try {
   //       accent bar on. Reading the attribute alone would stay green against
   //       an id that resolves to nothing.
   //
-  //       `tabbable` is the discriminator, and `focusable` is not, which the
-  //       first version of this check got wrong: `.cue-list` is `overflow:
-  //       auto`, and Chromium makes a scrollable container focusable on its
-  //       own, so `.focus()` succeeds and `document.activeElement === list`
-  //       reads true with the tabIndex deleted. MEASURED 2026-08-15 — the
-  //       mutation-check for this fix passed 103 of 103, which is the check
-  //       saying nothing rather than the fix being unnecessary. An implicit
-  //       scroll focus is `tabIndex === -1`: reachable programmatically,
-  //       absent from sequential navigation, and gone entirely the moment the
-  //       show is short enough not to overflow. Tab order membership is the
-  //       behaviour, so that is what is read.
+  //       What `tabIndex` buys here is *not* sequential Tab navigation, and an
+  //       earlier version of this check said it was. Tab never traverses this
+  //       surface at all: the window handler consumes every one of them for
+  //       the Live/Preview toggle (`PlayScreen.tsx:353`), which is settled
+  //       behaviour graded by 6c. Reading `tabIndex === 0` and calling it "tab
+  //       order membership is the behaviour" was grading an internal symptom
+  //       and dressing it up — corrected below, and 6i-f now pins the Tab
+  //       constraint down so the file states it rather than implying otherwise.
+  //
+  //       What it does buy is focus at all. ARIA only honours
+  //       `aria-activedescendant` on an element that can hold DOM focus, and
+  //       `.cue-list` is `overflow: auto` — which makes it focusable in
+  //       Chromium only while it actually has scrollable overflow, i.e. only
+  //       while the show is long enough. A two-cue show has none, and without
+  //       `tabIndex` the whole widget goes inert with no visible change. So the
+  //       probe suppresses the overflow and asks whether the element is
+  //       focusable for a reason that survives a short show.
+  //
+  //       That distinction is not academic: the first version of this check
+  //       read plain `.focus()` success, and deleting `tabIndex` left all 103
+  //       checks green, because the scrollbar was doing the work.
   const readListbox = `(() => {
     const list = document.querySelector('.cue-list')
     if (list === null) throw new Error('no cue list')
+    const inlineOverflow = list.style.overflow
+    list.style.overflow = 'visible'
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    list.focus()
+    const focusableWithoutScroll = document.activeElement === list
+    list.style.overflow = inlineOverflow
     list.focus()
     const rows = [...document.querySelectorAll('.cue-row')]
     const active = list.getAttribute('aria-activedescendant')
     const target = active === null ? null : document.getElementById(active)
     return {
       role: list.getAttribute('role'),
-      tabbable: list.tabIndex === 0,
+      focusableWithoutScroll,
+      tabIndex: list.tabIndex,
       focusable: document.activeElement === list,
       active,
       activeRole: target === null ? null : target.getAttribute('role'),
@@ -2395,7 +2413,7 @@ try {
     }
   })()`
   const listbox = await page.evaluate(readListbox)
-  check(listbox.role === 'listbox' && listbox.tabbable && listbox.focusable
+  check(listbox.role === 'listbox' && listbox.focusableWithoutScroll && listbox.focusable
       && listbox.options === listbox.rows
       && listbox.activeRole === 'option' && listbox.activeSelected === 'true'
       && listbox.activeIndex >= 0 && listbox.activeIndex === listbox.barIndex,
@@ -2413,6 +2431,31 @@ try {
     'the active option follows the selection when it moves',
     `active ${listbox.activeIndex} -> ${listboxAfter.activeIndex}, ` +
     `bar ${listboxAfter.barIndex}, aria-selected ${listboxAfter.activeSelected}`)
+  // 6i-f. Tab does not move focus anywhere on this surface — it toggles
+  //       Live/Preview, unconditionally, for every target that is not a text
+  //       input (`PlayScreen.tsx:353`). Recorded as a check rather than left
+  //       as a comment because 6i-e's `tabIndex` reads as a promise of
+  //       sequential navigation to anyone who does not know this, and a stated
+  //       constraint with no instrument behind it is the thing that goes stale
+  //       and then misleads. If someone later stops swallowing Tab, this goes
+  //       red and 6i-e's reasoning gets re-read, which is the point.
+  const focusBeforeTab = await page.evaluate(
+    `(() => { document.querySelector('.cue-list').focus()
+      return document.activeElement.className })()`)
+  const modeBeforeTabKey = await page.evaluate('document.querySelector(".player-shell")?.className ?? ""')
+  await pressKey(page, TAB)
+  const afterTabKey = await page.evaluate(`(() => ({
+    focus: document.activeElement === null ? 'none' : document.activeElement.className,
+    shell: document.querySelector('.player-shell')?.className ?? '',
+  }))()`)
+  await pressKey(page, TAB)
+  const modeRestored = await waitFor(
+    'document.querySelector(".player-shell")?.className.includes("mode-live") ? "live" : null')
+  check(afterTabKey.focus === focusBeforeTab && afterTabKey.shell !== modeBeforeTabKey
+      && modeRestored === 'live',
+    'Tab toggles the mode instead of moving focus, so tab order reaches nothing here',
+    `focus "${focusBeforeTab}" -> "${afterTabKey.focus}" · shell ${modeBeforeTabKey} -> ` +
+    `${afterTabKey.shell} · restored ${modeRestored}`)
   await page.evaluate('document.activeElement instanceof HTMLElement && document.activeElement.blur()')
 
   // 5. Quitting leaves the floor black. Controllers 2 and 3 hold their last
