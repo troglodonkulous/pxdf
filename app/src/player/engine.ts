@@ -743,9 +743,28 @@ export class PlayerEngine<S extends FrameSource> {
     this.standbyPinned = false;
   }
 
+  /**
+   * Build a decoder for a cue and start it.
+   *
+   * The `play` is guarded because it happens *after* the decoder exists: a
+   * throw there used to leave a constructed source with no reference to it
+   * anywhere, so nothing could ever dispose it. That is a leaked decoder per
+   * attempt — and the caller that recovers from the throw is the one that makes
+   * it repeatable, since an operator holding ↓ through a stack of unplayable
+   * cues would strand one per keypress.
+   *
+   * Rethrown, not swallowed: whether a cue that cannot start is an error the
+   * operator sees is the caller's decision, and `selectCue` makes it. This
+   * method's only job is to not leak on the way out.
+   */
   private arm(cue: Cue): Slot<S> {
     const source = this.createSource(cue);
-    source.play();
+    try {
+      source.play();
+    } catch (error) {
+      this.release({ cue, source });
+      throw error;
+    }
     return { cue, source };
   }
 

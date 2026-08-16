@@ -75,6 +75,8 @@ class FakeSource implements FrameSource {
   disposed = false;
   /** Set to make teardown throw, as a real element's can. */
   disposeThrows = false;
+  /** Set to make startup throw, as `HTMLMediaElement.play` can. */
+  playThrows = false;
   rotation: Rotation = 0;
   rotationSets = 0;
 
@@ -82,6 +84,7 @@ class FakeSource implements FrameSource {
 
   play(): void {
     this.playCalls += 1;
+    if (this.playThrows) throw new Error(`startup of ${this.cueId} failed`);
   }
 
   pause(): void {
@@ -149,6 +152,7 @@ function build(s: Show) {
   let clock = 0;
 
   let sourceThrows = false;
+  let playThrows = false;
 
   const engine = new PlayerEngine<FakeSource>({
     show: s,
@@ -159,6 +163,8 @@ function build(s: Show) {
         throw new Error(`no decoder for ${c.id}`);
       }
       const source = new FakeSource(c.id);
+      source.playThrows = playThrows;
+      playThrows = false;
       sources.set(c.id, source);
       created.set(c.id, (created.get(c.id) ?? 0) + 1);
       return source;
@@ -178,6 +184,16 @@ function build(s: Show) {
      */
     failNextSourceOnce: (): void => {
       sourceThrows = true;
+    },
+    /**
+     * Make the next source's `play` throw, once.
+     *
+     * The other half of `failNextSourceOnce`, and the more interesting half:
+     * this one throws *after* the decoder exists, which is the case that can
+     * leak one.
+     */
+    failNextPlayOnce: (): void => {
+      playThrows = true;
     },
     created: (id: string): number => created.get(id) ?? 0,
     source: (id: string): FakeSource => {
@@ -527,6 +543,21 @@ describe('preview has no path to the wire', () => {
     rig.failNextSourceOnce();
     expect(() => rig.engine.selectNext()).not.toThrow();
     expect(rig.engine.snapshot().lastError).toContain('no decoder for b');
+    expect(rig.engine.tick().screen.kind).toBe('black');
+  });
+
+  it('disposes a decoder that was built but would not start', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.setMode('preview');
+    rig.failNextPlayOnce();
+    expect(() => rig.engine.selectNext()).not.toThrow();
+
+    // Built, so it exists to be leaked; disposed, so it was not. Both halves:
+    // asserting only `disposed` passes just as well against a decoder that was
+    // never created at all.
+    expect(rig.created('b')).toBe(1);
+    expect(rig.source('b').disposed).toBe(true);
+    expect(rig.engine.snapshot().lastError).toContain('startup of b failed');
     expect(rig.engine.tick().screen.kind).toBe('black');
   });
 
