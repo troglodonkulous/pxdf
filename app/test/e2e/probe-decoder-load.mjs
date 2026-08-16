@@ -191,17 +191,38 @@ try {
     // Connection refused is the good case.
   }
 
+  /**
+   * The child's environment, with `DDF_CUE_SEED` taken out rather than assumed
+   * absent.
+   *
+   * The Duration arm below reads `clipDurationMs`, which is
+   * `(trimEndMs ?? mediaDurationMs) - trimStartMs`. A seeded `trimEndMs` makes
+   * that readout a number no matter what the duration probe did — so an
+   * inherited `DDF_CUE_SEED`, from a shell where the wire gate was being
+   * driven by hand, would turn the check into one that cannot fail while still
+   * printing timecodes that look like measurements. Clearing it is what makes
+   * the arm's premise true; the previous version only stated it in a comment.
+   */
+  const childEnv = {
+    ...process.env,
+    DDF_ADDRESS: '127.0.0.1',
+    DDF_PORT: String(SIDECAR_PORT),
+    DDF_PICK_MEDIA: PICKED.join(delimiter),
+  }
+  if (childEnv.DDF_CUE_SEED !== undefined) {
+    // Said out loud: a run that silently ignored something the operator set is
+    // its own small silent failure.
+    console.log('note: DDF_CUE_SEED was set in this shell and is cleared for the probe — ' +
+      'a seeded trimEndMs would make the Duration check unable to fail')
+    delete childEnv.DDF_CUE_SEED
+  }
+
   electron = spawn(
     resolve(APP_DIR, 'node_modules', '.bin', 'electron'),
     [resolve(APP_DIR, 'dist', 'main.js'), `--remote-debugging-port=${DEBUG_PORT}`],
     {
       cwd: APP_DIR,
-      env: {
-        ...process.env,
-        DDF_ADDRESS: '127.0.0.1',
-        DDF_PORT: String(SIDECAR_PORT),
-        DDF_PICK_MEDIA: PICKED.join(delimiter),
-      },
+      env: childEnv,
       stdio: 'ignore',
       // The `.bin/electron` shim spawns the real binary as its own child, so
       // own the group and teardown can take the whole tree.
@@ -282,10 +303,11 @@ try {
    * is not cosmetic: `clipDurationMs` null makes `cueHoldMs` null, which the
    * engine reads as "never advance", so a Loop set on that cue does nothing.
    *
-   * The inspector's Duration readout is that null, rendered: with no
-   * `DDF_CUE_SEED` in play `trimEndMs` is null and `trimStartMs` is 0, so the
-   * readout is an em dash exactly when the probe did not land. Selecting a cue
-   * is how the operator reads it, so the probe selects each one and reads it.
+   * The inspector's Duration readout is that null, rendered: `DDF_CUE_SEED` is
+   * cleared from the child's environment above, so `trimEndMs` is null and
+   * `trimStartMs` is 0, and the readout is an em dash exactly when the probe
+   * did not land. Selecting a cue is how the operator reads it, so the probe
+   * selects each one and reads it.
    */
   const durations = []
   for (let index = 0; index < PICKED.length; index++) {
