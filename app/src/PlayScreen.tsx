@@ -468,14 +468,24 @@ export function PlayScreen({
             </div>
           </div>
 
-          <div className="cue-list">
+          {/* A listbox, not a stack of buttons. Each row was a <button> until
+              2026-08-15, which made it focusable, which made the shared
+              `button:focus-visible` rule paint a full accent outline on it — a
+              second thing that looks selected, in the same accent as
+              `.cue-row.is-selected`'s left bar, on a different row. `role=option`
+              on a div is not focusable, so that ring has nowhere to land, and
+              ↑/↓/Space are window-level handlers already: none of the keyboard
+              behaviour lived on the button. */}
+          <div className="cue-list" role="listbox" aria-label="Cues">
             {show.cues.length === 0 && (
-              <div className="empty-cues">Add a video to build this show.</div>
+              <div className="empty-cues" role="presentation">Add a video to build this show.</div>
             )}
             {show.cues.map((cue, index) => (
               renamingCueId === cue.id ? (
                 <form
                   key={cue.id}
+                  role="option"
+                  aria-selected={cue.id === selectedCueId}
                   className={cueRowClass(cue, selectedCueId, snapshot)}
                   onSubmit={(event) => { event.preventDefault(); finishRename() }}
                 >
@@ -502,9 +512,10 @@ export function PlayScreen({
                     : <span className="cue-duration">{formatTimecode(cueHoldMs(cue))}</span>}
                 </form>
               ) : (
-                <button
-                  type="button"
+                <div
                   key={cue.id}
+                  role="option"
+                  aria-selected={cue.id === selectedCueId}
                   className={cueRowClass(cue, selectedCueId, snapshot)}
                   draggable
                   onDragStart={(event) => event.dataTransfer.setData('text/plain', cue.id)}
@@ -537,7 +548,7 @@ export function PlayScreen({
                   {cue.id === snapshot.standbyCueId && snapshot.standbyCueId !== snapshot.liveCueId
                     ? <span className="standby-marker">Standby</span>
                     : <span className="cue-duration">{formatTimecode(cueHoldMs(cue))}</span>}
-                </button>
+                </div>
               )
             ))}
           </div>

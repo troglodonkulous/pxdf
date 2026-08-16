@@ -2275,6 +2275,24 @@ try {
     'clicking a transport button leaves nothing focused',
     `activeElement was ${afterBlackoutClick.focused}`)
 
+  // 6i-c. Exactly one thing looks selected. `.cue-row` was a <button> until
+  //       2026-08-15, which made it focusable, which let the shared
+  //       `button:focus-visible` rule paint a full accent outline on it.
+  //       Chromium withholds that ring on a mouse click but re-arms it on the
+  //       next keypress at the focused element — so click a row, then press the
+  //       ↓ the standby helper row literally advertises, and the clicked row
+  //       lights up in the same accent as the *other* row's selection bar.
+  //       That sequence is what this reproduces, and `role="option"` on a div
+  //       is what removes it: not focusable, so the ring has nowhere to land.
+  await realClick(page, '.cue-row', goTarget.index)
+  await pressKey(page, ARROW_DOWN)
+  const afterArrow = await page.evaluate(rowReadout)
+  const marked = afterArrow.rows.filter((row) => row.selected || row.ring)
+  check(marked.length === 1, 'exactly one cue row carries a selection affordance',
+    `${marked.length} marked: ${JSON.stringify(marked.map(
+      (row) => `${row.index}:${row.name}${row.selected ? ' selected' : ''}${row.ring ? ' ring' : ''}`))}` +
+    ` · activeElement ${afterArrow.focused}`)
+
   // 5. Quitting leaves the floor black. Controllers 2 and 3 hold their last
   //    frame indefinitely, so the last frame sent is the one that stays lit.
   const beforeQuit = tap.packets.length
