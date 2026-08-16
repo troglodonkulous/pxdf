@@ -342,12 +342,17 @@ export function PlayScreen({
           return
         case ' ':
         case 'Spacebar':
-          // Unlike Tab/ArrowUp/ArrowDown, this one has to yield to a focused
-          // button: Space's native job is activating whatever button has
-          // focus (BLACKOUT, PAUSE, a standby-step…), and Electron does give
-          // clicked buttons focus. Hijacking it globally would silently fire
-          // GO instead of the focused control's own click.
-          if (target instanceof HTMLElement && target.tagName === 'BUTTON') return
+          // Unconditional, like Tab/ArrowUp/ArrowDown. This used to bail when
+          // a <button> had focus, so that Space kept doing its native job of
+          // activating the focused control. MEASURED 2026-08-15: click
+          // BLACKOUT, press Space, and Space toggles BLACKOUT back off while
+          // GO never fires — the operator's Space goes to the last thing they
+          // touched instead of to the show. That is the dangerous direction of
+          // the tradeoff the old comment chose knowingly, and the floor test
+          // picked the other one: on a console, Space is GO, always.
+          //
+          // `preventDefault` here is also what stops the focused button's own
+          // activation, which Chromium fires on keyup for Space.
           event.preventDefault()
           fireGo()
           return

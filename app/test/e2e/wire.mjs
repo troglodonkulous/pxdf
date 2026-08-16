@@ -426,6 +426,19 @@ function open(url) {
       await send('Runtime.enable', {})
       resolvePage({
         exceptions,
+        /**
+         * The raw protocol, for the checks that cannot be written as a script.
+         *
+         * Everything else in this file drives the UI by evaluating an
+         * expression, and `element.click()` is enough for all of it — until the
+         * thing being graded is focus. A scripted click does not focus, and a
+         * scripted `KeyboardEvent` is untrusted and so has no default action at
+         * all, which means a check built from either one would pass whether or
+         * not the fix it grades is present. `Input.dispatchMouseEvent` and
+         * `Input.dispatchKeyEvent` produce the real thing: focus moves, and
+         * Space activates a focused button unless something stops it.
+         */
+        send,
         /** Evaluate an expression in the page and return its JSON value. */
         async evaluate(expression) {
           const reply = await send('Runtime.evaluate', {
@@ -475,6 +488,54 @@ const clickRowScript = (index) => `(() => {
   rows[${index}].click()
   return true
 })()`
+
+/**
+ * A real left click at an element's centre, dispatched by the browser itself.
+ *
+ * `clickScript` and friends above call `element.click()`, which delivers the
+ * `click` handler and nothing else — no `mousedown`, no focus change. That is
+ * fine for every check that grades what a click *does*, and useless for the
+ * ones below, which grade what a click *leaves behind*. Section 6i is the only
+ * caller and should stay that way: this is slower, and it needs the element to
+ * be on screen and unobscured, which a scripted click does not care about.
+ */
+async function realClick(page, selector, index = 0) {
+  const box = await page.evaluate(`(() => {
+    const element = [...document.querySelectorAll(${JSON.stringify(selector)})][${index}]
+    if (element === undefined) throw new Error('no element for ${selector}[${index}]')
+    const rect = element.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) throw new Error('${selector}[${index}] has no box to click')
+    return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) }
+  })()`)
+  for (const type of ['mousePressed', 'mouseReleased']) {
+    await page.send('Input.dispatchMouseEvent', {
+      type,
+      x: box.x,
+      y: box.y,
+      button: 'left',
+      clickCount: 1,
+      buttons: type === 'mousePressed' ? 1 : 0,
+    })
+  }
+  await sleep(200)
+}
+
+/**
+ * A real key press, trusted, with its native default action intact.
+ *
+ * `text` is what separates a key that types from one that only navigates, and
+ * it is also what makes Space activate a focused button — omit it and the
+ * check that Space does *not* re-fire the last-touched control cannot fail.
+ */
+async function pressKey(page, { key, code, keyCode, text }) {
+  const base = { key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode }
+  await page.send('Input.dispatchKeyEvent', { ...base, type: text === undefined ? 'rawKeyDown' : 'keyDown', text })
+  await page.send('Input.dispatchKeyEvent', { ...base, type: 'keyUp' })
+  await sleep(200)
+}
+
+const SPACE = { key: ' ', code: 'Space', keyCode: 32, text: ' ' }
+const ARROW_DOWN = { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40 }
 
 /**
  * Change a `<select>` the way the operator does.
@@ -2126,6 +2187,66 @@ try {
   check(Array.isArray(namesAfterDrag) && JSON.stringify(namesAfterDrag) === JSON.stringify(expectedAfterDrag),
     'dragging the last row onto the first reorders the cue stack',
     `before ${JSON.stringify(namesBeforeDrag)} · after ${JSON.stringify(namesAfterDrag)}`)
+
+  // 6i. Focus and selection. Three separate defects, one theme: the app kept
+  //     state on whatever the operator last touched, and a console must not.
+  //     Driven with real CDP input rather than `element.click()`, because
+  //     every one of these is invisible to a scripted event — see `realClick`.
+  const rowReadout = `(() => {
+    const rows = [...document.querySelectorAll('.cue-row')]
+    return {
+      rows: rows.map((row, index) => ({
+        index,
+        name: row.querySelector('.cue-name')?.textContent ?? '',
+        live: row.classList.contains('is-live'),
+        selected: row.classList.contains('is-selected'),
+        standby: row.classList.contains('is-standby'),
+        // Two separate ways a row can read as picked: our own accent bar, and
+        // the shared focus ring. Both are the same accent colour, so to the
+        // operator they are the same claim, and the screenshot this section
+        // exists for is one of each on two different rows.
+        ring: row.matches(':focus-visible') || getComputedStyle(row).outlineStyle !== 'none',
+      })),
+      inspector: document.querySelector('.cue-summary strong')?.textContent ?? '',
+      focused: document.activeElement === null ? 'none'
+        : document.activeElement.tagName + '.' + document.activeElement.className,
+    }
+  })()`
+  const blackoutLabel = 'document.querySelector(".transport-blackout")?.textContent ?? ""'
+
+  // 6i-a. Space is GO even when a button holds keyboard focus. The handler
+  //       used to bail out whenever the event target was a <button>, so that
+  //       Space kept doing its native job of activating the focused control:
+  //       click BLACKOUT, press Space, and the show does not advance while
+  //       BLACKOUT quietly toggles instead. Focus is set here with `.focus()`
+  //       on purpose — that is the keyboard route, which 6i-b's fix leaves
+  //       intact, and it is the only route left that can still put focus on a
+  //       transport button at all. Without it this check would be graded
+  //       against an app where nothing is ever focused, and could not fail.
+  const beforeSpace = await page.evaluate(rowReadout)
+  const goTarget = beforeSpace.rows.find((row) => !row.live && !row.name.includes('rawvideo'))
+  check(goTarget !== undefined, 'there is a decodable non-live cue to fire with Space',
+    JSON.stringify(beforeSpace.rows.map((row) => `${row.index}:${row.name}${row.live ? '(live)' : ''}`)))
+  await realClick(page, '.cue-row', goTarget.index)
+  const focusedBlackout = await page.evaluate(`(() => {
+    const button = document.querySelector('.transport-blackout')
+    if (button === null) throw new Error('no BLACKOUT button')
+    button.focus()
+    return document.activeElement === button
+  })()`)
+  const blackoutBeforeSpace = await page.evaluate(blackoutLabel)
+  await pressKey(page, SPACE)
+  // The live class is React's mirror of engine state on a >=250 ms tick, so
+  // this polls. A single read 200 ms after the key press reported "GO never
+  // fired" against a build where it had.
+  const liveAfterSpace = await waitForLive(goTarget.index)
+  const blackoutAfterSpace = await page.evaluate(blackoutLabel)
+  check(focusedBlackout === true && liveAfterSpace === goTarget.index,
+    'Space fires GO while a transport button holds focus',
+    `focused BLACKOUT ${focusedBlackout} · wanted live row ${goTarget.index}, got ${liveAfterSpace}`)
+  check(blackoutAfterSpace === blackoutBeforeSpace,
+    'Space does not also activate the button that held focus',
+    `BLACKOUT read "${blackoutBeforeSpace}" before and "${blackoutAfterSpace}" after`)
 
   // 5. Quitting leaves the floor black. Controllers 2 and 3 hold their last
   //    frame indefinitely, so the last frame sent is the one that stays lit.
