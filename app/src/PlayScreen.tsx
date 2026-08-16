@@ -89,6 +89,25 @@ function Icon({ name, size = 16 }: { readonly name: IconName; readonly size?: nu
   }
 }
 
+/**
+ * Console model: a control the operator clicked does not stay armed.
+ *
+ * `mousedown`'s default action is what focuses a button, so refusing it leaves
+ * focus where it was and still delivers the `click`. Two consequences, both
+ * wanted. Enter no longer re-fires whatever was last touched — Space is
+ * globally GO now, but Enter is not intercepted, so a lingering BLACKOUT would
+ * still be one keystroke from toggling. And the accent `:focus-visible` ring
+ * never appears on a row: Chromium withholds it on a mouse click but re-arms it
+ * on the operator's next keypress, which is precisely the click-then-↓ sequence
+ * the standby helper row advertises, and is how a second row came to look
+ * selected. No focus, no ring.
+ *
+ * Keyboard focus is untouched — this fires only for a real pointer press, so
+ * `:focus-visible` still does its accessibility job for anyone navigating by
+ * key.
+ */
+const dropFocus = (event: React.MouseEvent): void => event.preventDefault()
+
 function cueRowClass(cue: Cue, selectedCueId: string | null, snapshot: EngineSnapshot): string {
   const classes = ['cue-row']
   if (cue.id === snapshot.liveCueId) classes.push('is-live')
@@ -525,18 +544,18 @@ export function PlayScreen({
 
           {selectedCue !== null && (
             <div className="cue-actions" aria-label="Selected cue actions">
-              <button type="button" className="icon-button compact" title="Move cue up" aria-label="Move cue up" disabled={selectedIndex <= 0} onClick={() => moveSelected(-1)}><Icon name="up" /></button>
-              <button type="button" className="icon-button compact" title="Move cue down" aria-label="Move cue down" disabled={selectedIndex < 0 || selectedIndex >= show.cues.length - 1} onClick={() => moveSelected(1)}><Icon name="down" /></button>
-              <button type="button" className="icon-button compact" title="Rename cue" aria-label="Rename cue" onClick={() => beginRename(selectedCue)}><Icon name="pencil" /></button>
-              <button type="button" className="icon-button compact danger" title="Remove cue" aria-label="Remove cue" onClick={removeSelected}><Icon name="trash" /></button>
+              <button type="button" className="icon-button compact" title="Move cue up" aria-label="Move cue up" onMouseDown={dropFocus} disabled={selectedIndex <= 0} onClick={() => moveSelected(-1)}><Icon name="up" /></button>
+              <button type="button" className="icon-button compact" title="Move cue down" aria-label="Move cue down" onMouseDown={dropFocus} disabled={selectedIndex < 0 || selectedIndex >= show.cues.length - 1} onClick={() => moveSelected(1)}><Icon name="down" /></button>
+              <button type="button" className="icon-button compact" title="Rename cue" aria-label="Rename cue" onMouseDown={dropFocus} onClick={() => beginRename(selectedCue)}><Icon name="pencil" /></button>
+              <button type="button" className="icon-button compact danger" title="Remove cue" aria-label="Remove cue" onMouseDown={dropFocus} onClick={removeSelected}><Icon name="trash" /></button>
             </div>
           )}
 
           <div className="standby-controls">
             <div className="standby-row">
-              <button type="button" className="standby-step" title="Standby previous cue" aria-label="Standby previous cue" onClick={() => stepStandby('previous')}><Icon name="up" size={20} /></button>
-              <button type="button" className="button primary go-button" disabled={isGoDisabled(snapshot)} onClick={fireGo}>GO</button>
-              <button type="button" className="standby-step" title="Standby next cue" aria-label="Standby next cue" onClick={() => stepStandby('next')}><Icon name="down" size={20} /></button>
+              <button type="button" className="standby-step" title="Standby previous cue" aria-label="Standby previous cue" onMouseDown={dropFocus} onClick={() => stepStandby('previous')}><Icon name="up" size={20} /></button>
+              <button type="button" className="button primary go-button" disabled={isGoDisabled(snapshot)} onMouseDown={dropFocus} onClick={fireGo}>GO</button>
+              <button type="button" className="standby-step" title="Standby next cue" aria-label="Standby next cue" onMouseDown={dropFocus} onClick={() => stepStandby('next')}><Icon name="down" size={20} /></button>
             </div>
             <div className="standby-helper"><span>↑</span><span>Space</span><span>↓</span></div>
           </div>
@@ -576,6 +595,7 @@ export function PlayScreen({
                   key={mode}
                   className={snapshot.mode === mode ? 'is-active' : ''}
                   aria-pressed={snapshot.mode === mode}
+                  onMouseDown={dropFocus}
                   onClick={() => setMode(mode)}
                 >
                   <span className="segment-dot" />{mode === 'live' ? 'Live' : 'Preview'}
@@ -725,8 +745,8 @@ export function PlayScreen({
         <div className="crossfade-control" title="Crossfade arrives with the Compositor"><span className="section-label">Crossfade</span><input type="range" min="0" max="60" value="15" disabled readOnly /><output>1.5 s</output></div>
         <span className="transport-spacer" />
         <span className="transport-divider" />
-        <div className="transport-action"><button type="button" className="button primary transport-big-button" title={snapshot.transportPaused ? 'Resume' : 'Pause'} onClick={() => { engine.setPaused(!snapshot.transportPaused); refreshSnapshot() }}><Icon name={snapshot.transportPaused ? 'play' : 'pause'} size={18} />{snapshot.transportPaused ? 'RESUME' : 'PAUSE'}</button><span className="key-hint">P</span></div>
-        <div className="transport-action"><button type="button" className={`transport-big-button transport-blackout${snapshot.blackout ? ' is-active' : ''}`} aria-pressed={snapshot.blackout} onClick={() => { engine.setBlackout(!snapshot.blackout); refreshSnapshot() }}>{snapshot.blackout ? 'BLACKOUT ACTIVE' : 'BLACKOUT'}</button><span className="key-hint">⌘B</span></div>
+        <div className="transport-action"><button type="button" className="button primary transport-big-button" title={snapshot.transportPaused ? 'Resume' : 'Pause'} onMouseDown={dropFocus} onClick={() => { engine.setPaused(!snapshot.transportPaused); refreshSnapshot() }}><Icon name={snapshot.transportPaused ? 'play' : 'pause'} size={18} />{snapshot.transportPaused ? 'RESUME' : 'PAUSE'}</button><span className="key-hint">P</span></div>
+        <div className="transport-action"><button type="button" className={`transport-big-button transport-blackout${snapshot.blackout ? ' is-active' : ''}`} aria-pressed={snapshot.blackout} onMouseDown={dropFocus} onClick={() => { engine.setBlackout(!snapshot.blackout); refreshSnapshot() }}>{snapshot.blackout ? 'BLACKOUT ACTIVE' : 'BLACKOUT'}</button><span className="key-hint">⌘B</span></div>
       </footer>
     </main>
   )

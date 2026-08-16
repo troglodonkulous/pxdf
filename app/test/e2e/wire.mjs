@@ -2248,6 +2248,33 @@ try {
     'Space does not also activate the button that held focus',
     `BLACKOUT read "${blackoutBeforeSpace}" before and "${blackoutAfterSpace}" after`)
 
+  // 6i-b. A clicked control does not stay armed. `mousedown`'s default action
+  //       is what focuses a button, so the transport refuses it and focus stays
+  //       where it was — the click still lands. Graded on the operator-visible
+  //       consequence rather than on the handler: after clicking, nothing on
+  //       the transport is focused, so no later keystroke can be swallowed by
+  //       it and no focus ring can appear on it.
+  //
+  //       The blur is load-bearing: 6i-a above deliberately parks focus on this
+  //       exact button and `preventDefault` on `mousedown` refuses to *move*
+  //       focus, it does not take focus away from something that already has
+  //       it. Without this line the check reads back 6i-a's own setup and
+  //       reports a red that says nothing about the click — which is what it
+  //       did on the first run of this section.
+  await page.evaluate('document.activeElement instanceof HTMLElement && document.activeElement.blur()')
+  await realClick(page, '.transport-blackout')
+  const afterBlackoutClick = await page.evaluate(rowReadout)
+  const blackoutTookEffect = await page.evaluate(blackoutLabel)
+  await realClick(page, '.transport-blackout')
+  const blackoutReleased = await waitFor(
+    `${blackoutLabel} === 'BLACKOUT' ? 'released' : null`)
+  check(blackoutTookEffect === 'BLACKOUT ACTIVE' && blackoutReleased === 'released',
+    'the click still reaches BLACKOUT with its focus suppressed',
+    `${blackoutBeforeSpace} -> ${blackoutTookEffect} -> ${blackoutReleased}`)
+  check(!afterBlackoutClick.focused.includes('transport-'),
+    'clicking a transport button leaves nothing focused',
+    `activeElement was ${afterBlackoutClick.focused}`)
+
   // 5. Quitting leaves the floor black. Controllers 2 and 3 hold their last
   //    frame indefinitely, so the last frame sent is the one that stays lit.
   const beforeQuit = tap.packets.length
