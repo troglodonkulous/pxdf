@@ -358,6 +358,14 @@ export class PlayerEngine<S extends FrameSource> {
    * In live mode this arms it as Standby — the cue GO will fire — and does not
    * touch the floor. In preview mode it auditions the cue on screen, which is
    * the whole point of the mode.
+   *
+   * `createSource` is caller-supplied and may throw. The renderer's
+   * `VideoSource` turns its own load failures into `state.fail` rather than
+   * throwing, but the engine cannot assume its factory does, and this is now
+   * reached from the ↑/↓ keys as well as from a click — a `window` keydown
+   * listener is the one caller with nowhere for a thrown value to land. So the
+   * throw becomes the same preview banner a decode failure produces, which is
+   * bad news reaching a reader rather than a `catch {}`.
    */
   selectCue(cueId: string): void {
     const cue = this.cueById(cueId);
@@ -366,7 +374,11 @@ export class PlayerEngine<S extends FrameSource> {
     if (this.mode === 'preview') {
       if (this.preview?.cue.id === cueId) return;
       this.preview = this.release(this.preview);
-      this.preview = this.arm(cue);
+      try {
+        this.preview = this.arm(cue);
+      } catch (error) {
+        this.fail('preview', cue, 'failed to preview', error instanceof Error ? error.message : String(error));
+      }
       return;
     }
     this.standbyCueId = cueId;
@@ -407,17 +419,33 @@ export class PlayerEngine<S extends FrameSource> {
 
   /** Transport: step Standby, without firing. */
   selectNext(): void {
-    const next = this.cueAfter(this.standbyCueId);
-    if (next === null) return;
-    this.standbyCueId = next.id;
-    this.standbyPinned = true;
+    this.step(this.cueAfter(this.standbyCueId));
   }
 
   selectPrevious(): void {
-    const previous = this.cueBefore(this.standbyCueId);
-    if (previous === null) return;
-    this.standbyCueId = previous.id;
+    this.step(this.cueBefore(this.standbyCueId));
+  }
+
+  /**
+   * Move Standby onto `cue`, and in preview audition it too.
+   *
+   * The audition is the whole difference between stepping and clicking. Until
+   * 2026-08-15 the ↑/↓ keys and transport buttons only moved `standbyCueId`,
+   * so in Preview the blue selection walked the stack while the screen kept
+   * showing whatever was last *clicked* — the operator had to click a row to
+   * actually see it. `selectCue` is what arms the preview decoder, so stepping
+   * routes through it rather than growing a second copy of that logic.
+   *
+   * Guarded on mode, not unconditional: in live, arming the preview decoder is
+   * exactly the thing that must not happen, and `selectCue` in live mode would
+   * re-pin Standby to the cue we just set. GO, Space and double-click stay the
+   * only ways to change what is on the wire.
+   */
+  private step(cue: Cue | null): void {
+    if (cue === null) return;
+    this.standbyCueId = cue.id;
     this.standbyPinned = true;
+    if (this.mode === 'preview') this.selectCue(cue.id);
   }
 
   /**

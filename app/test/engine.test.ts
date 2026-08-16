@@ -506,6 +506,38 @@ describe('preview has no path to the wire', () => {
     expect(rig.engine.tick().screen.kind).toBe('black');
   });
 
+  it('auditions the stepped-to cue in preview, and leaves the wire alone', () => {
+    const rig = build(show(cue('a'), cue('b'), cue('c')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.engine.setMode('preview');
+    rig.engine.selectNext();
+    rig.source('c').ready = true;
+
+    const tick = rig.engine.tick();
+    expect(tick.screen.kind === 'source' ? tick.screen.source.cueId : null).toBe('c');
+    expect(onWire(tick.wire)).toBe('a');
+  });
+
+  it('banners a decoder that will not construct instead of throwing out of the step', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.setMode('preview');
+    rig.failNextSourceOnce();
+    expect(() => rig.engine.selectNext()).not.toThrow();
+    expect(rig.engine.snapshot().lastError).toContain('no decoder for b');
+    expect(rig.engine.tick().screen.kind).toBe('black');
+  });
+
+  it('does not audition a stepped-to cue in live mode', () => {
+    const rig = build(show(cue('a'), cue('b'), cue('c')));
+    rig.engine.selectNext();
+    expect(rig.engine.snapshot().standbyCueId).toBe('b');
+    expect(rig.sources.has('b')).toBe(false);
+    expect(rig.engine.tick().screen.kind).toBe('black');
+  });
+
   it('shows black on screen while the previewed cue is still decoding', () => {
     const rig = build(show(cue('a')));
     rig.engine.setMode('preview');
