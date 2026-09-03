@@ -31,9 +31,24 @@ import { composeBanner } from '../electron/banners';
  * left that is not structural — which message a shared, one-line UI shows when
  * several are live, and that the others are still counted rather than dropped.
  *
+ * SECOND DEFECT, found by review of that fix the same day. The first cut ranked
+ * `log` first, reasoning that a session with no evidence chain changes how every
+ * other message should be read. It does — but `log` and `fatal` are the only two
+ * slots nothing ever clears, so ranking either above the transient faults parks
+ * a permanent, unactionable sentence on the banner and demotes every dark floor,
+ * unplugged cable and frozen renderer after it to `(+1 more)`. In the one
+ * situation where there is no log to expand that number from. The fix that hid
+ * diagnostics, by its own ranking.
+ *
+ * So the sticky slots rank last, and `(+N more)` — which is a pointer at the log
+ * — is only used while there is a log to point at.
+ *
  * MUTATION-CHECKED 2026-09-03: dropping the `new Set` de-duplication makes
  * "counts one fault once" red; returning `first` unconditionally instead of
- * appending the count makes "says how many it is not showing" red.
+ * appending the count makes "says how many it is not showing" red; moving `log`
+ * back to the front of `PRIORITY` makes "leads with the fault the operator can
+ * act on" red; using the count regardless of the log makes "spells the others
+ * out when there is no log to expand a count from" red.
  */
 describe('composeBanner', () => {
   const FROZEN = 'the renderer has stopped producing frames — the floor is holding its last picture';
@@ -63,19 +78,41 @@ describe('composeBanner', () => {
 
   it('says how many faults it is not showing', () => {
     expect(composeBanner({ sender: DIED, watchdog: FROZEN })).toBe(`${DIED} (+1 more)`);
-    expect(composeBanner({ log: NO_LOG, sender: DIED, watchdog: FROZEN })).toBe(`${NO_LOG} (+2 more)`);
   });
 
-  it('leads with the log, which is the one fault that changes how the rest read', () => {
-    // With no file there is nowhere for "+2 more" to be recovered from, so the
-    // operator has to know that before they trust the count.
-    expect(composeBanner({ log: NO_LOG, fatal: 'the app hit an internal error' })).toContain(NO_LOG);
+  it('leads with the fault the operator can act on, not the one that is permanent', () => {
+    // Nothing clears `log` or `fatal` — the log directory does not become
+    // writable mid-show, and a main process that threw stays thrown. Ranked
+    // above the transient faults, either one would occupy the banner for the
+    // rest of the session and reduce every dark floor after it to a number.
+    expect(composeBanner({ log: NO_LOG, sender: DIED })?.startsWith(DIED)).toBe(true);
+    expect(
+      composeBanner({ fatal: 'the app hit an internal error', sender: DIED })?.startsWith(DIED),
+    ).toBe(true);
   });
 
-  it('ranks a main-process throw above the sender it supervises', () => {
+  it('still says the log is gone, under the fault it is standing behind', () => {
+    // Demoted, never dropped. The operator needs the actionable sentence first
+    // and still has to know that nothing is being written down.
+    expect(composeBanner({ log: NO_LOG, sender: DIED })).toContain(NO_LOG);
+  });
+
+  it('spells the others out when there is no log to expand a count from', () => {
+    // `(+N more)` is a pointer at the log file. With no file it points at
+    // nothing, and the banner is the only surviving record of the session — so
+    // it carries the messages rather than the number.
+    const composed = composeBanner({ log: NO_LOG, sender: DIED, watchdog: FROZEN });
+
+    expect(composed).toBe(`${DIED} · ${FROZEN} · ${NO_LOG}`);
+    expect(composed, 'counted faults that are recorded nowhere else').not.toContain('more)');
+  });
+
+  it('ranks a main-process throw below the sender it supervises', () => {
+    // `fatal` is a bug report; a sender that has stopped is a floor with
+    // nothing driving it, and one of the two has something to do about it now.
     const fatal = 'the app hit an internal error — see the log';
 
-    expect(composeBanner({ fatal, sender: DIED, nic: CABLE })).toBe(`${fatal} (+2 more)`);
+    expect(composeBanner({ fatal, sender: DIED, nic: CABLE })).toBe(`${DIED} (+2 more)`);
   });
 
   it('counts one fault once when two sources report it', () => {

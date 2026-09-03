@@ -442,8 +442,19 @@ another source *writing* it, which cost two diagnostics outright:
 
 Each source now writes its own slot and nothing else can reach it, so the
 per-watcher ownership guards are structurally true rather than separately
-enforced. `composeBanner` shows the most urgent live message and counts the rest
-(`(+2 more)`); the log always carries every one of them in full, with its source.
+enforced. `composeBanner` shows the most *actionable* live message and counts the
+rest (`(+2 more)`); the log carries every one of them in full, with its source.
+
+Ordering by actionability rather than severity is the second thing review caught,
+and it is the same defect wearing the fix's clothes. `log` and `fatal` are the
+only slots nothing ever clears — a log directory does not become writable
+mid-show, and a main process that threw stays thrown. Ranked above the transient
+faults, either one parks a permanent, unactionable sentence on the banner and
+demotes every dark floor, unplugged cable and frozen renderer after it to a
+number. So they rank last; and `(+N more)`, which is a pointer at the log, is
+only used while there is a log to point at — when the `log` slot is live the
+banner carries the other messages in full, because at that moment it is the only
+surviving record of the session.
 
 **What is deliberately not logged.** Not frames — `ddf:frame` runs 30-60 times a
 second and does nothing but bump two counters. Not every status publish —

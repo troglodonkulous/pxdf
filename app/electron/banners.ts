@@ -36,26 +36,32 @@
  * true rather than separately enforced.
  *
  * The renderer still gets one string, because the UI has one line for it. When
- * more than one slot is live the most urgent wins and the rest are counted, so
- * a second fault is never *invisible* even when it is not the one shown; the
- * log has every one of them in full, with its source and timestamp.
+ * more than one slot is live the most actionable wins and the rest are counted,
+ * so a second fault is never *invisible* even when it is not the one shown; the
+ * log has every one of them in full, with its source and timestamp — and where
+ * there is no log, `composeBanner` carries their text instead of a count.
  */
 
 export type BannerSource = 'log' | 'fatal' | 'sender' | 'nic' | 'watchdog'
 
 /**
- * Most urgent first — ordered by how much of the app the reader should distrust
- * once it fires, not by how loud the failure was.
+ * Ordered by what the operator can do about it *now*, most actionable first.
  *
- * `log` leads despite never being about the show, because it is the one fault
- * that changes how everything below it should be read: with no file, the "+N
- * more" the operator is being asked to trust is not recoverable anywhere. It is
- * also published once, at launch, and cannot recur.
+ * The obvious ordering — by severity, or by how much of the app the reader
+ * should distrust — is wrong here, and wrong in a way that costs exactly what
+ * this file was added to protect. `log` and `fatal` are the only two slots
+ * nothing ever clears: the log directory does not become writable mid-show, and
+ * a main process that threw stays thrown. Rank a permanent fault above the
+ * transient ones and it sits on the banner for the rest of the session, and
+ * every dark floor, unplugged cable and frozen renderer after it is demoted to
+ * a number — the failure this file exists to prevent, re-created by its own
+ * ranking.
  *
- * `fatal` next: a main process that threw is in an unknown state, so every
- * other slot's silence is now worth less.
+ * So the two sticky slots rank below the three that describe something the
+ * operator is standing next to and can fix. Neither is hidden by that: see
+ * `composeBanner` for what happens to the ones that are not shown.
  */
-const PRIORITY: readonly BannerSource[] = ['log', 'fatal', 'sender', 'nic', 'watchdog']
+const PRIORITY: readonly BannerSource[] = ['sender', 'nic', 'watchdog', 'fatal', 'log']
 
 /**
  * The live slots as one line for the renderer, or null when nothing is wrong.
@@ -64,6 +70,13 @@ const PRIORITY: readonly BannerSource[] = ['log', 'fatal', 'sender', 'nic', 'wat
  * the sidecar with its own reason, and the sidecar reports that same reason
  * through its error channel, so the cable-out case legitimately fills two slots
  * with one sentence and must not read as two faults.
+ *
+ * `(+2 more)` is a pointer at the log, and is only honest while there is a log
+ * to point at. When the `log` slot is live there is no file and the banner is
+ * the only surviving record of the session, so the messages it cannot lead with
+ * are carried in full rather than counted. That is the one case where a longer
+ * banner is the correct trade: the alternative is a number standing in for
+ * faults that are, at that moment, recorded nowhere at all.
  */
 export function composeBanner(
   live: Readonly<Partial<Record<BannerSource, string | null>>>,
@@ -71,8 +84,10 @@ export function composeBanner(
   const messages = PRIORITY
     .map((source) => live[source] ?? null)
     .filter((message): message is string => message !== null)
-  const [first, ...rest] = [...new Set(messages)]
+  const unique = [...new Set(messages)]
+  const [first, ...rest] = unique
 
   if (first === undefined) return null
-  return rest.length === 0 ? first : `${first} (+${rest.length} more)`
+  if (rest.length === 0) return first
+  return (live.log ?? null) !== null ? unique.join(' · ') : `${first} (+${rest.length} more)`
 }
