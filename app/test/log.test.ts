@@ -121,6 +121,30 @@ describe('createLogger', () => {
     expect(logger.writeError).not.toBeNull();
   });
 
+  it('latches a write failure even after writing works again', () => {
+    // The property `main.ts` depends on, and the reason it may poll
+    // `writeError` on the watchdog tick rather than subscribe to it.
+    //
+    // A disk that fills and is then freed leaves a log with a hole in it, and a
+    // hole is invisible from the records that did get written — the file that
+    // comes back looks exactly like one that never missed a line. Clearing
+    // `writeError` on the next successful write would take the banner down and
+    // hand the operator a log they have no reason to distrust.
+    const dir = scratch();
+    const logsDir = join(dir, 'logs');
+    mkdirSync(logsDir);
+    const logger = createLogger(logsDir);
+    made.push(logsDir);
+
+    chmodSync(logsDir, 0o500);
+    logger.log('ERROR', 'sidecar', 'died while the disk was full');
+    chmodSync(logsDir, 0o700);
+    logger.log('INFO', 'sender', 'and the disk came back');
+
+    expect(readFileSync(join(logsDir, 'ddf.log'), 'utf8')).toContain('the disk came back');
+    expect(logger.writeError, 'forgot a gap the log cannot show').not.toBeNull();
+  });
+
   it('has no write error on the happy path', () => {
     // The positive control for the test above: `writeError` being non-null must
     // mean something, which requires that it is null when the logger works.

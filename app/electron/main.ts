@@ -264,7 +264,36 @@ let ticksSinceHeartbeat = 0
 
 const HEARTBEAT_TICKS = 60
 
+/**
+ * Is the log still recording?
+ *
+ * Called at launch *and* on every watchdog tick, because whether the log works
+ * is not a launch-time property. The volume it lives on can fill, a managed
+ * profile can revoke the folder, an external disk can be unplugged — and from
+ * that moment every line this app writes goes only to a stderr that a packaged
+ * `.app` launched from Finder has nowhere to put.
+ *
+ * Checked once at startup, a log that dies at 21:40 reads exactly like one that
+ * is fine, which is this project's own failure mode with the instrument as the
+ * subject. It is also the assumption `composeBanner` rests on: `(+2 more)` is a
+ * pointer at the log file, and it would go on pointing at a file that stopped
+ * recording hours ago.
+ *
+ * Never cleared, because `writeError` latches. A log that failed a write and
+ * then recovered has a hole in it, and a hole is not something the operator can
+ * see by reading what did get written.
+ */
+function checkLogHealth(): void {
+  if (logger === null) {
+    setBanner('log', 'no log file this session — the log folder could not be created')
+  } else if (logger.writeError !== null) {
+    setBanner('log', `the log is not recording — ${logger.writeError}`)
+  }
+}
+
 function checkFrames(): void {
+  checkLogHealth()
+
   const verdict = frameVerdict({
     lastFrameAt,
     windowReadyAt,
@@ -684,14 +713,11 @@ void app.whenReady().then(() => {
   ].join('\n'))
 
   // The logger reporting on itself, and the one message that cannot be trusted
-  // to the logger. If there is no file, or the first write to it failed, then
-  // saying so *in the log* reaches nobody — so it goes to the operator, before
-  // the session that was going to rely on it.
-  if (logger === null) {
-    setBanner('log', 'no log file this session — the log folder could not be created')
-  } else if (logger.writeError !== null) {
-    setBanner('log', `the log file could not be written: ${logger.writeError}`)
-  }
+  // to the logger. If there is no file, or the write of the launch block above
+  // failed, then saying so *in the log* reaches nobody — so it goes to the
+  // operator, before the session that was going to rely on it. The watchdog
+  // tick asks the same question every second afterwards.
+  checkLogHealth()
 
   sidecar = new Sidecar({
     isPackaged: app.isPackaged,

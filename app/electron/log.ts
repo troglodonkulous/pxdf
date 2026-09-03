@@ -28,10 +28,17 @@
  * write throws, and a logger that swallowed that would be the exact defect this
  * whole change exists to remove: a channel that reads as healthy while carrying
  * nothing. So a failed write goes to `process.stderr` and is remembered in
- * `writeError`, which `main.ts` reads after the launch block and turns into an
- * operator-visible banner. The app still starts — refusing to run because it
- * cannot log would be a worse trade on a show night — but nobody is told the
- * log is fine when it is not.
+ * `writeError`, which `main.ts` turns into an operator-visible banner. The app
+ * still starts — refusing to run because it cannot log would be a worse trade
+ * on a show night — but nobody is told the log is fine when it is not.
+ *
+ * `writeError` latches: it is set by the first failed write and never cleared,
+ * including by later writes that succeed. That is deliberate and `main.ts`
+ * depends on it. A disk that fills and is freed again leaves a log with a hole
+ * in it, and a hole is invisible from the records that did get written — the
+ * only honest thing the file can say afterwards is that it stopped being
+ * complete. It also means `main.ts` may poll this rather than subscribe: a
+ * failure that has happened stays reportable until someone reads it.
  */
 
 import { appendFileSync, existsSync, mkdirSync, renameSync } from 'node:fs'

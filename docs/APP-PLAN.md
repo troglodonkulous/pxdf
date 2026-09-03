@@ -456,6 +456,13 @@ only used while there is a log to point at — when the `log` slot is live the
 banner carries the other messages in full, because at that moment it is the only
 surviving record of the session.
 
+Whether the log works is checked on every watchdog tick, not once at launch.
+`writeError` latches on the first failed write and is never cleared, including by
+later writes that succeed — a disk that fills and is freed leaves a hole, and a
+hole is invisible from the records that did get written. Checked only at startup,
+a log that dies at 21:40 reads exactly like one that is fine, and `(+2 more)`
+goes on pointing at a file that stopped recording hours earlier.
+
 **What is deliberately not logged.** Not frames — `ddf:frame` runs 30-60 times a
 second and does nothing but bump two counters. Not every status publish —
 `Sidecar` republishes `restarting`/`sending` on every spawn, so a crash loop
