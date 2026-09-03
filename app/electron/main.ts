@@ -7,6 +7,7 @@ import { blackFrame } from '../src/render/onePass.js'
 import { PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
 import { MEDIA_SCHEME, mediaPath, mediaUrl } from '../src/player/mediaUrl.js'
 import type { Cue, ShowFloor } from '../src/player/show.js'
+import { type BannerSource, composeBanner } from './banners.js'
 import { frameVerdict } from './frameWatch.js'
 import { createLogger, type LogLevel, type Logger } from './log.js'
 import { runMapperPlan } from './mapperPlan.js'
@@ -132,7 +133,7 @@ function reportFatal(kind: string, error: unknown): void {
     : String(error)
   logLine('FATAL', 'main', `${kind}: ${detail}`)
   process.stderr.write(`ddf: ${kind}: ${detail}\n`)
-  publishSenderError(`the app hit an internal error — see the log. ${kind}: ${detail.split('\n')[0]}`)
+  setBanner('fatal', `the app hit an internal error — see the log. ${kind}: ${detail.split('\n')[0]}`)
 }
 
 process.on('uncaughtException', (error) => reportFatal('uncaught exception', error))
@@ -148,13 +149,36 @@ function publishStatus(status: SenderStatus): void {
   mainWindow?.webContents.send('ddf:status', status)
 }
 
-function publishSenderError(message: string | null): void {
-  const previous = currentSenderError?.message ?? null
-  if (message !== previous) {
-    if (message === null) logLine('INFO', 'sender', 'banner cleared')
-    else logLine('ERROR', 'sender', message)
+/**
+ * What each source currently has to say, one slot each.
+ *
+ * See `banners.ts` for the two ways the single shared slot this replaces ate
+ * diagnostics — a log-file warning wiped by the first routine sidecar recovery,
+ * and a frame watchdog permanently silenced by having its message overwritten.
+ * A source writes only its own key, so neither is reachable from here.
+ */
+const liveBanners: Partial<Record<BannerSource, string>> = {}
+
+function setBanner(source: BannerSource, message: string | null): void {
+  // On change only, and per source. The watchdog and the NIC poll are both
+  // level-triggered and call this on every tick with the same string for as
+  // long as the fault lasts; logging each one would put a line a second behind
+  // a banner that never changed.
+  if ((liveBanners[source] ?? null) === message) return
+
+  if (message === null) {
+    delete liveBanners[source]
+    logLine('INFO', source, 'banner cleared')
+  } else {
+    liveBanners[source] = message
+    logLine('ERROR', source, message)
   }
-  currentSenderError = message === null ? null : { message }
+
+  // The composed line is what the renderer sees; the log above is what the
+  // session is graded on. The log gets every source's message in full even when
+  // the UI can only show the most urgent one.
+  const composed = composeBanner(liveBanners)
+  currentSenderError = composed === null ? null : { message: composed }
   mainWindow?.webContents.send('ddf:sender-error', currentSenderError)
 }
 
@@ -172,9 +196,14 @@ function pollInterfaces(): void {
     process.env.DDF_LOCAL_IP,
     interfaces,
     nicBanner,
-    currentSenderError?.message ?? null,
+    liveBanners.nic ?? null,
   )
-  if (verdict.clearBanner) publishSenderError(null)
+  // `clearBanner`'s guard — this watcher may take down only its own message —
+  // is now also structural, since `setBanner` writes a slot nothing else can
+  // reach. It is still consulted rather than deleted because `nicWatch.ts`'s
+  // tests are the record of the two regressions that produced it.
+  if (verdict.nicBanner !== null) setBanner('nic', verdict.nicBanner)
+  else if (verdict.clearBanner) setBanner('nic', null)
   nicBanner = verdict.nicBanner
   queueNicVerdict(verdict)
 
@@ -241,14 +270,14 @@ function checkFrames(): void {
     windowReadyAt,
     now: Date.now(),
     lastWatchdogBanner: watchdogBanner,
-    currentBanner: currentSenderError?.message ?? null,
+    currentBanner: liveBanners.watchdog ?? null,
   })
 
   // Edge-triggered publish over a level-triggered verdict. The message carries
   // no elapsed counter precisely so this comparison works — see the
   // "keeps the message byte-identical" test in `frameWatch.test.ts`.
-  if (verdict.banner !== null && verdict.banner !== watchdogBanner) publishSenderError(verdict.banner)
-  else if (verdict.clearBanner) publishSenderError(null)
+  if (verdict.banner !== null) setBanner('watchdog', verdict.banner)
+  else if (verdict.clearBanner) setBanner('watchdog', null)
   watchdogBanner = verdict.watchdogBanner
 
   ticksSinceHeartbeat += 1
@@ -312,7 +341,11 @@ function queueNicVerdict(verdict: ReturnType<typeof nicVerdict>): void {
     () => { nicVerdictQueued = false },
     (error: unknown) => {
       nicVerdictQueued = false
-      console.error('Failed to apply NIC state to sender:', error)
+      // Was the last `console.error` in the app, which is the reason this
+      // branch exists: a suspend or resume that never reached the sender
+      // leaves the banner and the wire disagreeing, and a packaged `.app`
+      // launched from Finder has no stdout anyone will ever read.
+      logLine('ERROR', 'nic', `failed to apply NIC state to sender: ${String(error)}`)
     },
   )
 }
@@ -334,7 +367,7 @@ async function doSetFloor(next: ShowFloor): Promise<void> {
     rows: next.tileRows,
     blackFrame: black,
     onStatus: publishStatus,
-    onError: publishSenderError,
+    onError: (message: string | null) => setBanner('sender', message),
     onLog: (level, message) => logLine(level, 'sidecar', message),
   })
   sidecar.start()
@@ -396,6 +429,7 @@ function createWindow(): void {
       windowReadyAt = null
       lastFrameAt = null
       watchdogBanner = null
+      setBanner('watchdog', null)
       logLine('INFO', 'window', 'last window closed; black frame sent, watchdog disarmed')
       sidecar?.writeFrame(currentBlackFrame)
     }
@@ -406,6 +440,7 @@ function createWindow(): void {
     windowReadyAt = Date.now()
     lastFrameAt = null
     watchdogBanner = null
+    setBanner('watchdog', null)
     logLine('INFO', 'window', 'renderer loaded')
     publishStatus(currentStatus)
     window.webContents.send('ddf:sender-error', currentSenderError)
@@ -653,9 +688,9 @@ void app.whenReady().then(() => {
   // saying so *in the log* reaches nobody — so it goes to the operator, before
   // the session that was going to rely on it.
   if (logger === null) {
-    publishSenderError('no log file this session — the log folder could not be created')
+    setBanner('log', 'no log file this session — the log folder could not be created')
   } else if (logger.writeError !== null) {
-    publishSenderError(`the log file could not be written: ${logger.writeError}`)
+    setBanner('log', `the log file could not be written: ${logger.writeError}`)
   }
 
   sidecar = new Sidecar({
@@ -666,7 +701,7 @@ void app.whenReady().then(() => {
     rows: currentFloor.tileRows,
     blackFrame: currentBlackFrame,
     onStatus: publishStatus,
-    onError: publishSenderError,
+    onError: (message: string | null) => setBanner('sender', message),
     onLog: (level, message) => logLine(level, 'sidecar', message),
   })
   sidecar.start()

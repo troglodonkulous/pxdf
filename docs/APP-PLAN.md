@@ -425,6 +425,26 @@ and it clears only the banner it raised itself — the same rule, and the same
 reason, as `nicWatch.ts`. `wire.mjs` grades the pair against a real run: check
 106 fails if the watchdog says anything during a healthy show.
 
+**One slot per source, not one slot** (`banners.ts`). Found by review before this
+merged. Five sources publish errors — a main-process throw, a log file that could
+not be opened, the sidecar, the NIC poll, the frame watchdog — and each of them
+remembered the message it had published so that it would clear only its own. That
+guard is sound against another source *clearing* the banner and useless against
+another source *writing* it, which cost two diagnostics outright:
+
+- The launch warning "no log file this session" was wiped by the first routine
+  sidecar recovery, which publishes null. The one notice that the session had no
+  evidence chain, gone in seconds, with nowhere to write it down.
+- Overwrite the watchdog's banner with a sidecar death and its own memory still
+  holds the old string, so its edge comparison keeps matching and it never speaks
+  again. The frozen-floor channel goes out of service silently, for the rest of
+  the run.
+
+Each source now writes its own slot and nothing else can reach it, so the
+per-watcher ownership guards are structurally true rather than separately
+enforced. `composeBanner` shows the most urgent live message and counts the rest
+(`(+2 more)`); the log always carries every one of them in full, with its source.
+
 **What is deliberately not logged.** Not frames — `ddf:frame` runs 30-60 times a
 second and does nothing but bump two counters. Not every status publish —
 `Sidecar` republishes `restarting`/`sending` on every spawn, so a crash loop
