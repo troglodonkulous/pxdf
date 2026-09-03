@@ -379,6 +379,66 @@ single unretried `is-live` read against that is a race that fails about one run
 in two, and it is the gate flaking rather than the app. Every DOM assertion in
 `wire.mjs` polls.
 
+## The log, and the three failures that had no channel
+
+Added 2026-09-03, before the first floor session on the integrated app. The last
+job ran on the older `main` build because this one had playback problems that
+were never diagnosed — and the reason they were never diagnosed is that the app
+had no way to report a failure to anyone who was not watching the screen in the
+second it happened. Every channel ended in a React banner: overwritten by the
+next event, erased by a restart, invisible afterwards.
+
+**Where it is.** `~/Library/Logs/DDF Sender/ddf.log` when packaged,
+`~/Library/Logs/Electron/ddf.log` in development — macOS derives the folder from
+the app name, not from `--user-data-dir`, which is why the wire gate's log lands
+in the development one. One rotation at launch to `ddf.prev.log`, by run and not
+by size: after something goes wrong at a venue the operator restarts, and the
+file anyone wants is the one from the launch before. **Reveal log** on the
+Mapping surface opens it in Finder.
+
+**What it is for.** Three failures previously had no channel at all, and the
+third is the one that matches what went wrong at the job:
+
+| Failure | Now reported by |
+|---|---|
+| Main-process uncaught throw | `reportFatal`, `main.ts` |
+| Renderer throw before React, or during render | preload `error`/`unhandledrejection`, and `ErrorBoundary` |
+| Renderer stops producing frames | `frameWatch.ts`, from the main process |
+
+A React tree that unmounts takes the render loop's `cancelAnimationFrame` with
+it, `writeFrame` is never called again, and `Sidecar` holds the last frame on
+the wire for ever. The status pill reads `sending` and is *correct* — the Python
+child is healthy and the wire carries a valid non-black frame — so nothing in
+the app disagrees with anything else while the floor is frozen. Only the main
+process can notice, because a renderer that broken cannot report on itself.
+
+**The heartbeat is the positive control.** One line a minute carrying status,
+NIC, geometry and the frame count. Without it, "the log contains no errors" and
+"the app died twenty minutes ago" are byte-identical evidence, and `CLAUDE.md`'s
+rule that silence must be distinguishable from success would be broken by the
+instrument rather than by the thing it measures. **A gap in the timestamps is a
+finding.**
+
+**Two cry-wolf guards, both mutation-checked** (`frameWatch.test.ts`): the
+watchdog is armed only after the window has loaded and had five seconds to draw,
+and it clears only the banner it raised itself — the same rule, and the same
+reason, as `nicWatch.ts`. `wire.mjs` grades the pair against a real run: check
+106 fails if the watchdog says anything during a healthy show.
+
+**What is deliberately not logged.** Not frames — `ddf:frame` runs 30-60 times a
+second and does nothing but bump two counters. Not every status publish —
+`Sidecar` republishes `restarting`/`sending` on every spawn, so a crash loop
+would bury its own cause; transitions only. Not renderer console output beyond
+errors.
+
+**One trap.** `mapper stream`'s stdout is captured, and it only works because
+`sidecar.ts` sets `PYTHONUNBUFFERED=1`. Python block-buffers stdout into a pipe
+and `cmd_stream`'s opening prints carry no `flush=True`, so the first version of
+this captured nothing while looking exactly like it worked — the sender's own
+statement of the address and NIC it bound to sat in the child's buffer for the
+life of the process. Fixed on the app side because nothing in `mapper/` may
+change to accommodate the app.
+
 ## Build order
 
 One PR per gate. Branch from `main` each time, after the previous merges.

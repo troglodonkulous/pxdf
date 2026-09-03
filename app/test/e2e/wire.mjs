@@ -57,7 +57,7 @@ import { spawn, execFileSync } from 'node:child_process'
 import { createSocket } from 'node:dgram'
 import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync, chmodSync } from 'node:fs'
 import { createServer } from 'node:net'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join, resolve, delimiter } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 
@@ -2466,6 +2466,54 @@ try {
   const tail = tap.packets.slice(beforeQuit).slice(-20)
   check(tail.length > 0 && allBlack(tail), 'the last frame sent before quit is black',
     `${tail.length} trailing packets`)
+
+  // 6. The log this run wrote, graded as the instrument it is.
+  //
+  //    Placed here deliberately: after the quit, so the record is complete, and
+  //    BEFORE `checkLibrarySurvivesRestart` relaunches Electron — that
+  //    relaunch rotates `ddf.log` to `ddf.prev.log`, and reading afterwards
+  //    would grade a two-line file from a different run while looking exactly
+  //    like a pass.
+  //
+  //    `~/Library/Logs/<app name>` is not the `--user-data-dir` this run set:
+  //    on macOS Electron derives the log folder from the app name, not from
+  //    the profile. Unpackaged, that name is "Electron".
+  const logPath = join(homedir(), 'Library', 'Logs', 'Electron', 'ddf.log')
+  const logText = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
+  const logRecords = logText.split('\n').filter((line) => /^\d{4}-/.test(line))
+
+  // Assert the count as well as the content. `includes` on an empty string is
+  // false, so a missing file would fail the checks below anyway — but it would
+  // fail them as four unrelated content problems rather than as "there is no
+  // log", and this project has been sent down that road before.
+  check(logRecords.length > 10, 'the run left a log with records in it',
+    `${logRecords.length} records at ${logPath}`)
+
+  check(logText.includes('  INFO   launch  ') && logText.includes('packaged=false'),
+    'the log opens with the launch block that identifies the build',
+    logRecords[0] ?? '(no records)')
+
+  check(logText.includes('spawning: ') && logText.includes('-m mapper stream'),
+    'the log records the sender argv, not just that a sender started')
+
+  // The one that silently did not work when this was first written. Python
+  // block-buffers stdout into a pipe, so `mapper`'s own account of the address
+  // and NIC it bound to sat unflushed in the child for the life of the process
+  // — a capture that looked like it worked and recorded nothing. Only a check
+  // that reads the file after a real run can see that.
+  check(logText.includes('stdout: sending to '),
+    "the log captures the sender's own statement of what it bound to",
+    logText.split('\n').find((line) => line.includes('stdout: sending to ')) ?? '(absent)')
+
+  // The cry-wolf check, and the reason it belongs in this file rather than in a
+  // unit test. `frameWatch.test.ts` grades the verdict function against
+  // hand-built states; this grades the whole watchdog against a real renderer
+  // that ran a real show for the length of this gate. A watchdog that fires
+  // during a healthy run is worse than no watchdog, and nothing but a live run
+  // can find that.
+  check(!logText.includes('stopped producing frames') && !logText.includes('never produced a frame'),
+    'the renderer watchdog stayed quiet through a healthy run',
+    logText.split('\n').filter((line) => line.includes('producing frame')).join(' | '))
 
   // 7. The reauthorisation policy, proved rather than only documented — see
   //    `checkLibrarySurvivesRestart`. Run after the main run's Electron has
