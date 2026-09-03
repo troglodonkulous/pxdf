@@ -4,6 +4,10 @@ import type { Cue } from '../src/player/show.js'
 
 export interface DdfApi {
   writeFrame(frame: Uint8Array): void
+  /** Put a line in the log file. Transitions and faults only — never per frame. */
+  log(level: 'INFO' | 'WARN' | 'ERROR', source: string, message: string): void
+  /** Show the log file in Finder, so the operator can hand it over. */
+  revealLog(): void
   onStatus(callback: (status: SenderStatus) => void): () => void
   onSenderError(callback: (payload: { message: string } | null) => void): () => void
   onInterfaces(callback: (list: { name: string; address: string }[]) => void): () => void
@@ -46,9 +50,52 @@ ipcRenderer.on('ddf:interfaces', (_event: unknown, list: { name: string; address
   lastInterfaces = list
 })
 
+/**
+ * The renderer's last-resort error channels, installed here rather than in React.
+ *
+ * Preload runs before any page script, which is the whole reason this is not in
+ * `main.tsx` or a `useEffect`. The failures worth catching most are the ones
+ * that happen before React exists: a bundle that throws at module scope, an
+ * asset that 404s, a preload/renderer contract mismatch. A handler React
+ * installs cannot see any of them, because React never ran.
+ *
+ * `ErrorBoundary` is the complement, not a duplicate: it catches what React
+ * catches — an exception during render or commit, which React swallows into a
+ * blank tree rather than letting reach `window.onerror` — and this catches
+ * everything React never sees. Neither covers the other's cases.
+ */
+window.addEventListener('error', (event: ErrorEvent) => {
+  // `event.error` is absent for a resource load failure (an asset 404), where
+  // the target rather than the message carries the diagnosis. Reporting only
+  // `event.message` there produces the string "Script error." and nothing else,
+  // which is a channel that fires and says nothing.
+  const target = event.target as { src?: string; href?: string } | null
+  const resource = target?.src ?? target?.href
+  const detail = event.error instanceof Error
+    ? `${event.error.name}: ${event.error.message}\n${event.error.stack ?? ''}`
+    : resource !== undefined
+      ? `failed to load ${resource}`
+      : `${event.message} (${event.filename}:${event.lineno})`
+  ipcRenderer.send('ddf:log', 'ERROR', 'renderer', `uncaught: ${detail}`)
+}, true)
+
+window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+  const reason: unknown = event.reason
+  const detail = reason instanceof Error
+    ? `${reason.name}: ${reason.message}\n${reason.stack ?? ''}`
+    : String(reason)
+  ipcRenderer.send('ddf:log', 'ERROR', 'renderer', `unhandled rejection: ${detail}`)
+})
+
 const api: DdfApi = {
   writeFrame(frame) {
     ipcRenderer.send('ddf:frame', frame)
+  },
+  log(level, source, message) {
+    ipcRenderer.send('ddf:log', level, source, message)
+  },
+  revealLog() {
+    ipcRenderer.send('ddf:reveal-log')
   },
   onStatus(callback) {
     const listener = (_event: unknown, status: SenderStatus): void => callback(status)
