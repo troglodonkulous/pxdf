@@ -604,10 +604,30 @@ Two rules keep the renderer replaceable, and cost nothing today:
     is where this gets settled, not here.**
 - **Import normalises, it does not downscale.** Transcode at *source*
   resolution — the Xform panel and the supersampled work canvas both need real
-  pixels. Every clip in `test-patterns/Test Clips*` probes as H.264 yuv420p,
-  25/30/50 fps. (Both that folder and the `ddf-loop-res-test` probe set the
-  supersampling finding came from are gitignored source media — the finding is
-  reproducible from `tools/dancefloor-loops.html`, not from this repo's tree.)
+  pixels. **The source folders are not one codec.** Every file re-probed with
+  `ffprobe` 2026-09-03:
+
+  | folder | codec | frame rates |
+  |---|---|---|
+  | `Test Clips/` (6) | H.264 yuv420p | 24, 25, 29.97, 30, 60 |
+  | `Test Clips 2/` (18) | H.264 yuv420p | 24, 29.97, 30, 50, 60 |
+  | `Test Clips 3/` (12) | **HEVC** Main, 768×640, yuv420p, `hvc1`, level 90 (93 on the two 60 fps clips) | 25, 29.97, 30, 60 |
+
+  This bullet previously read "every clip in `test-patterns/Test Clips*` probes
+  as H.264 yuv420p, 25/30/50 fps", and the glob covered folders it had never
+  been checked against. Two things were wrong, not one: `Test Clips 3/` is
+  HEVC throughout, and no folder has the rate profile that was claimed — 50 fps
+  appears only in `Test Clips 2/`, while 24 and 29.97 appear widely and were
+  missing from the list entirely.
+
+  The codec is not a detail here. HEVC is exactly where Chromium has no software
+  decoder to fall back to, and the twelve HEVC clips are the ones that raise
+  `PIPELINE_ERROR_DECODE` — so any normalisation plan that assumed a uniform
+  H.264 input was reasoning about media this repo does not have. (These folders
+  and the `ddf-loop-res-test` probe set the supersampling finding came from are
+  gitignored source media — the finding is reproducible from
+  `tools/dancefloor-loops.html`, not from this repo's tree. `Test Clips*/converted/`
+  holds rawvideo AVIs and is output, not source.)
 
   **Normalisation is also the answer to `ddf-media://` not serving ranges**, and
   the two should be decided together. Range requests are a workaround for *an
