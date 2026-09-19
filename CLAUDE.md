@@ -51,8 +51,12 @@ python -m mapper play test-patterns/09-gradient24-8x8_4P-10x5.avi \
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --pattern gradient24 --dry-run | tail -1
 #   -> 10cfd968b0b3436c6b50717f4c6cf69459b545b5c665c5d8003b268a561f8057
 
-# the same bar at the job geometry, derived 2026-08-11. The app is graded
-# against both -- see docs/APP-PLAN.md.
+# The same bar at a second, deeper geometry -- twelve tiles per chain against
+# the shop rig's five. This is what grades the "geometry-independent" claim in
+# the first line of this file: one shape cannot catch a packets-per-port
+# assumption. It is a paper geometry, never run on hardware, and it is NOT
+# "the job" -- see docs/JOBS.md. The app is graded against both; see
+# docs/APP-PLAN.md. Digest derived 2026-08-11; re-derive if mapper/ changes.
 python -m mapper send --type 8x8_4P --cols 10 --rows 12 --pattern gradient24 --dry-run | tail -1
 #   -> 12df0afcfb2c05be3b967822ae965dc251578b27f4813d372447c3d09d59352d
 
@@ -66,8 +70,11 @@ Test counts are deliberately absent — they went stale in a day once. The runne
 
 ## The rig
 
-**Shop:** 10 × 5 tiles of `8x8_4P` = 80 × 40 px on **three** controllers.
-**Job:** 10 × 12 tiles of `8x8_4P` = **80 × 96 px**, same three controllers, ports 4/4/2, but **5 packets per port instead of 2** — 50 packets, 23,290 bytes per frame. Every job-rig number derived from `mapper plan`; none seen on hardware, and twelve tiles deep per chain not rehearsed by shop rig. White frame and per-column walk before content.
+**Shop:** 10 × 5 tiles of `8x8_4P` = 80 × 40 px on **three** controllers. The bench rig, and the only one this repo can assume.
+
+**A specific show's geometry is not a fact about this project.** Tile counts belong to a booking and go stale the moment it ends — quietly, because nothing in the repo contradicts them. This file carried "the job is 10 × 12" for a month and the only job that has ever run was 10 × 10. Per-show records live in `docs/JOBS.md`, dated and closed; what graduates back here is the durable conclusion, never the booking. **Read `mapper plan` for the geometry in front of you, and do not assume any floor but the shop rig.**
+
+White frame and per-column walk before content, at any geometry not already rehearsed.
 
 Cabled left-to-right, monotonic. Sender NIC `10.200.50.78/8`; dumpcap interface number **not stable across reboots** — re-derive with `python -m tools.oracle.harness list-interfaces`.
 
@@ -139,6 +146,7 @@ Large media (`test-patterns/Test Clips/`, ~188 MB) and `tools/oracle/out/` gitig
 | Running or extending a mapper suite | `mapper/README.md` |
 | Building PR 3, the Mapping surface | `docs/MAPPING-DIAGRAM.md`, so nobody re-reads `decompiled/` for it |
 | Planning a hardware session | `docs/PRE-PROBE.md` |
+| **Anything about a specific show** — what geometry it ran, what it was cabled into, what its log says | `docs/JOBS.md`. Also where a job's numbers go; they do not come back to this file |
 | Anyone raises the orange tiles again | `docs/HARDWARE-TILE-DEFECT.md`, §1–§3 findings, §4 onward unverified |
 
 Do not re-read decompiled Ledset source under `decompiled/` unless something specifically requires it; it is archaeology and has misled this project before.

@@ -292,11 +292,17 @@ it on its own metronome. A stalled writer re-sends, never gaps.
   — the same digest that grades the `play`/`send` cutover.
 - rotate 90° four times → identity.
 - mirror on either axis twice → identity.
-- The same, at the job geometry —
+- The same, at the second and deeper geometry — 10 × 12, twelve tiles per chain
+  against the shop rig's five —
   `12df0afcfb2c05be3b967822ae965dc251578b27f4813d372447c3d09d59352d`, derived
   2026-08-11 from
   `python -m mapper send --type 8x8_4P --cols 10 --rows 12 --pattern gradient24 --dry-run`.
   Re-derive rather than trusting this line if `mapper/` ever changes.
+  Two geometries and not one because a single shape cannot catch a
+  packets-per-port assumption, which is the whole of the geometry-independence
+  claim. This shape has never been on hardware and is **not** "the job
+  geometry", whatever `JOB_RIG` is called — the one job that has run was
+  10 × 10. See `docs/JOBS.md`.
 
 Three things follow from wanting those gates to grade anything, settled at PR 1.
 
@@ -518,9 +524,14 @@ day the floor becomes a variable. It is also smaller than it sounds, because
 three of its four dependencies already exist — `floorGeometry(type, cols, rows)`
 is general, `Sidecar` already takes `type`/`cols`/`rows` as options and already
 passes `--local-ip` through to `mapper stream`, and `gate.digest.test.ts`
-already grades the one pass at **both** rigs, including
+already grades the one pass at **both** geometries, including
 `12df0afcfb2c05be3b967822ae965dc251578b27f4813d372447c3d09d59352d`. That digest
 is written, passing, and currently unreachable from the running app.
+
+(`JOB_RIG` is the 10 × 12 shape in `geometry.ts`. The name has not aged well —
+it is a paper geometry, and the job that actually ran was 10 × 10. Worth
+renaming to describe the shape rather than a booking next time that file is
+open; it touches `geometry.ts` and three test files. `docs/JOBS.md`.)
 
 **Name it Mapping, not Setup.** The mockups say Mapping and so does the
 operator; this plan said Setup. Two names for one surface is how the two forms
