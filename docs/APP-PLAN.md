@@ -487,15 +487,31 @@ the constructor keeps for tests stays intact. `wire.mjs` check 123 asserts
 `opened >= 10` *and* `decoders <= 5` on a real run; mutation-checked by deleting
 both releases, which turns that line into `decoders=39 of 39 opened, peak 39`.
 
-**First reading, and it argues against the fan-out hypothesis.** The gate's own
-heartbeats, on the shop rig at S = 8 (`draw=10.87/80.40ms readback=0.67/2.10ms
-pass=1.12/3.20ms`), put `source.draw` at roughly fifteen times the canvas
-readback — the opposite of the suspicion that prompted splitting the span. Plausible
-mechanically, since the work canvas is `willReadFrequently` and therefore
-software-backed, which makes `drawImage` expensive and the readback cheap. **It
-is one reading from one instrument, on a 640×320 work canvas, under a run with a
-debugger attached, and it is not the job's geometry.** It is recorded here as
-the channel doing its job — disagreeing — and not as a conclusion about Class B.
+**First reading, and it moves the cost inside the compose, not out of it.** The
+gate's own heartbeats, on the shop rig at S = 8 (`draw=10.87/80.40ms
+readback=0.67/2.10ms pass=1.12/3.20ms`), put `source.draw` at roughly fifteen
+times the canvas readback — the opposite of the suspicion that prompted
+splitting the span. Reproduced across six heartbeat windows in a separate run
+(`draw` 9.53–37.70 ms average against `readback` 0.64–2.67 ms), so it is not a
+single sample. Plausible mechanically, since the work canvas is
+`willReadFrequently` and therefore software-backed, which makes `drawImage`
+expensive and the readback cheap — the flag was added to make the readback fast
+and it did, at the draw's expense.
+
+**Be exact about what this does and does not bear on.** It speaks to the
+*main-thread saturation* hypothesis, and within it, it relocates the cost: the
+`getImageData` copy that hypothesis named is the cheap half. **It says nothing
+whatever about the decoder fan-out hypothesis**, which is a different mechanism
+with a different instrument (`probe-decoder-load.mjs`) and is still open. An
+earlier version of this paragraph was headed "argues against the fan-out
+hypothesis", which the body never supported; the correction is noted rather than
+quietly made, because a heading naming the wrong hypothesis is how a live
+question gets closed by a reader who only skims.
+
+**It is one instrument, on a 640×320 work canvas, under a run with a debugger
+attached, and it is not the job's geometry.** It is recorded as the channel
+doing its job — disagreeing — and not as a conclusion about Class B. Nothing in
+the renderer was changed on the strength of it.
 
 **Two cry-wolf guards, both mutation-checked** (`frameWatch.test.ts`): the
 watchdog is armed only after the window has loaded and had five seconds to draw,
