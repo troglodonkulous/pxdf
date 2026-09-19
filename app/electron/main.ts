@@ -20,6 +20,14 @@ import { frameVerdict } from './frameWatch.js'
 import { createLogger, type LogLevel, type Logger } from './log.js'
 import { runMapperPlan } from './mapperPlan.js'
 import { nicVerdict } from './nicWatch.js'
+import {
+  emptyRenderWindow,
+  foldRenderSample,
+  renderField,
+  rollRenderWindow,
+  type RenderSample,
+  type RenderWindow,
+} from './renderStats.js'
 import { flushSettings, loadSettings, updateSettings } from './settings.js'
 import { canonicalDir, listLibraryFiles, servableLibraryFile } from './mediaAuth.js'
 import { mapperCwd, resolvePythonEnv } from './paths.js'
@@ -270,7 +278,32 @@ let watchdogBanner: string | null = null
 let framesSinceHeartbeat = 0
 let ticksSinceHeartbeat = 0
 
-const HEARTBEAT_TICKS = 60
+/**
+ * What the renderer has told the main process about its own cost, this window.
+ *
+ * Reset to `never-reported` whenever there is no renderer to report — see the
+ * two call sites in the window lifecycle. Keeping a dead page's numbers alive
+ * would make the heartbeat describe decoders that were released with the page
+ * that held them.
+ */
+let renderWindow: RenderWindow = emptyRenderWindow()
+
+/**
+ * How many watchdog ticks — seconds — between heartbeats.
+ *
+ * 60 in every build anyone ships. The override exists because `wire.mjs` runs
+ * for under a minute and a heartbeat nothing can observe is a channel graded by
+ * nobody; the gate turns the cadence down so a real run produces real heartbeat
+ * lines to assert against.
+ *
+ * Safe to have in the product because the line says what it is: `frames=N/Ms`
+ * carries this value, so a log written under an override cannot be mistaken for
+ * a minute's worth of counting. The launch block records it too.
+ */
+const HEARTBEAT_TICKS = (() => {
+  const override = Number(process.env.DDF_HEARTBEAT_SECONDS)
+  return Number.isFinite(override) && override >= 1 ? Math.floor(override) : 60
+})()
 
 /**
  * Is the log still recording?
@@ -324,10 +357,16 @@ function checkFrames(): void {
       'heartbeat',
       `status=${currentStatus} nic=${process.env.DDF_LOCAL_IP ?? 'default'} ` +
       `floor=${currentFloor.type} ${currentFloor.tileCols}x${currentFloor.tileRows} ` +
-      `frames=${framesSinceHeartbeat}/${HEARTBEAT_TICKS}s`,
+      `frames=${framesSinceHeartbeat}/${HEARTBEAT_TICKS}s ` +
+      // Never omitted and never blank, on any path. `renderField` has a string
+      // for every state including "no renderer has ever said anything", because
+      // an absent field is the one reading that cannot be told from a healthy
+      // one. See `renderStats.ts`.
+      renderField(renderWindow, Date.now()),
     )
     ticksSinceHeartbeat = 0
     framesSinceHeartbeat = 0
+    renderWindow = rollRenderWindow(renderWindow)
   }
 }
 
@@ -467,6 +506,12 @@ function createWindow(): void {
       lastFrameAt = null
       watchdogBanner = null
       setBanner('watchdog', null)
+      // Forgotten with the window, alongside `lastFrameAt` and for the same
+      // reason. The decoders those numbers counted went with the page, and a
+      // heartbeat still reporting them would be describing a renderer that no
+      // longer exists — which after a minute would harden into `SILENT`, a
+      // fault, on the one path the operator took deliberately.
+      renderWindow = emptyRenderWindow()
       logLine('INFO', 'window', 'last window closed; black frame sent, watchdog disarmed')
       sidecar?.writeFrame(currentBlackFrame)
     }
@@ -478,6 +523,9 @@ function createWindow(): void {
     lastFrameAt = null
     watchdogBanner = null
     setBanner('watchdog', null)
+    // The census lives in the renderer, so a reload starts it at zero. Carrying
+    // the old page's peak across would attribute its fan-out to the new one.
+    renderWindow = emptyRenderWindow()
     logLine('INFO', 'window', 'renderer loaded')
     publishStatus(currentStatus)
     window.webContents.send('ddf:sender-error', currentSenderError)
@@ -504,6 +552,14 @@ ipcMain.on('ddf:frame', (_event: unknown, frame: Uint8Array) => {
 
 ipcMain.on('ddf:log', (_event: unknown, level: LogLevel, source: string, message: string) => {
   logLine(level, source, message)
+})
+
+ipcMain.on('ddf:render-stats', (_event: unknown, sample: RenderSample) => {
+  // Four times a second, from the render loop's existing 250 ms batch — not
+  // per frame. Folded and nothing else: the heartbeat tick is what reads this,
+  // once a cadence, which is what keeps `log.ts`'s never-per-frame rule true by
+  // arithmetic rather than by convention.
+  renderWindow = foldRenderSample(renderWindow, sample, Date.now())
 })
 
 ipcMain.on('ddf:reveal-log', () => {
@@ -834,6 +890,12 @@ void app.whenReady().then(() => {
     `floor: ${currentFloor.type} ${currentFloor.tileCols}x${currentFloor.tileRows}`,
     `local ip: ${process.env.DDF_LOCAL_IP ?? '(default route)'}`,
     `log: ${logger?.path ?? '(none)'}`,
+    // The legend for the heartbeat, written once per run rather than repeated
+    // on every line. `draw`/`readback`/`pass` are the three spans of
+    // `composeFrame` (see `src/player/compose.ts`); `decoders` is
+    // `src/player/decoderCensus.ts`.
+    `heartbeat: every ${HEARTBEAT_TICKS}s · draw/readback/pass are avg/max ms per composed frame · ` +
+      'decoders=open now, peak=high-water mark, opened=total this page',
   ].join('\n'))
 
   // The logger reporting on itself, and the one message that cannot be trusted

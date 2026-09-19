@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { RenderSample } from './renderStats.js'
 import type { SenderStatus } from './sidecar.js'
 import type { Cue } from '../src/player/show.js'
 
@@ -6,6 +7,14 @@ export interface DdfApi {
   writeFrame(frame: Uint8Array): void
   /** Put a line in the log file. Transitions and faults only — never per frame. */
   log(level: 'INFO' | 'WARN' | 'ERROR', source: string, message: string): void
+  /**
+   * What the last 250 ms of rendering cost, and how many decoders are open.
+   *
+   * Sent from the render loop's existing batching tick, four times a second,
+   * and folded into the once-a-minute heartbeat by the main process — it writes
+   * nothing to the log by itself. See `electron/renderStats.ts`.
+   */
+  renderStats(sample: RenderSample): void
   /** Show the log file in Finder, so the operator can hand it over. */
   revealLog(): void
   onStatus(callback: (status: SenderStatus) => void): () => void
@@ -93,6 +102,9 @@ const api: DdfApi = {
   },
   log(level, source, message) {
     ipcRenderer.send('ddf:log', level, source, message)
+  },
+  renderStats(sample) {
+    ipcRenderer.send('ddf:render-stats', sample)
   },
   revealLog() {
     ipcRenderer.send('ddf:reveal-log')

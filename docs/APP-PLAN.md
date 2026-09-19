@@ -399,7 +399,13 @@ next event, erased by a restart, invisible afterwards.
 the app name, not from `--user-data-dir`, which is why the wire gate's log lands
 in the development one. One rotation at launch to `ddf.prev.log`, by run and not
 by size: after something goes wrong at a venue the operator restarts, and the
-file anyone wants is the one from the launch before. **Reveal log** on the
+file anyone wants is the one from the launch before. The launch block carries
+the heartbeat's legend — its cadence, and what `draw`/`readback`/`pass` and
+`decoders`/`peak`/`opened` mean — once per run, rather than repeating it on
+every line. `DDF_HEARTBEAT_SECONDS` turns the cadence down; `wire.mjs` sets it
+to 5 because the gate runs for under a minute and a channel nothing can observe
+is a channel graded by nobody. It is safe in the product because each line says
+its own cadence in `frames=N/Ms`. **Reveal log** on the
 Mapping surface opens it in Finder.
 
 **What it is for.** Three failures previously had no channel at all, and the
@@ -424,6 +430,72 @@ NIC, geometry and the frame count. Without it, "the log contains no errors" and
 rule that silence must be distinguishable from success would be broken by the
 instrument rather than by the thing it measures. **A gap in the timestamps is a
 finding.**
+
+**What the heartbeat carries, added 2026-09-19 after the first real job.** That
+job produced 221 player errors in two classes. Class A is fixed (PR #22). Class
+B — 116 `PIPELINE_ERROR_DECODE` across 38 clips — is still open, and the reason
+it is still open is that the nine hours of log it wrote cannot test the leading
+hypothesis. Three fields were missing, and this is the shape of each one's
+absence:
+
+| Missing | What the log said instead | Now |
+|---|---|---|
+| The failing clip's path | the cue's *name*, which the operator is free to change | `player/engine.ts`'s `lastErrorLog`, beside the banner's `lastError` |
+| What a composed frame costs | `passMs` timed `onePass` alone — the timer started *after* `getImageData` | three spans out of `composeFrame`: `draw`, `readback`, `pass` |
+| How many decoders are open | nothing, anywhere, ever | `player/decoderCensus.ts`, in the heartbeat |
+
+The banner and the log line used to be one string, and the log therefore
+inherited a constraint that belongs only to a UI element an operator reads over
+a console mid-show. The consequence is on the record: every `INFO player live:`
+line in that job's log carries a full path, and every one of the 116 `ERROR
+player` lines — the clips that actually needed chasing — carries only a name.
+They are two fields now, resolved from one `currentError` so they can never
+describe different cues, and `wire.mjs` grades the path end to end rather than
+only in `engine.test.ts`, because the unit test can prove the string exists and
+not that it survives the trip through the effect, the IPC and `log.ts`.
+
+The numbers ride the render loop's **existing 250 ms batching tick** to the main
+process over `ddf:render-stats`, which folds them and prints one summary per
+heartbeat. Sums and maxima cross the boundary, never averages: a heartbeat is
+240 of those samples and they do not all see the same number of frames. There is
+no second cadence and `log.ts`'s never-per-frame rule holds by arithmetic.
+
+**`renderer=` has three states and they are three different strings.**
+`never-reported` (nothing has ever arrived — also the correct reading before a
+window loads and after the last one closes), `SILENT` (samples arrived and
+stopped, upper case because it is a fault), `live`. Printing `0`, or omitting the
+field, would make all three read as a healthy idle renderer, which is the
+failure the heartbeat exists to remove — so there is no state of this instrument
+that prints nothing. Read it against `frames=` on the same line: both are
+produced by the same loop, so `frames=3600/60s` beside `renderer=SILENT` is one
+finding and not two — `writeFrame` running while the sampling block after it is
+not, which is the `SecurityError` storm's shape one storey up. A window that
+composed nothing prints `draw=-/-ms`, never `0.00`, because an idle show
+measured nothing and a zero would be cited later as evidence the readback was
+cheap. `renderStats.test.ts` grades every one of those; `wire.mjs` checks
+118–123 grade the pair against a real run, and the first of those runs already
+disagreed with the hypothesis that motivated it — see below.
+
+**The census must come down.** A count that only rises is not a partly working
+instrument, it is one that will report an exhaustion that never happened.
+`openDecoder` hands back the only token that can close its entry and that token
+is idempotent, so `live` can neither go negative nor exceed `opened`; both
+creation sites — `videoSource.ts`'s constructor and `thumbnail.ts`'s throwaway —
+release on their failure and timeout paths as well as their happy ones. Counted
+per `VideoSource` rather than per `createElement`, so the element-injection seam
+the constructor keeps for tests stays intact. `wire.mjs` check 123 asserts
+`opened >= 10` *and* `decoders <= 5` on a real run; mutation-checked by deleting
+both releases, which turns that line into `decoders=39 of 39 opened, peak 39`.
+
+**First reading, and it argues against the fan-out hypothesis.** The gate's own
+heartbeats, on the shop rig at S = 8 (`draw=10.87/80.40ms readback=0.67/2.10ms
+pass=1.12/3.20ms`), put `source.draw` at roughly fifteen times the canvas
+readback — the opposite of the suspicion that prompted splitting the span. Plausible
+mechanically, since the work canvas is `willReadFrequently` and therefore
+software-backed, which makes `drawImage` expensive and the readback cheap. **It
+is one reading from one instrument, on a 640×320 work canvas, under a run with a
+debugger attached, and it is not the job's geometry.** It is recorded here as
+the channel doing its job — disagreeing — and not as a conclusion about Class B.
 
 **Two cry-wolf guards, both mutation-checked** (`frameWatch.test.ts`): the
 watchdog is armed only after the window has loaded and had five seconds to draw,
@@ -470,7 +542,9 @@ a log that dies at 21:40 reads exactly like one that is fine, and `(+2 more)`
 goes on pointing at a file that stopped recording hours earlier.
 
 **What is deliberately not logged.** Not frames — `ddf:frame` runs 30-60 times a
-second and does nothing but bump two counters. Not every status publish —
+second and does nothing but bump two counters. Not the renderer's 250 ms
+samples: `ddf:render-stats` arrives four times a second and is folded into a
+window, never written, so only the once-a-cadence summary reaches the file. Not every status publish —
 `Sidecar` republishes `restarting`/`sending` on every spawn, so a crash loop
 would bury its own cause; transitions only. Not renderer console output beyond
 errors.
