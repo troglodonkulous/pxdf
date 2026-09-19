@@ -487,6 +487,54 @@ the constructor keeps for tests stays intact. `wire.mjs` check 123 asserts
 `opened >= 10` *and* `decoders <= 5` on a real run; mutation-checked by deleting
 both releases, which turns that line into `decoders=39 of 39 opened, peak 39`.
 
+**What the census then found, and what was done about it, 2026-09-19.** Pointed
+at the job's own library — 71 clips — it read `peak=142 opened=142`: two
+throwaway decoders per cue, all at once, from `PlayScreen`'s two unbounded
+per-cue fan-outs. 65 of the 71 cue rows came up with no thumbnail. Both
+fan-outs now run through `player/taskPool.ts`, four wide each, and the same
+measurement reads `peak=8 opened=143` — the same work, no longer all in flight.
+`captures/measurements/` holds the before and after and the walk that picked
+the four.
+
+Two things about that are worth carrying forward more than the number is.
+
+*The asymmetry was the clue.* Durations survived 71/71 while thumbnails went
+6/71, and the reason is not that one fan-out is bigger: a duration needs the
+container's metadata and no video decoder, so seventy-one of them really are
+parallel (~210 ms each at full width), while a thumbnail needs a decoded frame
+and Chromium serialises those behind a finite pool (~3,970 ms at full width,
+against a 5 s deadline that started when the fan-out created it). The failure
+was never "this clip will not decode" — it was "this clip was still queued when
+the caller gave up". Which is why the fix is a limit and not a longer deadline.
+
+*The probe's own mutation-check came back green, and that is why it changed.*
+On a machine that has just run the same 71 files through Chromium a dozen
+times they are all in the page cache, the race comes out the other way, and the
+three outcome arms pass over a build with the limit removed. `peak` does not
+move with the page cache, so `probe-decoder-load.mjs` gained a fourth arm that
+grades it — without naming any limit, and only at 32 cues or more where an
+unbounded fan-out cannot slip under the bar. With the limit removed it now
+exits 1 having printed `71/71 cue rows show a thumbnail` on the way, which is
+the entire argument for the arm.
+
+**It is not a Class B fix and must not be read as one.** The signature measured
+and moved here is a lost thumbnail, and in the synthetic load walk a `TIMEOUT`
+— not the `PIPELINE_ERROR_DECODE` the job logged 116 times. They may share a
+cause and they may not; nothing here shows that they do. What this closes is an
+operator-visible defect of its own: add a folder of ordinary size and most of
+the cue stack comes up blank.
+
+**Two new `WARN player` lines, and the silence they replace.** A thumbnail that
+never arrives now says so — in the log with the cue's name, the reason and the
+path, and on the row itself as a marker distinct from an empty well. It used to
+be `.catch(() => {})` and a blank square, which is why 65 blank squares looked
+like 65 squares still decoding for a month. A duration probe that fails logs
+the same way; its `mediaDurationMs: null` renders as an em dash that is also
+what a probe still in flight looks like, and the consequence is not cosmetic —
+`cueHoldMs` on a null `clipDurationMs` is the engine's "never advance", so Loop
+on that cue silently does nothing. Neither line fires on a healthy run: the
+71-cue bounded run wrote none.
+
 **First reading, and it moves the cost inside the compose, not out of it.** The
 gate's own heartbeats, on the shop rig at S = 8 (`draw=10.87/80.40ms
 readback=0.67/2.10ms pass=1.12/3.20ms`), put `source.draw` at roughly fifteen
@@ -502,7 +550,10 @@ and it did, at the draw's expense.
 *main-thread saturation* hypothesis, and within it, it relocates the cost: the
 `getImageData` copy that hypothesis named is the cheap half. **It says nothing
 whatever about the decoder fan-out hypothesis**, which is a different mechanism
-with a different instrument (`probe-decoder-load.mjs`) and is still open. An
+with a different instrument (`probe-decoder-load.mjs`). That instrument has
+since been run and the fan-out bounded — see the census paragraphs above — but
+that closed a defect of its own and did not close this question: Class B
+remains open. An
 earlier version of this paragraph was headed "argues against the fan-out
 hypothesis", which the body never supported; the correction is noted rather than
 quietly made, because a heading naming the wrong hypothesis is how a live
