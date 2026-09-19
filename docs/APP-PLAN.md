@@ -607,12 +607,30 @@ Two rules keep the renderer replaceable, and cost nothing today:
     the renderer is the untrusted side of `contextIsolation` by design.
     `main.ts` keeps the paths the picker returned and 403s everything else, so
     the operator's choice in a native dialog *is* the authorisation.
-  - **It does not serve range requests.** `net.fetch` over a `file://` URL
-    answers `Range: bytes=0-` with a plain `200` and the whole file. Seeking
-    works because Chromium buffers what it is given — fine for clips, and not
-    fine for a long file, since the whole thing sits in memory and the player
-    can hold three decoders at once. **See the normalisation bullet below: that
-    is where this gets settled, not here.**
+  - **It serves range requests, since 2026-09-18.** A `Range` header gets a
+    real `206` with a `Content-Range`, an unsatisfiable one gets a `416`, and
+    `Accept-Ranges: bytes` is now a true claim. This bullet used to say the
+    opposite and gave a reason that was wrong: `net.fetch` over a `file://` URL
+    does answer `Range: bytes=0-` with a plain `200` and the whole file, but
+    "seeking works because Chromium buffers what it is given" was not a
+    sufficient account of it. The scheme is registered `stream: true` and
+    Chromium reports `kIsRangeHeaderSupported=true` for it, so Chromium issued
+    range requests and was handed byte 0 of the file whatever offset it asked
+    for — and an MP4 whose `moov` atom sits after `mdat`, which is what
+    `ffmpeg` writes without `+faststart`, has to be read from the tail **to
+    open at all**, before any buffering or seeking is in play. MEASURED across
+    one night's job log: of 131 clips matched to both a file on disk and a
+    verdict, 124/124 `moov`-at-front played and 0/7 `moov`-at-end did, with a
+    within-folder control (13 FRONT played, 7 END failed, same directory) that
+    rules out the authorisation path. 105 `DEMUXER_ERROR_COULD_NOT_OPEN` lines
+    in one night. The arithmetic lives in `src/player/mediaRange.ts` and is
+    graded by `vitest`; the handler is graded by `wire.mjs` on the consequence,
+    a `moov`-at-end fixture that plays.
+  - **`Content-Type` is now the handler's own, from `mediaFormats.ts`.** A
+    `Response` built from a `createReadStream` carries no headers, so the type
+    that `net.fetch` used to supply has to be named. The `200` and the `206`
+    path read one variable, because two types that disagree would show up as a
+    file that plays whole and fails when seeked.
 - **Import normalises, it does not downscale.** Transcode at *source*
   resolution — the Xform panel and the supersampled work canvas both need real
   pixels. **The source folders are not one codec.** Every file re-probed with
@@ -640,17 +658,19 @@ Two rules keep the renderer replaceable, and cost nothing today:
   `tools/dancefloor-loops.html`, not from this repo's tree. `Test Clips*/converted/`
   holds rawvideo AVIs and is output, not source.)
 
-  **Normalisation is also the answer to `ddf-media://` not serving ranges**, and
-  the two should be decided together. Range requests are a workaround for *an
-  unknown file, possibly enormous, that must be streamed in pieces*. Import
-  replaces the unknown: the app makes the file, so it knows its size before it
-  is ever played, chooses a keyframe-dense encoding with the `moov` atom at the
-  front, and is free to cap or split a long source. Once every file in a show is
-  one we produced at a resolution relevant to an 80 × 96 floor, streaming
-  fragments of it stops mattering. **If a legitimately long normalised file
-  turns out to be needed anyway, implement ranges in the handler** — read the
-  `Range` header, stream with an `fs` read stream, answer `206` with
-  `Content-Range`, roughly 25 lines — rather than reaching for it first.
+  **Normalisation was also written down here as the answer to `ddf-media://`
+  not serving ranges, and that part is now settled the other way.** The
+  reasoning was that range requests are a workaround for *an unknown file,
+  possibly enormous, that must be streamed in pieces*, and that import replaces
+  the unknown: the app makes the file, so it knows its size before it is ever
+  played, can choose a keyframe-dense encoding with the `moov` atom at the
+  front, and is free to cap or split a long source. Every clause of that is
+  still true about *normalised* files — and it does nothing for the operator's
+  own media, which is what a job actually plays. Ranges shipped on 2026-09-18
+  because the missing capability was not a size problem at all: it was breaking
+  the initial open of any `moov`-at-end file, at any size, and it cost one
+  night's job 105 failed cues. Normalisation remains worth doing for the
+  reasons above; it is no longer the thing standing in for ranges.
 
 ## Shelved
 

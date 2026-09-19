@@ -35,12 +35,25 @@
  * cross-origin to the page however the page was served, so media on it must be
  * fetched in CORS mode or it taints every canvas it is drawn into.
  *
- * Note the scheme is registered `stream: true` but the handler does **not**
- * serve range requests: `net.fetch` over a `file://` URL answers `Range:
- * bytes=0-` with a plain `200` and the whole file. Seeking works because
- * Chromium buffers what it is given, which is fine for clips and would not be
- * for a long file. Measured on Electron 43 — an earlier version of this comment
- * asserted the opposite without checking.
+ * The scheme is registered `stream: true`, and since 2026-09-18 the handler
+ * honours that: a `Range` request gets a real `206` with a `Content-Range`, an
+ * unsatisfiable one gets a `416`, and `Accept-Ranges: bytes` is now a true
+ * claim. `mediaRange.ts` holds the arithmetic; `main.ts` holds the response.
+ *
+ * This comment used to say the opposite — that the handler did not serve
+ * ranges, because `net.fetch` over a `file://` URL answers `Range: bytes=0-`
+ * with a plain `200` and the whole file, and that seeking worked anyway
+ * "because Chromium buffers what it is given, which is fine for clips and would
+ * not be for a long file". The first half was a correct measurement of
+ * `net.fetch`. **The second half was wrong, and not only for long files.**
+ * Chromium reports `kIsRangeHeaderSupported=true` for this scheme, so it issued
+ * range requests and was handed byte 0 of the file for every offset it asked
+ * for. An MP4 with its `moov` atom after `mdat` — what `ffmpeg` writes without
+ * `+faststart` — must be read from the tail *to open at all*, before anything
+ * is buffered and before any seeking is involved. Buffering cannot cover that
+ * case, so those files never opened: 124/124 `moov`-at-front clips played and
+ * 0/7 `moov`-at-end clips did, across one night's job log, for 105
+ * `DEMUXER_ERROR_COULD_NOT_OPEN` lines.
  */
 export const MEDIA_SCHEME = 'ddf-media';
 
