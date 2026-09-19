@@ -1,0 +1,23 @@
+# probe-decoder-load.mjs — dev corpus (6 clips), 2026-09-19
+# node test/e2e/probe-decoder-load.mjs
+# exit 0
+
+
+app path: 6/6 cue rows show a thumbnail after 1644 ms
+          6/6 cues show a Duration: ["0:15","0:10","0:15","0:06","0:06","0:19"]
+banner:   "floor NIC 10.200.50.78 is no longer assigned to any interface — check the cable"
+
+clip                                        serial      concurrent
+------------------------------------------  ----------  ----------
+abstract-glowing-gradient-circle-round-ani  DECODES     DECODES
+AdobeStock_273498870.mov                    DECODES     DECODES
+colorful-stage-lighting-background-loop-20  DECODES     DECODES
+Pexels Videos 4562.mp4                      DECODES     DECODES
+PixelSquare_05.mov                          DECODES     DECODES
+red_-_108070 (Original).mp4                 DECODES     DECODES
+
+ 12 concurrent decoders, cue live: 12/12 decode
+ 24 concurrent decoders, cue live: 24/24 decode
+ 48 concurrent decoders, cue live: 28/48 decode — ["colorful-stage-lighting-: TIMEOUT after 5000ms","PixelSquare_05.mov: TIMEOUT after 5000ms","red_-_108070 (Original).: TIMEOUT after 5000ms","Pexels Videos 4562.mp4: TIMEOUT after 5000ms","abstract-glowing-gradien: TIMEOUT after 5000ms"]
+
+Probe complete. Positive control passed, the app path lost no thumbnails and no durations, no process leaked.

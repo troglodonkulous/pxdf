@@ -1,0 +1,89 @@
+# probe-decoder-load.mjs — job library, 2026-09-19
+# DDF_CLIP_DIR=~/Downloads/ddf_content/Pixel Dance Floor node test/e2e/probe-decoder-load.mjs
+# exit 1
+
+
+app path: 6/71 cue rows show a thumbnail (never reached them all)
+          71/71 cues show a Duration: ["0:10","0:17","0:10","1:05","0:11","0:10","0:12","0:05","0:11","0:10","0:10","0:10","0:06","0:06","0:10","0:10","0:10","0:08","0:10","0:01","0:05","0:05","0:05","0:06","0:10","0:10","0:10","0:10","0:10","0:09","0:30","0:14","0:15","0:10","0:23","0:28","0:24","0:23","0:29","0:25","0:12","0:10","0:10","0:10","0:15","0:10","0:16","0:09","0:10","0:10","0:05","0:10","0:13","0:15","0:10","0:20","0:30","0:10","0:15","0:10","0:20","0:10","0:05","0:05","0:05","0:05","0:26","0:30","0:12","0:12","0:05"]
+banner:   "floor NIC 10.200.50.78 is no longer assigned to any interface — check the cable"
+
+clip                                        serial      concurrent
+------------------------------------------  ----------  ----------
+3d Neon Cross.mp4                           DECODES     DECODES
+Amber Orange White Tri Blocks.mp4           DECODES     DECODES
+Black & White Flying Lines.mp4              DECODES     DECODES
+Black & White Square Grid Strobe.mp4        DECODES     DECODES
+Blue & White Pixel Grid.mp4                 DECODES     DECODES
+Blue Energy Tunnel.mp4                      DECODES     DECODES
+Blue Goo Move.mp4                           DECODES     DECODES
+Blue Green 4D X Grid Loop.mp4               DECODES     DECODES
+Blue Grid White Strobe.mp4                  DECODES     DECODES
+Blue LED Bulb Grid.mp4                      DECODES     DECODES
+Blue Pink Purple Line Grid Move.mp4         DECODES     DECODES
+Blue Split Line Flicker Out.mp4             DECODES     DECODES
+Color Changing Dot Arrow Tunnel.mp4         DECODES     DECODES
+Color Changing Dot Spiral Tunnel.mp4        DECODES     DECODES
+Color Flicker & Spin.mp4                    DECODES     DECODES
+Colored Rectangle Graphs.mp4                DECODES     DECODES
+Colorful Pixel Grid Dot Seq.mp4             DECODES     DECODES
+Colorful Plexus.mp4                         DECODES     DECODES
+Disco Ball Colored Slanted.mp4              DECODES     DECODES
+Floodlights Dense Horizontal-5.mp4          DECODES     DECODES
+Gold Glitter Black Waves Loop 2.mp4         DECODES     DECODES
+Gold Glitter Black Waves Loop 3.mp4         DECODES     DECODES
+Gold Glitter Black Waves Loop 4.mp4         DECODES     DECODES
+Light Blue Pink X Line Seq.mp4              DECODES     DECODES
+Multi Color Audio Spectrum Border.mp4       DECODES     DECODES
+Multi Color Audio Spectrum Center.mp4       DECODES     DECODES
+Multi Color Circle Animations.mp4           DECODES     DECODES
+Multi Color Circle Lines Pastels.mp4        DECODES     DECODES
+Multi Color Circle Rays Tunnel.mp4          DECODES     DECODES
+Multi Color Energy Tunnel.mp4               DECODES     DECODES
+Multi Color Lens.mp4                        DECODES     DECODES
+Multi Color Mandala.mp4                     DECODES     DECODES
+Multi Color Particle Growing Burst.mp4      DECODES     DECODES
+Multi Colored Circle Box.mp4                DECODES     DECODES
+Multi Colored Neon Laser Grid.mp4           DECODES     DECODES
+Neon Laser Dense Stacked.mp4                DECODES     DECODES
+Neon Laser Stacked Every Other.mp4          DECODES     DECODES
+Neon Laser Stacked.mp4                      DECODES     DECODES
+Neon Laser X Split 2.mp4                    DECODES     DECODES
+Neon Laser X Split.mp4                      DECODES     DECODES
+Neon Light Mosaic.mp4                       DECODES     DECODES
+Neon Pink Red Circle Movement.mp4           DECODES     DECODES
+Orange Blob Full Movement.mp4               DECODES     DECODES
+Orange Blob Lines.mp4                       DECODES     DECODES
+Orange Pixel Circle Expanse.mp4             DECODES     DECODES
+Particles Starburst.mp4                     DECODES     DECODES
+Pink & White Line Play.mp4                  DECODES     DECODES
+Pink Heart Lines Rotating.mp4               DECODES     DECODES
+Pink Neon Horz Line Split.mp4               DECODES     DECODES
+Pink Orange Blue Circle Tunnel Action.mp4   DECODES     DECODES
+Pink Purple 4D X Grid Loop.mp4              DECODES     DECODES
+Pink Red Hearts Rising.mp4                  DECODES     DECODES
+Pink White Vertical Line Crazy.mp4          DECODES     DECODES
+Pixel Star.mp4                              DECODES     DECODES
+Pointed Lights Beam.mp4                     DECODES     DECODES
+Purple & Yellow Neon Plasma.mp4             DECODES     DECODES
+Purple Blue Circle Lines.mp4                DECODES     DECODES
+Purple Chaotic Particles.mp4                DECODES     DECODES
+Purple Line Animations.mp4                  DECODES     DECODES
+Purple White Tunnel Weird.mp4               DECODES     DECODES
+Red Chasing Light Pattern.mp4               DECODES     DECODES
+Red Pink Grid 1.mp4                         DECODES     DECODES
+Red Pink Grid 2.mp4                         DECODES     DECODES
+Red Pink Grid 3.mp4                         DECODES     DECODES
+Red Pink Grid 4.mp4                         DECODES     DECODES
+Red Pink Grid 5.mp4                         DECODES     DECODES
+Teal Grid Kaleidoscope.mp4                  DECODES     DECODES
+Twinkle Twinkle.mp4                         DECODES     DECODES
+White Line X Sequence.mp4                   DECODES     DECODES
+White Line X Slant Strobe.mp4               DECODES     DECODES
+Yellow Red 4D X Grid Loop.mp4               DECODES     DECODES
+
+142 concurrent decoders, cue live: 0/142 decode — ["3d Neon Cross.mp4: TIMEOUT after 5000ms","Amber Orange White Tri B: TIMEOUT after 5000ms","Black & White Flying Lin: TIMEOUT after 5000ms","Black & White Square Gri: TIMEOUT after 5000ms","Blue & White Pixel Grid.: TIMEOUT after 5000ms","Blue Energy Tunnel.mp4: TIMEOUT after 5000ms","Blue Goo Move.mp4: TIMEOUT after 5000ms","Blue Green 4D X Grid Loo: TIMEOUT after 5000ms","Blue Grid White Strobe.m: TIMEOUT after 5000ms","Blue LED Bulb Grid.mp4: TIMEOUT after 5000ms","Blue Pink Purple Line Gr: TIMEOUT after 5000ms","Blue Split Line Flicker : TIMEOUT after 5000ms","Color Changing Dot Arrow: TIMEOUT after 5000ms","Color Changing Dot Spira: TIMEOUT after 5000ms","Color Flicker & Spin.mp4: TIMEOUT after 5000ms","Colored Rectangle Graphs: TIMEOUT after 5000ms","Colorful Pixel Grid Dot : TIMEOUT after 5000ms","Colorful Plexus.mp4: TIMEOUT after 5000ms","Disco Ball Colored Slant: TIMEOUT after 5000ms","Floodlights Dense Horizo: TIMEOUT after 5000ms","Gold Glitter Black Waves: TIMEOUT after 5000ms","Light Blue Pink X Line S: TIMEOUT after 5000ms","Multi Color Audio Spectr: TIMEOUT after 5000ms","Multi Color Circle Anima: TIMEOUT after 5000ms","Multi Color Circle Lines: TIMEOUT after 5000ms","Multi Color Circle Rays : TIMEOUT after 5000ms","Multi Color Energy Tunne: TIMEOUT after 5000ms","Multi Color Lens.mp4: TIMEOUT after 5000ms","Multi Color Mandala.mp4: TIMEOUT after 5000ms","Multi Color Particle Gro: TIMEOUT after 5000ms","Multi Colored Circle Box: TIMEOUT after 5000ms","Multi Colored Neon Laser: TIMEOUT after 5000ms","Neon Laser Dense Stacked: TIMEOUT after 5000ms","Neon Laser Stacked Every: TIMEOUT after 5000ms","Neon Laser Stacked.mp4: TIMEOUT after 5000ms","Neon Laser X Split 2.mp4: TIMEOUT after 5000ms","Neon Laser X Split.mp4: TIMEOUT after 5000ms","Neon Light Mosaic.mp4: TIMEOUT after 5000ms","Neon Pink Red Circle Mov: TIMEOUT after 5000ms","Orange Blob Full Movemen: TIMEOUT after 5000ms","Orange Blob Lines.mp4: TIMEOUT after 5000ms","Orange Pixel Circle Expa: TIMEOUT after 5000ms","Particles Starburst.mp4: TIMEOUT after 5000ms","Pink & White Line Play.m: TIMEOUT after 5000ms","Pink Heart Lines Rotatin: TIMEOUT after 5000ms","Pink Neon Horz Line Spli: TIMEOUT after 5000ms","Pink Orange Blue Circle : TIMEOUT after 5000ms","Pink Purple 4D X Grid Lo: TIMEOUT after 5000ms","Pink Red Hearts Rising.m: TIMEOUT after 5000ms","Pink White Vertical Line: TIMEOUT after 5000ms","Pixel Star.mp4: TIMEOUT after 5000ms","Pointed Lights Beam.mp4: TIMEOUT after 5000ms","Purple & Yellow Neon Pla: TIMEOUT after 5000ms","Purple Blue Circle Lines: TIMEOUT after 5000ms","Purple Chaotic Particles: TIMEOUT after 5000ms","Purple Line Animations.m: TIMEOUT after 5000ms","Purple White Tunnel Weir: TIMEOUT after 5000ms","Red Chasing Light Patter: TIMEOUT after 5000ms","Red Pink Grid 1.mp4: TIMEOUT after 5000ms","Red Pink Grid 2.mp4: TIMEOUT after 5000ms","Red Pink Grid 3.mp4: TIMEOUT after 5000ms","Red Pink Grid 4.mp4: TIMEOUT after 5000ms","Red Pink Grid 5.mp4: TIMEOUT after 5000ms","Teal Grid Kaleidoscope.m: TIMEOUT after 5000ms","Twinkle Twinkle.mp4: TIMEOUT after 5000ms","White Line X Sequence.mp: TIMEOUT after 5000ms","White Line X Slant Strob: TIMEOUT after 5000ms","Yellow Red 4D X Grid Loo: TIMEOUT after 5000ms"]
+284 concurrent decoders, cue live: 0/284 decode — ["3d Neon Cross.mp4: TIMEOUT after 5000ms","Amber Orange White Tri B: TIMEOUT after 5000ms","Black & White Flying Lin: TIMEOUT after 5000ms","Black & White Square Gri: TIMEOUT after 5000ms","Blue & White Pixel Grid.: TIMEOUT after 5000ms","Blue Energy Tunnel.mp4: TIMEOUT after 5000ms","Blue Goo Move.mp4: TIMEOUT after 5000ms","Blue Green 4D X Grid Loo: TIMEOUT after 5000ms","Blue Grid White Strobe.m: TIMEOUT after 5000ms","Blue LED Bulb Grid.mp4: TIMEOUT after 5000ms","Blue Pink Purple Line Gr: TIMEOUT after 5000ms","Blue Split Line Flicker : TIMEOUT after 5000ms","Color Changing Dot Arrow: TIMEOUT after 5000ms","Color Changing Dot Spira: TIMEOUT after 5000ms","Color Flicker & Spin.mp4: TIMEOUT after 5000ms","Colored Rectangle Graphs: TIMEOUT after 5000ms","Colorful Pixel Grid Dot : TIMEOUT after 5000ms","Colorful Plexus.mp4: TIMEOUT after 5000ms","Disco Ball Colored Slant: TIMEOUT after 5000ms","Floodlights Dense Horizo: TIMEOUT after 5000ms","Gold Glitter Black Waves: TIMEOUT after 5000ms","Light Blue Pink X Line S: TIMEOUT after 5000ms","Multi Color Audio Spectr: TIMEOUT after 5000ms","Multi Color Circle Anima: TIMEOUT after 5000ms","Multi Color Circle Lines: TIMEOUT after 5000ms","Multi Color Circle Rays : TIMEOUT after 5000ms","Multi Color Energy Tunne: TIMEOUT after 5000ms","Multi Color Lens.mp4: TIMEOUT after 5000ms","Multi Color Mandala.mp4: TIMEOUT after 5000ms","Multi Color Particle Gro: TIMEOUT after 5000ms","Multi Colored Circle Box: TIMEOUT after 5000ms","Multi Colored Neon Laser: TIMEOUT after 5000ms","Neon Laser Dense Stacked: TIMEOUT after 5000ms","Neon Laser Stacked Every: TIMEOUT after 5000ms","Neon Laser Stacked.mp4: TIMEOUT after 5000ms","Neon Laser X Split 2.mp4: TIMEOUT after 5000ms","Neon Laser X Split.mp4: TIMEOUT after 5000ms","Neon Light Mosaic.mp4: TIMEOUT after 5000ms","Neon Pink Red Circle Mov: TIMEOUT after 5000ms","Orange Blob Full Movemen: TIMEOUT after 5000ms","Orange Blob Lines.mp4: TIMEOUT after 5000ms","Orange Pixel Circle Expa: TIMEOUT after 5000ms","Particles Starburst.mp4: TIMEOUT after 5000ms","Pink & White Line Play.m: TIMEOUT after 5000ms","Pink Heart Lines Rotatin: TIMEOUT after 5000ms","Pink Neon Horz Line Spli: TIMEOUT after 5000ms","Pink Orange Blue Circle : TIMEOUT after 5000ms","Pink Purple 4D X Grid Lo: TIMEOUT after 5000ms","Pink Red Hearts Rising.m: TIMEOUT after 5000ms","Pink White Vertical Line: TIMEOUT after 5000ms","Pixel Star.mp4: TIMEOUT after 5000ms","Pointed Lights Beam.mp4: TIMEOUT after 5000ms","Purple & Yellow Neon Pla: TIMEOUT after 5000ms","Purple Blue Circle Lines: TIMEOUT after 5000ms","Purple Chaotic Particles: TIMEOUT after 5000ms","Purple Line Animations.m: TIMEOUT after 5000ms","Purple White Tunnel Weir: TIMEOUT after 5000ms","Red Chasing Light Patter: TIMEOUT after 5000ms","Red Pink Grid 1.mp4: TIMEOUT after 5000ms","Red Pink Grid 2.mp4: TIMEOUT after 5000ms","Red Pink Grid 3.mp4: TIMEOUT after 5000ms","Red Pink Grid 4.mp4: TIMEOUT after 5000ms","Red Pink Grid 5.mp4: TIMEOUT after 5000ms","Teal Grid Kaleidoscope.m: TIMEOUT after 5000ms","Twinkle Twinkle.mp4: TIMEOUT after 5000ms","White Line X Sequence.mp: TIMEOUT after 5000ms","White Line X Slant Strob: TIMEOUT after 5000ms","Yellow Red 4D X Grid Loo: TIMEOUT after 5000ms"]
+568 concurrent decoders, cue live: 0/568 decode — ["3d Neon Cross.mp4: TIMEOUT after 5000ms","Amber Orange White Tri B: TIMEOUT after 5000ms","Black & White Flying Lin: TIMEOUT after 5000ms","Black & White Square Gri: TIMEOUT after 5000ms","Blue & White Pixel Grid.: TIMEOUT after 5000ms","Blue Energy Tunnel.mp4: TIMEOUT after 5000ms","Blue Goo Move.mp4: TIMEOUT after 5000ms","Blue Green 4D X Grid Loo: TIMEOUT after 5000ms","Blue Grid White Strobe.m: TIMEOUT after 5000ms","Blue LED Bulb Grid.mp4: TIMEOUT after 5000ms","Blue Pink Purple Line Gr: TIMEOUT after 5000ms","Blue Split Line Flicker : TIMEOUT after 5000ms","Color Changing Dot Arrow: TIMEOUT after 5000ms","Color Changing Dot Spira: TIMEOUT after 5000ms","Color Flicker & Spin.mp4: TIMEOUT after 5000ms","Colored Rectangle Graphs: TIMEOUT after 5000ms","Colorful Pixel Grid Dot : TIMEOUT after 5000ms","Colorful Plexus.mp4: TIMEOUT after 5000ms","Disco Ball Colored Slant: TIMEOUT after 5000ms","Floodlights Dense Horizo: TIMEOUT after 5000ms","Gold Glitter Black Waves: TIMEOUT after 5000ms","Light Blue Pink X Line S: TIMEOUT after 5000ms","Multi Color Audio Spectr: TIMEOUT after 5000ms","Multi Color Circle Anima: TIMEOUT after 5000ms","Multi Color Circle Lines: TIMEOUT after 5000ms","Multi Color Circle Rays : TIMEOUT after 5000ms","Multi Color Energy Tunne: TIMEOUT after 5000ms","Multi Color Lens.mp4: TIMEOUT after 5000ms","Multi Color Mandala.mp4: TIMEOUT after 5000ms","Multi Color Particle Gro: TIMEOUT after 5000ms","Multi Colored Circle Box: TIMEOUT after 5000ms","Multi Colored Neon Laser: TIMEOUT after 5000ms","Neon Laser Dense Stacked: TIMEOUT after 5000ms","Neon Laser Stacked Every: TIMEOUT after 5000ms","Neon Laser Stacked.mp4: TIMEOUT after 5000ms","Neon Laser X Split 2.mp4: TIMEOUT after 5000ms","Neon Laser X Split.mp4: TIMEOUT after 5000ms","Neon Light Mosaic.mp4: TIMEOUT after 5000ms","Neon Pink Red Circle Mov: TIMEOUT after 5000ms","Orange Blob Full Movemen: TIMEOUT after 5000ms","Orange Blob Lines.mp4: TIMEOUT after 5000ms","Orange Pixel Circle Expa: TIMEOUT after 5000ms","Particles Starburst.mp4: TIMEOUT after 5000ms","Pink & White Line Play.m: TIMEOUT after 5000ms","Pink Heart Lines Rotatin: TIMEOUT after 5000ms","Pink Neon Horz Line Spli: TIMEOUT after 5000ms","Pink Orange Blue Circle : TIMEOUT after 5000ms","Pink Purple 4D X Grid Lo: TIMEOUT after 5000ms","Pink Red Hearts Rising.m: TIMEOUT after 5000ms","Pink White Vertical Line: TIMEOUT after 5000ms","Pixel Star.mp4: TIMEOUT after 5000ms","Pointed Lights Beam.mp4: TIMEOUT after 5000ms","Purple & Yellow Neon Pla: TIMEOUT after 5000ms","Purple Blue Circle Lines: TIMEOUT after 5000ms","Purple Chaotic Particles: TIMEOUT after 5000ms","Purple Line Animations.m: TIMEOUT after 5000ms","Purple White Tunnel Weir: TIMEOUT after 5000ms","Red Chasing Light Patter: TIMEOUT after 5000ms","Red Pink Grid 1.mp4: TIMEOUT after 5000ms","Red Pink Grid 2.mp4: TIMEOUT after 5000ms","Red Pink Grid 3.mp4: TIMEOUT after 5000ms","Red Pink Grid 4.mp4: TIMEOUT after 5000ms","Red Pink Grid 5.mp4: TIMEOUT after 5000ms","Teal Grid Kaleidoscope.m: TIMEOUT after 5000ms","Twinkle Twinkle.mp4: TIMEOUT after 5000ms","White Line X Sequence.mp: TIMEOUT after 5000ms","White Line X Slant Strob: TIMEOUT after 5000ms","Yellow Red 4D X Grid Loo: TIMEOUT after 5000ms"]
+
+PROBE UNUSABLE OR CONTRADICTED — 1 problem(s):
+  - 65 of 71 thumbnails never arrived — the fan-out lost decoders
