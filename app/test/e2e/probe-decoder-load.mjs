@@ -61,8 +61,8 @@
  */
 
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { resolve, delimiter, join } from 'node:path'
+import { existsSync, readdirSync } from 'node:fs'
+import { resolve, delimiter, join, extname } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 
 /** Not 9334 (probe-containers) and not the wire gate's, so all three can run together. */
@@ -77,16 +77,57 @@ const APP_DIR = resolve(import.meta.dirname, '..', '..')
  */
 const CLIP_DIR = process.env.DDF_CLIP_DIR ?? resolve(APP_DIR, '..', 'test-patterns', 'Test Clips')
 
-const CLIPS = [
+/**
+ * The default six, named rather than globbed so the 2026-08-15 measurement
+ * above stays re-runnable against exactly the media it was taken on.
+ */
+const DEFAULT_CLIPS = [
   'abstract-glowing-gradient-circle-round-animation-2022-08-19-06-22-36-utc.mp4',
   'AdobeStock_273498870.mov',
   'colorful-stage-lighting-background-loop-2022-05-23-02-15-18-utc.mp4',
   'Pexels Videos 4562.mp4',
   'PixelSquare_05.mov',
   'red_-_108070 (Original).mp4',
-].map((name) => join(CLIP_DIR, name))
+]
 
-/** How many copies of the six to hand the picker. 1 = the six-clip case. */
+/**
+ * A pointed `DDF_CLIP_DIR` measures whatever is in that directory, not the six
+ * names above.
+ *
+ * The names were the whole of clip selection until 2026-09-03, and that made
+ * the probe unable to measure the media it was most needed on: the twelve
+ * clips in `test-patterns/Test Clips 3/` are the ones that produced
+ * `MEDIA_ERR_DECODE` on the floor, and pointing the old `DDF_CLIP_DIR` at them
+ * resolved six paths that do not exist there. The probe would have refused —
+ * loudly, which is the one thing that stopped it becoming a measurement of the
+ * wrong files — but "refuses on the media that matters" and "measures it" are
+ * different capabilities, and it had the first one.
+ *
+ * Sorted, so a run is reproducible and two runs are comparable. Extensions are
+ * the picker's, because a directory holding a README should not turn into a
+ * clip that fails to decode.
+ *
+ * `PICKER_EXTENSIONS` lives in `src/player/mediaFormats.ts` and cannot be
+ * imported here — this is plain `.mjs`, run by `node` with no TypeScript step —
+ * so it is copied, and a copy of a list drifts. The drift matters in one
+ * direction only: an extension the picker gained and this list did not is a
+ * clip the operator put in the directory and the probe quietly did not measure,
+ * which is a smaller clip set reported as a complete run. So skipped files are
+ * named rather than dropped. A `README.md` in there is noise worth reading past;
+ * a `.mkv` in there is the probe telling you this list is stale.
+ */
+const PICKER_EXTENSIONS = ['.mp4', '.m4v', '.mov', '.webm', '.mkv']
+const skippedFiles = []
+const clipNames = process.env.DDF_CLIP_DIR === undefined
+  ? DEFAULT_CLIPS
+  : readdirSync(CLIP_DIR).sort().filter((name) => {
+    if (PICKER_EXTENSIONS.includes(extname(name).toLowerCase())) return true
+    if (!name.startsWith('.')) skippedFiles.push(name)
+    return false
+  })
+const CLIPS = clipNames.map((name) => join(CLIP_DIR, name))
+
+/** How many copies of the clip set to hand the picker. 1 = the set itself. */
 const COPIES = Number(process.env.COPIES ?? '1')
 const PICKED = Array.from({ length: COPIES }, () => CLIPS).flat()
 
@@ -172,6 +213,13 @@ const problems = []
 
 try {
   if (!existsSync(join(APP_DIR, 'dist', 'main.js'))) throw new Error('dist/main.js missing — run `npm run build` first')
+  // An empty clip set is the silent pass this whole file is written against:
+  // zero clips picked means zero cue rows expected, so every count check below
+  // compares 0 against 0 and the probe reports success having decoded nothing.
+  if (CLIPS.length === 0) throw new Error(`no clips in ${CLIP_DIR} — nothing to measure`)
+  if (skippedFiles.length > 0) {
+    console.log(`note: ${skippedFiles.length} file(s) in ${CLIP_DIR} were not measured: ${skippedFiles.join(', ')}`)
+  }
   for (const clip of CLIPS) {
     if (!existsSync(clip)) {
       throw new Error(`clip missing: ${clip} — "Test Clips/" is gitignored (~188 MB) and is not on this machine`)

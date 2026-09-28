@@ -1,3 +1,4 @@
+import { statSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { networkInterfaces } from 'node:os'
@@ -648,6 +649,34 @@ void app.whenReady().then(() => {
       : servableLibraryFile(path, authorizedMediaDir, PICKER_EXTENSIONS)
     if (servable === null) return new Response('not an opened file', { status: 403 })
 
+    // The whole reason this handler is not four lines. `net.fetch` over
+    // `file://` answers with no `Content-Length`, so Chromium's media pipeline
+    // has no total length for the resource and treats it as an unbounded
+    // stream. A race in that incremental-read path yields a premature
+    // `FFmpegDemuxer: av_read_frame(): End of file` about 20ms after `kLoad`,
+    // then `DecoderStatus::104`, then `PIPELINE_ERROR_DECODE` — with the bytes
+    // themselves complete and correct, which is what made this look like a
+    // codec problem for two floor tests. Measured base rate before this line:
+    // 0-6 failures per 36 load attempts.
+    //
+    // Deliberately *not* `Accept-Ranges: bytes`. That would advertise a
+    // capability this handler does not have — `net.fetch` over `file://`
+    // cannot answer a `Range` request with a `206`, per the comment above — and
+    // an inaccurate capability claim is a channel that cries wolf. Chromium
+    // already reports `kIsRangeHeaderSupported=true` for this scheme without
+    // the header, so nothing is bought by lying about it.
+    let size: number
+    try {
+      size = statSync(servable).size
+    } catch (error) {
+      // Only reachable if the file vanished between `servableLibraryFile`'s
+      // stat and this one. A 404 rather than serving without the header,
+      // because serving without it is exactly the bug above, and a silent
+      // relapse into it is worse than a request that visibly fails.
+      logger?.log('ERROR', 'media', `cannot size ${servable}: ${String(error)}`)
+      return new Response('media file unreadable', { status: 404 })
+    }
+
     const file = await net.fetch(pathToFileURL(servable).toString())
     // The response half of the CORS pair set up in `registerSchemesAsPrivileged`.
     // Electron 43 was measured to let a `corsEnabled` scheme through without
@@ -659,6 +688,7 @@ void app.whenReady().then(() => {
     // carries no credentials, and the bytes are ones the renderer named itself.
     const headers = new Headers(file.headers)
     headers.set('Access-Control-Allow-Origin', '*')
+    headers.set('Content-Length', String(size))
     return new Response(file.body, { status: file.status, statusText: file.statusText, headers })
   })
 
