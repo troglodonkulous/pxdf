@@ -109,8 +109,15 @@ Python owning the clock is the README's double-buffering requirement for free: a
 renderer hitch re-sends the previous frame instead of producing a gap, and the
 wire keeps its measured ±0.4 ms pacing whatever Chromium is doing.
 
-**The render loop writes exactly one frame per animation frame, on every path,
-and composition is not allowed to throw.** Learned the expensive way in PR 2:
+**The render loop writes exactly one frame per composed frame, on every path,
+and composition is not allowed to throw.** Since 2026-09-28 it composes no
+faster than the sender sends (`render/framePacing.ts`, one `SEND_FPS` shared with
+the sidecar's `--fps`), so an animation frame that arrives inside the send
+interval returns before composing and writes nothing. That is not a gap: the
+sidecar's `LatestFrame` re-sends the last frame on its own clock. What the rule
+forbids is a path *after* the gate that composes and does not write. Measured in
+`captures/measurements/README.md`: the cap halves compose load and turns the
+wire's cadence judder from constant to intermittent, not zero. Learned the expensive way in PR 2:
 `getImageData` raised `SecurityError` on a tainted work canvas, and because the
 throw happened *in the middle* of the loop body, everything downstream of it was
 skipped — the `writeFrame` that feeds the floor, the preview paint, and the

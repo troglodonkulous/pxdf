@@ -10,6 +10,63 @@ can re-run it and compare rather than trust the transcript.
 
 ---
 
+## `render-rate-2026-09-28-capped-10x10` — the same probe, renderer capped to the send rate
+
+The "after" half of the comparison below. `src/render/framePacing.ts` gates the
+render loop so it composes no faster than `mapper stream` sends — 30 fps, one
+constant shared with the sidecar's `--fps`. Three 60 s runs of the capped
+build, against the two uncapped samples on disk (60 s and 30 s windows).
+
+Cadence errors — steps off each arm's own ideal pattern, as a share of steady
+steps. Lower is better; the ideal is 0 % in every arm.
+
+| source | uncapped (2 runs) | capped (3 runs) |
+|---|---|---|
+| 60 fps | 73.03 %, 68.94 % | 32.04 %, 21.36 %, 26.83 % |
+| 30 fps | 34.98 %, 45.61 % | 36.03 %, **0.23 %**, 5.52 % |
+| 24 fps | 15.16 %, 13.18 % | 2.23 %, 2.76 %, 16.01 % |
+
+| | uncapped | capped |
+|---|---|---|
+| composes/s | 54–56 | 29.8–30.1 |
+| draw avg (ms) | 10.1–11.3 | 6.4–8.5 |
+
+**Seven of the nine capped arm-runs beat every uncapped run of the same arm.
+The other two do not: 30-on-30 run 1 (36.03 %) sits between the two uncapped
+runs, and 24 fps run 3 (16.01 %) is worse than both.** That is not a
+contradiction to explain away; it is the result's shape. Capped is bimodal where
+uncapped is not. At 30-on-30, two of the three capped runs are nearly clean
+(0.23 %, 5.52 %) and the third is as bad as uncapped. That is the shape two ~30 Hz clocks were predicted to have:
+a renderer locked to vsync and a sender on its own metronome drift in and out
+of phase slowly, so a run is clean while their phases are apart and judders
+while they sit close together. Uncapped, the renderer composes at an irregular
+~55 Hz, and no run is clean.
+
+So the cap does not remove the judder. It changes it from constant to
+intermittent and halves the compose load. Draw time per compose also fell
+(about 10.5 to 7.5 ms), which is contention going away rather than work being
+skipped — a skipped animation frame composes nothing and is not counted.
+
+### What this does not establish
+
+- **The judder that remains has a cause this change does not touch**: two
+  clocks at the same nominal rate with no shared phase. Removing it means
+  pacing the renderer from the sender's clock, or the sender from the
+  renderer's, and `mapper/` does not change to accommodate the app. That is a
+  design question, not a follow-up commit.
+- Nine arm-runs on one Mac. The bimodality means a single capped run can read
+  anywhere from clean to as-bad-as-uncapped; that is the finding, not noise to
+  average away.
+- One capped run recorded a 74 ms wire interval and a 25.9 ms readback max in
+  the same arm (run 1, 24 fps). The sender's metronome is `mapper`'s, so an
+  interval that long is the whole process stalling, not the renderer. Not
+  diagnosed; it did not recur in runs 2 and 3.
+- Everything under **What they do not establish** for the uncapped baseline
+  applies here unchanged: app path only, loopback, off-hardware, and nothing
+  about `mapper play`.
+
+---
+
 ## `render-rate-2026-09-28-baseline-10x10` — frame cadence on the wire, renderer uncapped
 
 `app/test/e2e/probe-render-rate.mjs`. This is the **baseline for a proposed

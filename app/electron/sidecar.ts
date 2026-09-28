@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { resolvePythonEnv } from './paths.js'
+import { SEND_FPS } from '../src/render/framePacing.js'
 
 /**
  * What the sender process is doing. Not what the floor is doing.
@@ -358,7 +359,7 @@ export class Sidecar {
       '--type', this.options.type,
       '--cols', String(this.options.cols),
       '--rows', String(this.options.rows),
-      '--fps', '30',
+      '--fps', String(SEND_FPS),
       '--address', address,
       '--port', port,
     ]

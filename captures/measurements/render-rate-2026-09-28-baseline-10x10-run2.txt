@@ -1,0 +1,75 @@
+# probe-render-rate.mjs — uncapped baseline, second sample, 8x8_4P 10 x 10, 2026-09-28
+# cd app && WINDOW_SECONDS=30 node test/e2e/probe-render-rate.mjs
+# exit 0
+#
+# Same build as render-rate-2026-09-28-baseline-10x10.txt (uncapped renderer,
+# `npm run build` at c9e2d46, which differs from 08d17c2 by docs only), same
+# machine, run independently by the orchestrator to reproduce that file rather
+# than trust it. Window 30 s per arm, not 60. Kept because the capped runs are
+# compared against the baseline's spread, and one sample has no spread.
+#
+probe-render-rate · 8x8_4P 10x10 = 80x80 px · window 30 s per arm · clips 20 s, 160x160, h264 yuv420p · sender 30 fps · heartbeat 10 s
+
+· 60 fps arm: launching…
+
+· 30 fps arm: launching…
+
+· 24 fps arm: launching…
+
+positive controls
+  0b  mapper build_frame of index 1234 decodes here as 1234  ok
+  0a  60 fps fixture: 1200 frames, each decodes to its own index  ok
+  0a  30 fps fixture: 600 frames, each decodes to its own index  ok
+  0a  24 fps fixture: 480 frames, each decodes to its own index  ok
+  1   60 fps: 2 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   60 fps: 899/899 wire frames decode (100.00 %)  ok
+  3   60 fps: wire 30.00 fps  ok
+  4   60 fps: mean step 2.001 over 866 steady steps, want 2.000 ±2 %  ok
+  1   30 fps: 2 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   30 fps: 899/899 wire frames decode (100.00 %)  ok
+  3   30 fps: wire 30.00 fps  ok
+  4   30 fps: mean step 1.001 over 866 steady steps, want 1.000 ±2 %  ok
+  1   24 fps: 2 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   24 fps: 899/899 wire frames decode (100.00 %)  ok
+  3   24 fps: wire 30.00 fps  ok
+  4   24 fps: mean step 0.799 over 865 steady steps, want 0.800 ±2 %  ok
+  5   24 fps: 296/865 steady steps are repeats (34.2 %), want >= 15 %  ok
+  6   page exceptions and surviving Electron processes: none
+
+per arm
+
+60 fps source (expected step 2, mean 2)
+  wire         899 frames in 29.93 s = 30.00 fps · 0 incomplete · 899 decoded
+  interval ms  mean 33.33  sd 2.42  min 27.12  p1 28.45  p99 38.19  max 39.39
+  steps        0:83  1:267  2:269  3:112  4:90  5:40  6:4  8:1   (866 steady, mean 2.001)
+  cadence err  597 of 866 steady steps (68.94 %) outside {2}
+  loop seam    3:4  2:11  1:7  4:2  0:5  wrap+3:1  5:2   · 0 step(s) touching an undecoded frame
+  renderer     2 heartbeat(s) · composes/s 54.45 · writes/s 54.50 · draw 11.13/43.80 · readback 1.69/2.20 · pass 1.85/2.90 ms avg/max · live
+  floor        8x8_4P 10x10
+
+30 fps source (expected step 1, mean 1)
+  wire         899 frames in 29.93 s = 30.00 fps · 0 incomplete · 899 decoded
+  interval ms  mean 33.33  sd 1.48  min 27.56  p1 29.88  p99 37.00  max 39.10
+  steps        0:229  1:471  2:102  3:64   (866 steady, mean 1.001)
+  cadence err  395 of 866 steady steps (45.61 %) outside {1}
+  loop seam    1:20  0:7  3:2  wrap+1:1  2:2   · 0 step(s) touching an undecoded frame
+  renderer     2 heartbeat(s) · composes/s 55.40 · writes/s 55.45 · draw 10.42/48.30 · readback 1.70/2.80 · pass 1.87/2.80 ms avg/max · live
+  floor        8x8_4P 10x10
+
+24 fps source (expected step 0 or 1, mean 0.8)
+  wire         899 frames in 29.94 s = 30.00 fps · 0 incomplete · 899 decoded
+  interval ms  mean 33.34  sd 2.34  min 28.08  p1 28.71  p99 38.16  max 39.80
+  steps        0:296  1:455  2:107  3:6  4:1   (865 steady, mean 0.799)
+  cadence err  114 of 865 steady steps (13.18 %) outside {0,1}
+  repeat gap   1:35  2:89  3:94  4:37  5:19  6:16  7:4   (steps between consecutive repeats; 5 is the ideal 24-in-30 pulldown)
+  loop seam    2:4  0:13  1:14  3:1  wrap+1:1   · 0 step(s) touching an undecoded frame
+  renderer     2 heartbeat(s) · composes/s 55.80 · writes/s 56.00 · draw 10.14/46.80 · readback 1.69/2.70 · pass 1.85/2.60 ms avg/max · live
+  floor        8x8_4P 10x10
+
+summary
+src fps  wire fps  interval mean/sd/max ms  step 0 / 1 / 2 / other   cadence err   composes/s  draw avg/max  readback avg/max  pass avg/max
+     60     30.00         33.33/2.42/39.39     83 / 267 / 269 / 247  597 (68.94 %)        54.45    11.13/43.80          1.69/2.20      1.85/2.90
+     30     30.00         33.33/1.48/39.10     229 / 471 / 102 / 64  395 (45.61 %)        55.40    10.42/48.30          1.70/2.80      1.87/2.80
+     24     30.00         33.34/2.34/39.80      296 / 455 / 107 / 7  114 (13.18 %)        55.80    10.14/46.80          1.69/2.70      1.85/2.60
+
+Measurement complete. Every positive control passed; the numbers above are a baseline, not a verdict.
