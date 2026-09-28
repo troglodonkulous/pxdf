@@ -110,8 +110,8 @@ export const JOB_RIG = floorGeometry('8x8_4P', 10, 12);
  * Rotation is a *presentation* transform: a physically 80 x 96 portrait floor
  * can be authored as a 96 x 80 landscape canvas. It is not
  * `mapper/orientation.py`, which is cabling compensation applied at the
- * wire-mapping stage and is settled at `identity` permanently. The two must
- * never be merged — see CLAUDE.md.
+ * wire-mapping stage and is `identity`, permanently. The two must never be
+ * merged — D-12 and D-13 in docs/DECISIONS.md.
  */
 export function canvasSize(
   floor: FloorGeometry,

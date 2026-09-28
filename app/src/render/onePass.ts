@@ -30,7 +30,7 @@ export interface PassOptions {
   /**
    * Presentation rotation, clockwise, applied to the authored canvas to produce
    * the floor. NOT `mapper/orientation.py`, which is cabling compensation and is
-   * settled at `identity` permanently. See CLAUDE.md.
+   * `identity` — D-13 in docs/DECISIONS.md.
    */
   rotation: Rotation;
   /** Mirror in author space, before rotation. */

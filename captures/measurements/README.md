@@ -52,8 +52,10 @@ skipped — a skipped animation frame composes nothing and is not counted.
 - **The judder that remains has a cause this change does not touch**: two
   clocks at the same nominal rate with no shared phase. Removing it means
   pacing the renderer from the sender's clock, or the sender from the
-  renderer's, and `mapper/` does not change to accommodate the app. That is a
-  design question, not a follow-up commit.
+  renderer's. At the time of this run, `mapper/` was not allowed to change for
+  the app; `docs/DECISIONS.md` D-02 now permits an opt-in, graded change to
+  `mapper stream`, and D-03 records this measurement against the send clock.
+  It is still a design question, not a follow-up commit.
 - Nine arm-runs on one Mac. The bimodality means a single capped run can read
   anywhere from clean to as-bad-as-uncapped; that is the finding, not noise to
   average away.

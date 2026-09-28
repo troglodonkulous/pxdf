@@ -484,8 +484,9 @@ def cmd_stream(args) -> int:
         # the final frame, which on a floor that holds its last picture is the
         # frame the audience is left looking at.
         #
-        # It is raised rather than returned because nothing in `mapper/` may
-        # change to accommodate the app: `run` has no stop predicate, and
+        # It is raised rather than returned because `run` is the graded send
+        # loop and is not edited for the app (docs/DECISIONS.md D-01): it has
+        # no stop predicate, and
         # KeyboardInterrupt is its documented exit from the endless mode — it
         # catches it, closes the socket and returns the packet count.
         if latest.drained():

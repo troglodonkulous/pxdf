@@ -140,7 +140,7 @@ before anything here is claimed done. All of it runs off-hardware.
 
 | File | Purpose |
 |---|---|
-| `CLAUDE.md` | **Read first.** The verification bar, the settled decisions, the traps, and this project's one failure mode. |
+| `CLAUDE.md` | **Read first.** The verification bar, the decision index (`docs/DECISIONS.md` holds the entries), the traps, and this project's one failure mode. |
 | [`docs/POSTMORTEMS.md`](docs/POSTMORTEMS.md) | The ten times a result looked right and was not. Read it *before believing* a result, not after. |
 | [`docs/PROTOCOL.md`](docs/PROTOCOL.md) | **The spec.** Build against this. Claims marked confirmed / likely / open / refuted. §3–§4 closed. |
 | [`docs/DECOMP_FINDINGS.md`](docs/DECOMP_FINDINGS.md) | Evidence behind the spec, cited to vendor function names. |
