@@ -11,6 +11,7 @@ import { VideoSource } from './player/videoSource.js'
 import { ZOOM_FIT, zoomIn, zoomOut } from './player/zoom.js'
 import { floorGeometry, SHOP_RIG, workSize, type Rotation } from './render/geometry.js'
 import { blackFrame } from './render/onePass.js'
+import { shouldCompose } from './render/framePacing.js'
 
 const S = 8
 const INITIAL_SHOW = emptyShow(
@@ -198,6 +199,7 @@ export function App() {
     if (workContext === null) return
 
     let animationFrame = 0
+    let lastComposedAt: number | null = null
     let sampleStartedAt = performance.now()
     let sampledFrames = 0
     let sampledPasses = 0
@@ -253,6 +255,12 @@ export function App() {
     const render = (now: number): void => {
       // Schedule first: a decoder or preview failure must not stop future writes.
       animationFrame = requestAnimationFrame(render)
+      // Compose no faster than `mapper stream` sends. Everything past this
+      // point is one composed, written frame — the gate only decides how often
+      // that happens. See `render/framePacing.ts` for why a skipped animation
+      // frame is not a gap on the wire.
+      if (!shouldCompose(now, lastComposedAt)) return
+      lastComposedAt = now
       const currentFloor = floorRef.current
       const currentWork = workRef.current
       if (workCanvas.width !== currentWork.width) workCanvas.width = currentWork.width
@@ -260,7 +268,7 @@ export function App() {
 
       const tick = engine.tick()
 
-      // The floor. Exactly one write per animation frame, on every path —
+      // The floor. Exactly one write per composed frame, on every path —
       // stopping the send is what makes controller 1 revert to the vendor's own
       // content when it is in Master/IR mode (in slave mode it would hold its
       // last frame instead, same as 2 and 3), so there is no branch here that

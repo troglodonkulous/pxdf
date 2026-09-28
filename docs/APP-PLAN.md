@@ -23,7 +23,8 @@ this plan shelves.
 1. **Do not port the mapper.** It is the only part of this project graded against
    hardware — 80/80 frames exact against Ledset's 68/72, `RUNSHEET-10x5-4P.md`
    §11 P4-7. A Swift or JS rewrite restarts exactly the risk `CLAUDE.md` exists
-   to prevent and buys nothing: the job rig is 7,680 pixels at 30 fps.
+   to prevent and buys nothing: the deepest floor it is graded at is 7,680 pixels
+   at 30 fps, and the one show it has run was 6,400.
 2. **Electron + TypeScript + React, with `mapper/` as a sidecar process.** The
    mockups are working HTML against a real token system, the compositor is
    native Canvas2D, and the whole integration is one new subcommand.
@@ -33,26 +34,33 @@ this plan shelves.
 4. **Electron is not a dead end.** Syphon and NDI (§8) arrive later as a
    sidecar-protocol helper — 2–4 days — not a rewrite.
 
-## Two rigs
+## Three rigs
 
-Derived from `python -m mapper plan`, 2026-08-11. Neither number below has been
-seen on 10 × 12 hardware.
+Derived from `python -m mapper plan` — the shop and deep columns 2026-08-11, the
+job column 2026-09-28. The first two columns have been on hardware; the third
+has not. A specific show's geometry is a dated record, not a property of this
+project: the job column is the one show that has run (`docs/JOBS.md`), and the
+deep column is a paper geometry kept because it is the deepest shape the mapper
+and the app are graded at. For many weeks this table called 10 × 12 "the job",
+and the job that actually ran was 10 × 10.
 
-| | Shop · 10 × 5 | Job · 10 × 12 |
-|---|---|---|
-| Floor pixels | 80 × 40 | **80 × 96** |
-| Aspect | 2 : 1 landscape | **5 : 6 portrait** |
-| Controllers | 3 · ports 4/4/2 | 3 · ports 4/4/2 |
-| Packets / port | 2 | **5** |
-| Packets / frame | 20 | 50 |
-| Bytes / frame | 9,700 | 23,290 |
-| At 30 fps | 600 pkt/s · 291 KB/s | 1,500 pkt/s · 699 KB/s |
+| | Shop · 10 × 5 | Job 2026-09-05 · 10 × 10 | Deep · 10 × 12 |
+|---|---|---|---|
+| On hardware | yes | yes, one show | **never** |
+| Floor pixels | 80 × 40 | 80 × 80 | **80 × 96** |
+| Aspect | 2 : 1 landscape | 1 : 1 square | **5 : 6 portrait** |
+| Controllers | 3 · ports 4/4/2 | 3 · ports 4/4/2 | 3 · ports 4/4/2 |
+| Packets / port | 2 | 4 | **5** |
+| Packets / frame | 20 | 40 | 50 |
+| Bytes / frame | 9,700 | 19,400 | 23,290 |
+| At 30 fps | 600 pkt/s · 291 KB/s | 1,200 pkt/s · 582 KB/s | 1,500 pkt/s · 699 KB/s |
 
-Controller topology is identical, so the shop rig genuinely rehearses the job
-rig's controller layer, EOF placement included. What it does **not** rehearse is
-the physical arrangement — twelve tiles deep per chain against five. Controller
-ordering is set by cabling at load-in and nothing in this repo predicts it. A
-white frame and a per-column walk come before content.
+Controller topology is identical across all three, so the shop rig genuinely
+rehearses the controller layer of the others, EOF placement included. What it
+does **not** rehearse is the physical arrangement — ten or twelve tiles deep per
+chain against five. Controller ordering is set by cabling at load-in and nothing
+in this repo predicts it. A white frame and a per-column walk come before
+content.
 
 ## The render pipeline
 
@@ -101,8 +109,15 @@ Python owning the clock is the README's double-buffering requirement for free: a
 renderer hitch re-sends the previous frame instead of producing a gap, and the
 wire keeps its measured ±0.4 ms pacing whatever Chromium is doing.
 
-**The render loop writes exactly one frame per animation frame, on every path,
-and composition is not allowed to throw.** Learned the expensive way in PR 2:
+**The render loop writes exactly one frame per composed frame, on every path,
+and composition is not allowed to throw.** Since 2026-09-28 it composes no
+faster than the sender sends (`render/framePacing.ts`, one `SEND_FPS` shared with
+the sidecar's `--fps`), so an animation frame that arrives inside the send
+interval returns before composing and writes nothing. That is not a gap: the
+sidecar's `LatestFrame` re-sends the last frame on its own clock. What the rule
+forbids is a path *after* the gate that composes and does not write. Measured in
+`captures/measurements/README.md`: the cap halves compose load and turns the
+wire's cadence judder from constant to intermittent, not zero. Learned the expensive way in PR 2:
 `getImageData` raised `SecurityError` on a tainted work canvas, and because the
 throw happened *in the middle* of the loop body, everything downstream of it was
 skipped — the `writeFrame` that feeds the floor, the preview paint, and the
@@ -125,8 +140,8 @@ one that holds as long as nothing in the middle misbehaves.
 settled at the shop against real clips. The 16× sweet spot was measured through
 `make_clip.py --scaler area`, judged partly on file size and generation time,
 neither of which exists in the app. The principle transfers; the number does
-not. Cost scales as S²: at S = 8 the job rig's work canvas is 640 × 768 and the
-downsample is ~492k reads/frame, comfortable in plain JS; at S = 16 it is ~2M
+not. Cost scales as S²: at S = 8 the deep rig's work canvas is 640 × 768 (640 ×
+640 at the 10 × 10 job) and the downsample is ~492k reads/frame, comfortable in plain JS; at S = 16 it is ~2M
 and wants a WebGL pass.
 
 Generators inherit this free — `tools/dancefloor-loops.html`'s per-pixel kernel
@@ -249,8 +264,8 @@ mockup.
    document's own integration seam calls out as the failure mode to avoid. The
    wording is amended here rather than quietly reinterpreted in the test, so the
    doc and the gate say the same thing.
-3. **The job-rig digest becomes reachable.** `gate.digest.test.ts` already
-   grades both rigs. The new assertion is that the app, driven to 10 × 12
+3. **The deep-rig digest becomes reachable.** `gate.digest.test.ts` already
+   grades both geometries. The new assertion is that the app, driven to 10 × 12
    through the UI, produces the framebuffer that digest grades.
 
    *Scope note, PR 3, 2026-08-13.* PR 3 meets the half it can: the Mapping
@@ -657,7 +672,8 @@ minimal render host" and Setup was a phrase inside the generators PR. The
 consequence shipped: at the end of PR 2 the floor geometry is three hardcoded
 literals (`App.tsx`'s `FLOOR`, `main.ts`'s `Sidecar` construction, and a
 hand-typed `10 × 5 · 80 × 40` in the title bar), so **the app cannot be pointed
-at the job rig at all** — and the job rig is the whole reason it exists.
+at any floor but the shop rig** — and running a show on a floor that is not the
+shop rig is the whole reason it exists.
 
 It goes before the compositor for the same reason PR 2 went before it: a
 four-layer stack built against a compile-time constant floor is rewritten the
@@ -860,7 +876,7 @@ Named so they do not creep back in.
 - **S = 16 wins and JS cannot hold 30 fps.** The final pass moves to a WebGL
   shader. The pass is designed so the swap touches one file, but it is a day
   that is not in the plan.
-- **The 10 × 12 rig does not cable like the shop rig.** Nothing here predicts
+- **A show floor does not cable like the shop rig.** Nothing here predicts
   controller order. The white frame and per-column walk are not optional.
 - **Frame pacing matters more than measured.** The 7.8 %-of-a-frame worst case
   at 60 fps is documented and unexplained. Harmless at 30.
