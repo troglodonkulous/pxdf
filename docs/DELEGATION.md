@@ -87,6 +87,42 @@ the wrong axis — *which module*, when it should have been *which activity*.
   `APP-PLAN.md`, "Two harnesses, and no third", for the measurement this comes
   from.
 
+## Reviewers land before the bar
+
+Do not run the app half of the verification bar until every commissioned
+reviewer (a second model, a Codex critic) has returned findings and those
+findings are resolved. Any accepted finding changes app code, which invalidates
+every app leg already run — typecheck, the unit suite, and the wire gate.
+Running them early looks like progress and produces a green result that has to
+be thrown away. Flagged by the owner on 2026-08-13, with the bar running and two
+reviewers still in flight.
+
+Legs over code the branch does not touch are safe to run early: if `mapper/`
+and `tools/` are byte-identical to `main`, the mapper and oracle suites,
+`mapper matrix` and the cutover digests stay valid. Say plainly which legs still
+count and which were invalidated, rather than reporting the bar as passed.
+
+## A builder's claim that its UI works is not evidence
+
+An agent delegated a coding task writes the code; it is not asked to test the
+UI, and its own report that the UI works does not count. The orchestrating
+session verifies it, with **two** techniques, because each has caught a real bug
+the other missed:
+
+- **Scripted, CDP-driven checks** for precise claims — does X move, swap or
+  resize by the right amount. A pixel-level check (freeze playback, sample the
+  canvas corners through the page's own 2D context, rotate, require diagonal
+  corners to swap) proved a rotation was real where a screenshot comparison was
+  nearly fooled by ordinary playback motion.
+- **A pass over the real, visible window** (computer-use screenshots) for
+  whole-window sanity. A CDP script measured the preview canvas's own box and
+  found the zoom math correct; only a screenshot showed the canvas drawing
+  *over* sibling panels, because a `position: fixed` element escaped an
+  ancestor's `overflow: hidden` that was never its containing block.
+
+Settled 2026-08-13 at the owner's instruction ("it's not their job to test the
+ui. that's your job").
+
 ## Merging
 
 No subagent merges anything, ever. See `CLAUDE.md` § Git — the rule applies to
