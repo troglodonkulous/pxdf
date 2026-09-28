@@ -3,6 +3,8 @@ import { builtinModules } from 'node:module'
 import { resolve } from 'node:path'
 import type { AddressInfo } from 'node:net'
 import { defineConfig, type Plugin } from 'vite'
+// @ts-expect-error -- a plain .mjs script, shared with `npm run dist`'s release gate
+import { readBuild } from './scripts/releaseTree.mjs'
 
 const electronExternals = ['electron', ...builtinModules, ...builtinModules.map((name) => `node:${name}`)]
 
@@ -33,6 +35,9 @@ function launchElectron(): Plugin {
 export default defineConfig(({ mode }) => {
   if (mode === 'electron-main') {
     return {
+      // What code this bundle was built from, printed on the launch line. See
+      // `scripts/releaseTree.mjs` for why, and for what `-dirty` and `unknown` mean.
+      define: { __DDF_BUILD__: JSON.stringify(readBuild().buildString) },
       build: {
         emptyOutDir: false,
         lib: {

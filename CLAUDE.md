@@ -108,6 +108,7 @@ The full entries — what each protects, its evidence, and what reopens it — a
 - **D-17** — Colour calibration stays out. Reopen if: the tiles' power is fixed and a load-independent colour error remains.
 - **D-18** — The user merges every PR, with a merge commit. Reopen if: the user says so.
 - **D-19** — A booking's details are never facts about this project. Not reopenable.
+- **D-20** — Merge on the off-hardware bar; the floor certifies a `floor-` tag, and shows run a packaged build of one. Reopen if: an untested change reaches a show, or `main` again falls weeks behind open work.
 
 ## Traps
 
@@ -132,11 +133,15 @@ Work lands via **pull request**, from 2026-08-08. Four merges in history predate
 **Stop at the open PR. Merging is the user's call, every time** (D-18). Open the PR, report its URL, and wait. An approved plan that lists a merge step is not the approval — only the user saying so, for that PR, is. This applies to agents and subagents alike; no subagent merges anything.
 
 ```bash
-git checkout -b <branch>          # never commit on main
+git checkout -b <branch>          # from main; never commit on main
 git push -u origin <branch>
 gh pr create --fill
 # then stop. `gh pr merge --merge --delete-branch` only after the user says so.
 ```
+
+**A PR is ready to merge when reviewer findings are resolved and the verification bar passes** (D-20). Nothing is held in draft waiting for hardware; that is what `floor-` tags are for. If a PR is stacked on another, retarget the one above to `main` *before* its base branch is deleted — deleting the base closes the PR stacked on it instead of retargeting it.
+
+**Shows run a tag, never a branch.** After a floor session passes, the user tags the tested commit `floor-YYYY-MM-DD`. A show build is `npm run dist` from a `floor-` tag; it refuses a dirty `app/` or `mapper/`, and the launch line in the show log names the build. Copy that `build:` value into the show's `docs/JOBS.md` record.
 
 **Merge, never squash, never rebase.** This project's commit messages are the primary record of *why* each decision was made, and several are deliberately longer than their diffs. Squashing destroys that.
 

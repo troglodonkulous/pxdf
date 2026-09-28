@@ -645,7 +645,7 @@ change, opt-in and graded.
 
 ## Build order
 
-One PR per gate. Branch from `main` each time, after the previous merges.
+One PR per gate.
 
 | PR | Branch | Scope | Gate |
 |---|---|---|---|
