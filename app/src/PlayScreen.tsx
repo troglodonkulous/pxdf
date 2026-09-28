@@ -16,6 +16,7 @@ import {
 import { clipDurationMs, cueHoldMs, nextCueId, type Cue, type Show } from './player/show.js'
 import { VideoSource } from './player/videoSource.js'
 import { captureThumbnail } from './player/thumbnail.js'
+import { createTaskPool } from './player/taskPool.js'
 import { parseZoomPercent, zoomPercentText } from './player/zoom.js'
 import type { FloorGeometry } from './render/geometry.js'
 import { usePopoverEscape } from './popoverEscape.js'
@@ -28,6 +29,91 @@ interface RenderStats {
 const TIMELINE_SEGMENTS = 40
 const MIN_PANEL_WIDTH = 180
 const MAX_PANEL_WIDTH = 420
+
+/**
+ * How many throwaway decoders each per-cue fan-out may hold open at once.
+ *
+ * Four, and the number is measured rather than guessed. Running all 71 clips
+ * of the job library through the `captureThumbnail` shape — metadata, seek,
+ * `drawImage`, `toDataURL` — at a range of pool widths, on this Mac, Electron
+ * 43.4.0, 2026-09-19:
+ *
+ *     width    slowest single task    wall time for all 71
+ *         1                 132 ms                 4355 ms
+ *         2                 192 ms                 3555 ms
+ *         4                 267 ms                 3099 ms
+ *         6                 323 ms                 3041 ms
+ *         8                 937 ms                 4575 ms
+ *        16                 986 ms                 3581 ms
+ *        71                3314 ms                 3315 ms
+ *
+ * The wall time is flat across every width: the set is bounded by how much
+ * decoding there is to do, not by how much of it runs at once. **Concurrency
+ * buys nothing here and costs per-task latency**, and per-task latency is what
+ * actually failed — `captureThumbnail` carries a 5 s deadline that starts when
+ * the task is created, so a task Chromium parks behind seventy others spends
+ * its whole deadline waiting for a decoder it was never going to get. In the
+ * app, with the duration fan-out, 71 `toDataURL` calls and 71 React renders on
+ * the same main thread, 65 of 71 crossed that deadline.
+ *
+ * Four rather than one because adding a folder must stay responsive and four
+ * keeps four rows filling at a time for the same total cost; four rather than
+ * eight because eight is where the slowest task starts climbing (937 ms) for
+ * no gain in wall time. At four the slowest task has roughly nineteen times
+ * its deadline in hand, which is the margin that stops this being a race at
+ * all.
+ *
+ * Two pools rather than one, so neither fan-out can starve the other: a
+ * thumbnail sitting on its 5 s deadline must not hold up the duration probe
+ * that decides whether Loop on that cue can ever advance. The ceiling this
+ * puts on throwaway decoders is therefore eight, plus the engine's own three
+ * slots for live, pending and preview — eleven against a measured `peak=142`
+ * before it.
+ */
+const THROWAWAY_DECODER_LIMIT = 4
+
+/**
+ * Module scope, not a `useRef`: there is one Play surface per window, and the
+ * limit is a property of the window's decoder pool rather than of a React
+ * component instance. A pool rebuilt on remount would briefly allow twice the
+ * work it exists to bound.
+ */
+const THUMBNAIL_POOL = createTaskPool(THROWAWAY_DECODER_LIMIT)
+const DURATION_POOL = createTaskPool(THROWAWAY_DECODER_LIMIT)
+
+/**
+ * A cue row's thumbnail cell, in its three states.
+ *
+ * The third state is the point. Before this, a thumbnail that never arrived
+ * and a thumbnail still being decoded were the same empty well, and
+ * `PlayScreen` swallowed the rejection into `.catch(() => {})` — so 65 blank
+ * squares out of 71 looked exactly like 65 squares that were still coming, and
+ * did for a month. `CLAUDE.md`: silence must be distinguishable from success.
+ * The marker is the operator's channel and the `WARN` line beside it is the
+ * log's; neither replaces the other, because the operator reads one of them
+ * mid-show and the other the morning after.
+ *
+ * Still `aria-hidden` in all three states. The row is an `option` in a
+ * listbox, and its accessible name is the cue's name — putting a second
+ * labelled node inside would change what a screen reader calls the row, which
+ * is a worse trade than it looks for a decorative 40 x 24 cell.
+ */
+function CueThumb({ url, failure }: {
+  readonly url: string | undefined
+  readonly failure: string | undefined
+}): ReactNode {
+  if (url !== undefined) {
+    return (
+      <span className="cue-thumb" aria-hidden="true">
+        <img src={url} alt="" width={40} height={24} />
+      </span>
+    )
+  }
+  if (failure !== undefined) {
+    return <span className="cue-thumb is-unreadable" aria-hidden="true" title={`No thumbnail: ${failure}`}>!</span>
+  }
+  return <span className="cue-thumb" aria-hidden="true" />
+}
 
 interface PlayScreenProps {
   readonly show: Show
@@ -194,6 +280,8 @@ export function PlayScreen({
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [library, setLibrary] = useState<{ dir: string; files: string[] } | null>(null)
   const [thumbnails, setThumbnails] = useState<ReadonlyMap<string, string>>(new Map())
+  /** Cue id to the reason its thumbnail will never arrive. See `CueThumb`. */
+  const [thumbFailures, setThumbFailures] = useState<ReadonlyMap<string, string>>(new Map())
   const thumbAttempted = useRef(new Set<string>())
   const shellRef = useRef<HTMLElement>(null)
 
@@ -223,18 +311,39 @@ export function PlayScreen({
       const next = new Map([...prev].filter(([cueId]) => cueIds.has(cueId)))
       return next.size === prev.size ? prev : next
     })
+    setThumbFailures((prev) => {
+      const next = new Map([...prev].filter(([cueId]) => cueIds.has(cueId)))
+      return next.size === prev.size ? prev : next
+    })
 
     for (const cue of show.cues) {
       if (thumbAttempted.current.has(cue.id)) continue
       thumbAttempted.current.add(cue.id)
-      void captureThumbnail(cue.source.path).then((canvas) => {
+      // Through the pool, not straight at the decoder. `captureThumbnail`'s
+      // deadline starts when its task starts, so what is bounded here has to
+      // be the call itself rather than anything inside it — a pool that queued
+      // an already-running probe would bound nothing at all.
+      void THUMBNAIL_POOL.run(() => captureThumbnail(cue.source.path)).then((canvas) => {
         const url = canvas.toDataURL()
         setThumbnails((prev) => {
           const next = new Map(prev)
           next.set(cue.id, url)
           return next
         })
-      }).catch(() => {})
+      }).catch((error: unknown) => {
+        // Not `.catch(() => {})`. Every queued thumbnail now either produces
+        // one or says why it did not, in both channels: the row's marker and
+        // the log. The path is named because the cue's name is the operator's
+        // word for the file and the path is the one that can be opened — the
+        // same lesson the 116 path-less `ERROR player` lines taught.
+        const reason = error instanceof Error ? error.message : String(error)
+        setThumbFailures((prev) => {
+          const next = new Map(prev)
+          next.set(cue.id, reason)
+          return next
+        })
+        window.ddf.log('WARN', 'player', `no thumbnail for cue "${cue.name}": ${reason} — ${cue.source.path}`)
+      })
     }
   }, [show.cues])
 
@@ -280,7 +389,7 @@ export function PlayScreen({
     applyShow({ ...showRef.current, cues })
     if (firstAddedId !== null) selectCue(firstAddedId)
     void refreshLibrary()
-    for (const cue of added) void probeCueDuration(cue.id, cue.source.path)
+    for (const cue of added) void probeCueDuration(cue)
   }
 
   const addMedia = async (): Promise<void> => {
@@ -390,19 +499,32 @@ export function PlayScreen({
   const liveCueIndex = selectedLiveCue === null ? -1 : show.cues.findIndex((cue) => cue.id === selectedLiveCue.id)
   const progress = timelineProgress(snapshot)
 
-  const probeCueDuration = async (cueId: string, path: string): Promise<void> => {
-    const probe = new VideoSource(path)
-    try {
-      const mediaDurationMs = await probeDurationMs(probe)
-      applyShow({
-        ...showRef.current,
-        cues: showRef.current.cues.map((cue) => (cue.id === cueId ? { ...cue, mediaDurationMs } : cue)),
-      })
-    } catch {
-      // A failed probe remains represented by mediaDurationMs: null.
-    } finally {
-      probe.dispose()
-    }
+  const probeCueDuration = async (cue: Cue): Promise<void> => {
+    // The `VideoSource` is constructed inside the pooled task and nowhere
+    // else: constructing it opens the decoder, so building it at the call site
+    // and queueing the `await` would hold the pool's shape and none of its
+    // effect.
+    await DURATION_POOL.run(async () => {
+      const probe = new VideoSource(cue.source.path)
+      try {
+        const mediaDurationMs = await probeDurationMs(probe)
+        applyShow({
+          ...showRef.current,
+          cues: showRef.current.cues.map((each) => (each.id === cue.id ? { ...each, mediaDurationMs } : each)),
+        })
+      } catch (error: unknown) {
+        // A failed probe still leaves `mediaDurationMs: null`, which the
+        // inspector renders as an em dash — but an em dash is also what a
+        // probe still in flight looks like, and the consequence is not
+        // cosmetic: `cueHoldMs` on a null `clipDurationMs` is the engine's
+        // "never advance", so Loop on that cue does nothing at all. That used
+        // to be recorded nowhere. It is one line now.
+        const reason = error instanceof Error ? error.message : String(error)
+        window.ddf.log('WARN', 'player', `no media length for cue "${cue.name}": ${reason} — ${cue.source.path}`)
+      } finally {
+        probe.dispose()
+      }
+    })
   }
 
   const selectedCue = show.cues.find((cue) => cue.id === selectedCueId) ?? null
@@ -516,9 +638,7 @@ export function PlayScreen({
                   className={cueRowClass(cue, selectedCueId, snapshot)}
                   onSubmit={(event) => { event.preventDefault(); finishRename() }}
                 >
-                  <span className="cue-thumb" aria-hidden="true">
-                    {thumbnails.has(cue.id) ? <img src={thumbnails.get(cue.id)} alt="" width={40} height={24} /> : null}
-                  </span>
+                  <CueThumb url={thumbnails.get(cue.id)} failure={thumbFailures.get(cue.id)} />
                   <span className="cue-number">{(index + 1).toString().padStart(2, '0')}</span>
                   <span className="rename-form">
                     <input
@@ -565,9 +685,7 @@ export function PlayScreen({
                     }
                   }}
                 >
-                  <span className="cue-thumb" aria-hidden="true">
-                    {thumbnails.has(cue.id) ? <img src={thumbnails.get(cue.id)} alt="" width={40} height={24} /> : null}
-                  </span>
+                  <CueThumb url={thumbnails.get(cue.id)} failure={thumbFailures.get(cue.id)} />
                   <span className="cue-number">{(index + 1).toString().padStart(2, '0')}</span>
                   <span className="cue-name">{cue.name}</span>
                   {cue.id === snapshot.liveCueId && (

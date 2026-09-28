@@ -315,6 +315,22 @@ input:disabled {
   object-fit: cover;
 }
 
+/* A thumbnail that will never arrive, told apart from one still decoding.
+   Warn rather than danger, and a marker rather than a colour wash: a cue whose
+   first frame could not be read still plays, still holds its place in the
+   stack, and is not an emergency — but it is also not the same thing as an
+   empty well, and for a month it looked like one. */
+.cue-thumb.is-unreadable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in oklch, var(--sem-warn) 45%, transparent);
+  color: var(--sem-warn);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  line-height: 1;
+}
+
 .cue-row:hover {
   background: var(--surface-raised);
 }

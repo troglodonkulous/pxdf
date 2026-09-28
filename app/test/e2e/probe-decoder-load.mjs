@@ -38,6 +38,46 @@
  *    well past anything the app does — the app's own worst case is one
  *    throwaway per cue. Deliberately synthetic: it exists to find the ceiling,
  *    not to describe normal use.
+ * 4. **The decoder census**, read back out of the app's own heartbeat. The
+ *    child is launched with `DDF_HEARTBEAT_SECONDS=5` and the log is read after
+ *    it exits, for the highest `peak=` it recorded — the most decoders the
+ *    window held open at once while this run added its cues.
+ *
+ * ## Why arm 4 exists, and it is the important part of this file
+ *
+ * Arms 1-3 count *outcomes*, and outcomes here are a race. `captureThumbnail`
+ * carries a 5 s deadline that starts when the fan-out creates it, so a
+ * thumbnail is lost when its decoder is still queued behind seventy others at
+ * the 5 s mark — which depends on how warm the machine is, what is in the OS
+ * page cache, and what else is running. On 2026-09-19 that produced 6/71 on a
+ * cold library and 43, 43, 63 and 71 out of 71 on four later runs of the *same
+ * unbounded build*, because by then the files were all cached. A run of this
+ * file against a build with the concurrency limit deliberately removed exited
+ * 0. **The outcome arms can pass over a broken build**, and a gate that can do
+ * that is the thing `CLAUDE.md` calls a green gate over a broken thing.
+ *
+ * `peak` cannot. It counts decoders the window held open, not how quickly any
+ * of them finished, so it does not move with the page cache: 142 for the
+ * unbounded fan-out and 8 for the bounded one, on the same machine, minutes
+ * apart. It is graded here rather than merely printed, and graded without
+ * naming any limit: the check is that `peak` came in **below the number of
+ * cues added**, which no per-cue fan-out can satisfy — an unbounded one reads
+ * about 2N — and which any bound that does not scale with N satisfies easily.
+ * Nothing here has to be updated when `THROWAWAY_DECODER_LIMIT` changes.
+ *
+ * It is graded only at 32 cues or more. Below that, 2N is small enough that an
+ * unbounded fan-out would pass the check, so the run prints the number and
+ * says it did not grade it rather than reporting a pass it did not earn. The
+ * six-clip default corpus is always in that case.
+ *
+ * ## One cost, stated
+ *
+ * The log this reads is `~/Library/Logs/Electron/ddf.log`, the same file
+ * `wire.mjs` grades, and launching Electron rotates it. That was already true
+ * of this probe before it read the file — any run of this rotates the log out
+ * from under a concurrent `wire.mjs` — but it is worth saying now that it
+ * matters to this file too: **do not run the two at the same time**, whatever
+ * the debug ports allow.
  *
  * ## Measured 2026-08-15, Electron 43.4.0, macOS, five runs
  *
@@ -61,7 +101,8 @@
  */
 
 import { spawn } from 'node:child_process'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { resolve, delimiter, join, extname } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 
@@ -210,6 +251,8 @@ let electron = null
 let page = null
 /** Anything that makes the numbers above untrustworthy, or the next run. */
 const problems = []
+/** Set once the child has been launched, so a run that never got that far does not grade a stale log. */
+let censusExpected = false
 
 try {
   if (!existsSync(join(APP_DIR, 'dist', 'main.js'))) throw new Error('dist/main.js missing — run `npm run build` first')
@@ -256,6 +299,10 @@ try {
     DDF_ADDRESS: '127.0.0.1',
     DDF_PORT: String(SIDECAR_PORT),
     DDF_PICK_MEDIA: PICKED.join(delimiter),
+    // Set, not inherited. The census arm needs a heartbeat to have landed
+    // *after* the fan-out peaked, and the default is one a minute — a run
+    // shorter than that would read no census at all and have to say so.
+    DDF_HEARTBEAT_SECONDS: '5',
   }
   if (childEnv.DDF_CUE_SEED !== undefined) {
     // Said out loud: a run that silently ignored something the operator set is
@@ -277,6 +324,13 @@ try {
       detached: true,
     },
   )
+
+  // Past this point the child has been launched, so it has rotated the old
+  // `ddf.log` away and whatever is in that file now belongs to this run. Set
+  // here and not in the `finally`: a run that threw before the spawn — no
+  // build, a port already held — would otherwise grade the previous run's
+  // census and call it this one's.
+  censusExpected = true
 
   for (let attempt = 0; attempt < 100 && page === null; attempt++) {
     try {
@@ -446,6 +500,41 @@ try {
     if (!gone()) {
       problems.push(`Electron pid ${electron.pid} did not exit — it will hijack the next run. ` +
         `Kill it: lsof -ti :${DEBUG_PORT} | xargs kill -9`)
+    }
+  }
+}
+
+/**
+ * Arm 4. Read after the child is gone, so the log is complete and nothing is
+ * still appending to it.
+ *
+ * An absent census is pushed as a problem rather than skipped. A run that was
+ * going to grade the bound and then could not find the file it grades it from
+ * has not graded anything, and "no census line" and "a census line reading 8"
+ * must not both come out as a clean exit.
+ */
+if (censusExpected) {
+  const logPath = join(homedir(), 'Library', 'Logs', 'Electron', 'ddf.log')
+  const logText = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
+  const peaks = [...logText.matchAll(/\bpeak=(\d+)/g)].map((match) => Number(match[1]))
+  const opened = [...logText.matchAll(/\bopened=(\d+)/g)].map((match) => Number(match[1]))
+
+  if (peaks.length === 0) {
+    problems.push(`the heartbeat recorded no decoder census in ${logPath} — the bound was not graded, ` +
+      'and an ungraded bound must not read as a held one')
+  } else {
+    const peak = Math.max(...peaks)
+    const totalOpened = opened.length === 0 ? null : Math.max(...opened)
+    console.log(`\ncensus:   peak=${peak} decoders held at once` +
+      (totalOpened === null ? '' : `, opened=${totalOpened} over the run`) +
+      ` · ${PICKED.length} cues added, so an unbounded per-cue fan-out reads about ${PICKED.length * 2}`)
+    // Graded without naming a limit — see the header. Only where 2N is large
+    // enough that an unbounded fan-out could not slip under the bar.
+    if (PICKED.length < 32) {
+      console.log(`          not graded: ${PICKED.length} cues is too few for this check to tell the two apart`)
+    } else if (peak >= PICKED.length) {
+      problems.push(`the window held ${peak} decoders open at once for ${PICKED.length} cues — ` +
+        'that is a fan-out with no limit on it, whatever the thumbnail count above says')
     }
   }
 }
