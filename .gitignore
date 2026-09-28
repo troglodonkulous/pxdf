@@ -73,3 +73,6 @@ tools/oracle/out/
 # Session diary written by the remember plugin. Session state, not evidence:
 # untracked 2026-09-28 after sitting permanently dirty; history keeps the old files.
 .remember/
+
+# --- Misc ---------------------------------------------------------------------
+docs/billing/
