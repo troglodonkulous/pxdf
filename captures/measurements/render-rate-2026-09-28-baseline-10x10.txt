@@ -1,0 +1,89 @@
+# probe-render-rate.mjs — uncapped baseline, 8x8_4P 10 x 10, 2026-09-28
+# cd app && node test/e2e/probe-render-rate.mjs
+# exit 0
+#
+# Branch `app-render-rate` at 08d17c2, `npm run build` output from that commit.
+# Electron 43.4.0, macOS 26.5.1, Intel i7-9750H. Loopback UDP, off-hardware.
+# One run. Window 60 s per arm (the default), clips 20 s, S = 8, no DevTools
+# window open.
+#
+# This is the uncapped renderer, requestAnimationFrame at ~55-60 Hz, taken as
+# the baseline for a proposed 30 fps render cap. See
+# captures/measurements/README.md for what it does and does not establish.
+#
+# Run-to-run spread is large and this file is one sample. An earlier 60 s run
+# through a diagnostic copy of the same instrument read 53.20 % cadence errors
+# at 30-on-30, where this run reads 34.98 %. That copy differed only in the
+# repeat-share band, and it is deleted, so that number is a note and not
+# evidence. Both runs are far off pattern. How far is not stable.
+#
+# Control 5 (24 fps repeat share) is ">= 15 %" in this file. It first read
+# "15-25 %", which was a guess and not derived, and the first real run refused
+# on it at 28.2 %. The probe's header explains the change and the
+# mutation-check behind it.
+
+probe-render-rate · 8x8_4P 10x10 = 80x80 px · window 60 s per arm · clips 20 s, 160x160, h264 yuv420p · sender 30 fps · heartbeat 10 s
+
+· 60 fps arm: launching…
+
+· 30 fps arm: launching…
+
+· 24 fps arm: launching…
+
+positive controls
+  0b  mapper build_frame of index 1234 decodes here as 1234  ok
+  0a  60 fps fixture: 1200 frames, each decodes to its own index  ok
+  0a  30 fps fixture: 600 frames, each decodes to its own index  ok
+  0a  24 fps fixture: 480 frames, each decodes to its own index  ok
+  1   60 fps: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   60 fps: 1798/1798 wire frames decode (100.00 %)  ok
+  3   60 fps: wire 30.00 fps  ok
+  4   60 fps: mean step 2.000 over 1702 steady steps, want 2.000 ±2 %  ok
+  1   30 fps: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   30 fps: 1799/1799 wire frames decode (100.00 %)  ok
+  3   30 fps: wire 30.00 fps  ok
+  4   30 fps: mean step 1.001 over 1704 steady steps, want 1.000 ±2 %  ok
+  1   24 fps: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   24 fps: 1799/1799 wire frames decode (100.00 %)  ok
+  3   24 fps: wire 30.00 fps  ok
+  4   24 fps: mean step 0.797 over 1702 steady steps, want 0.800 ±2 %  ok
+  5   24 fps: 609/1702 steady steps are repeats (35.8 %), want >= 15 %  ok
+  6   page exceptions and surviving Electron processes: none
+
+per arm
+
+60 fps source (expected step 2, mean 2)
+  wire         1798 frames in 59.90 s = 30.00 fps · 0 incomplete · 1798 decoded
+  interval ms  mean 33.33  sd 1.92  min 26.17  p1 28.29  p99 38.58  max 40.02
+  steps        0:292  1:459  2:459  3:140  4:199  5:119  6:32  7:1  17:1   (1702 steady, mean 2.000)
+  cadence err  1243 of 1702 steady steps (73.03 %) outside {2}
+  loop seam    5:4  1:27  2:30  4:12  3:4  wrap+3:1  0:13  7:1  wrap+2:1  6:1  wrap+1:1   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 53.92 · writes/s 53.94 · draw 11.28/111.50 · readback 1.68/2.50 · pass 1.86/2.80 ms avg/max · live
+  floor        8x8_4P 10x10
+
+30 fps source (expected step 1, mean 1)
+  wire         1799 frames in 59.93 s = 30.00 fps · 0 incomplete · 1799 decoded
+  interval ms  mean 33.33  sd 2.07  min 26.96  p1 28.68  p99 38.13  max 39.35
+  steps        0:324  1:1108  2:219  3:53   (1704 steady, mean 1.001)
+  cadence err  596 of 1704 steady steps (34.98 %) outside {1}
+  loop seam    1:57  0:19  2:13  3:2  wrap+1:2  wrap+2:1   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 55.58 · writes/s 55.64 · draw 10.37/59.20 · readback 1.67/3.30 · pass 1.87/3.10 ms avg/max · live
+  floor        8x8_4P 10x10
+
+24 fps source (expected step 0 or 1, mean 0.8)
+  wire         1799 frames in 59.93 s = 30.00 fps · 0 incomplete · 1799 decoded
+  interval ms  mean 33.33  sd 1.60  min 28.52  p1 29.81  p99 36.95  max 38.68
+  steps        0:609  1:835  2:252  3:6   (1702 steady, mean 0.797)
+  cadence err  258 of 1702 steady steps (15.16 %) outside {0,1}
+  repeat gap   1:80  2:201  3:166  4:101  5:38  6:14  7:4  8:1   (steps between consecutive repeats; 5 is the ideal 24-in-30 pulldown)
+  loop seam    3:1  1:49  0:31  2:12  wrap+1:3   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 55.84 · writes/s 55.88 · draw 10.13/46.70 · readback 1.66/2.60 · pass 1.85/2.70 ms avg/max · live
+  floor        8x8_4P 10x10
+
+summary
+src fps  wire fps  interval mean/sd/max ms  step 0 / 1 / 2 / other   cadence err   composes/s  draw avg/max  readback avg/max  pass avg/max
+     60     30.00         33.33/1.92/40.02    292 / 459 / 459 / 492  1243 (73.03 %)        53.92   11.28/111.50          1.68/2.50      1.86/2.80
+     30     30.00         33.33/2.07/39.35    324 / 1108 / 219 / 53  596 (34.98 %)        55.58    10.37/59.20          1.67/3.30      1.87/3.10
+     24     30.00         33.33/1.60/38.68      609 / 835 / 252 / 6  258 (15.16 %)        55.84    10.13/46.70          1.66/2.60      1.85/2.70
+
+Measurement complete. Every positive control passed; the numbers above are a baseline, not a verdict.
