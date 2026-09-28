@@ -27,8 +27,8 @@ own. An H.264-in-AVI file passes the extension filter, appears in the list, and
 then produces neither a thumbnail nor playback.
 
 > **`01`–`08` are 64 × 40 and are retired.** They were authored for the 8 × 5
-> rig; `mapper play` rejects them on the 10 × 5 floor and on the 10 × 12 job
-> rig. Only `09-gradient24-8x8_4P-10x5.avi` and `10-sweep-8x8_4P-10x5.avi`
+> rig; `mapper play` rejects them on the 10 × 5 shop floor and on the 10 × 12
+> deep rig. Only `09-gradient24-8x8_4P-10x5.avi` and `10-sweep-8x8_4P-10x5.avi`
 > are 80 × 40. The 10 fps below is likewise the Ledset-era rate —
 > `DEFAULT_FPS` is 30, see `docs/RUNSHEET-10x5-4P.md` §11.
 
@@ -66,7 +66,7 @@ in Ledset — otherwise the new files show "Thumbnail Lost".
 **`01`–`08` cannot be regenerated, deliberately.** Their two generators —
 `tools/New-PatternAvi.ps1` and `tools/make_test_patterns.py` — were deleted on
 2026-08-13. They only ever emitted the retired 64 × 40 set, which `play`
-rejects on both the shop and the job rig, and two independent implementations
+rejects on both the shop and the deep rig, and two independent implementations
 of one dead asset set is twice the maintenance for none of the value. The
 `.avi` files themselves stay: `06-halves` and `07-tilewalk` are the source
 material for captures this project still cites as evidence, and

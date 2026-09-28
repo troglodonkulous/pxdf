@@ -1,5 +1,6 @@
 /**
- * Which media containers does this Electron build actually decode?
+ * Which media containers does this Electron build actually decode, and what
+ * `Content-Type` does `ddf-media://` serve each of them as?
  *
  * **This is a measurement, not a gate.** Nothing runs it automatically and
  * nothing should: it answers one question, the answer goes into
@@ -38,11 +39,51 @@
  * security model working correctly and it would silently poison every row of the
  * table, so the script clicks Add cue with `DDF_PICK_MEDIA` seeded first.
  *
+ * The route to that click is not fixed and this script does not get to assume
+ * it. The app launches on the Mapping surface; the cue stack is behind `Open
+ * Player`; and the `+` grew a menu whose `Upload` item is what now opens the
+ * picker. All three moved after this script was first written, and its next run
+ * stopped dead at "the Add cue button never appeared" — which is the polling
+ * guard below working, not a finding about containers. Every step is polled for
+ * and every failure names the step it is.
+ *
+ * ## The second question, added 2026-09-18
+ *
+ * The handler used to fetch bytes with `net.fetch` over a `file://` URL and
+ * pass that response's headers through, so Chromium's own extension-to-MIME
+ * table named the type and nothing in this repo had to. Serving a byte range
+ * means building the `Response` from a raw `createReadStream`, which carries no
+ * headers at all, so `src/player/mediaFormats.ts` now names the type itself —
+ * and of the five extensions the picker offers, only `mp4`/`m4v` had ever been
+ * watched come back `video/mp4`. `mov`, `webm` and `mkv` were reasoned from
+ * what the standard types for those containers are. Every clip the `wire.mjs`
+ * gate plays is an `.mp4`, so nothing else in the repo could have caught a
+ * wrong one.
+ *
+ * So each row now also `fetch`es its own `ddf-media://` URL from inside the
+ * page and records `response.headers.get('Content-Type')`. `fetch` and not the
+ * `<video>` element, because an element exposes no response headers at all —
+ * this is the only way to see what the handler actually said. The two halves
+ * are independent on purpose: a container can decode while carrying a label
+ * nobody intended, because `<video src=…>` does not gate on the declared type,
+ * and a table that printed only the decode verdict would show that as a pass.
+ *
  * ## The positive control, and why it exists
  *
- * `mp4` must decode. If it does not, the instrument is broken and every other
- * row is meaningless — so the script refuses to print a table at all rather than
- * printing one where everything failed.
+ * `mp4` must decode, **and must come back `video/mp4`**. If either fails, the
+ * instrument is broken and every other row is meaningless — so the script
+ * refuses to print a table at all rather than printing one where everything
+ * failed. `video/mp4` is the right thing to pin it to because it is
+ * corroborated by something outside this script: Chromium's own extension table
+ * in the shipped binary carries the entry `mp4,m4v` against `video/mp4`, and
+ * `wire.mjs` read that same answer back through the pre-range handler.
+ *
+ * Coverage is checked as well as correctness. The table exists to supply a
+ * value for each of the five extensions the picker offers, so if ffmpeg could
+ * not author one of them, or a row went missing between authoring and
+ * measuring, the run refuses rather than printing a table that looks complete
+ * and is silently short a container. A probe that measured nothing must not
+ * read as a probe that found nothing wrong.
  *
  * That guard is not hypothetical. The second run of this script produced a table
  * in which *every* container failed with `DEMUXER_ERROR_COULD_NOT_OPEN`,
@@ -57,7 +98,7 @@
  */
 
 import { spawn, execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, delimiter } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -99,6 +140,32 @@ const MIME_GUESS = {
 }
 
 const mimeFor = (label) => (label.startsWith('avi') ? 'video/x-msvideo' : MIME_GUESS[label] ?? 'video/mp4')
+
+/**
+ * The extensions the picker offers, read out of the file this probe feeds.
+ *
+ * Read rather than repeated, because a copy here would be a second list that
+ * drifts from the first in silence — and what it would look like when it drifts
+ * is a probe that measures four of five containers and prints a table with no
+ * gap in it. A parse failure throws; it is an instrument fault, not a finding.
+ */
+function pickerExtensions() {
+  const source = readFileSync(resolve(APP_DIR, 'src', 'player', 'mediaFormats.ts'), 'utf8')
+  const literal = /PICKER_EXTENSIONS[^=]*=\s*\[([^\]]*)\]/.exec(source)
+  if (literal === null) throw new Error('could not find PICKER_EXTENSIONS in src/player/mediaFormats.ts')
+  const found = [...literal[1].matchAll(/'([^']+)'/g)].map((match) => match[1])
+  if (found.length === 0) throw new Error('PICKER_EXTENSIONS parsed as empty — the probe cannot know what to cover')
+  return found
+}
+
+/** Click the first button whose trimmed text starts with a string. Throws if there is none. */
+const clickButton = (text) => `(() => {
+  const button = [...document.querySelectorAll('button')]
+    .find((b) => b.textContent.trim().startsWith(${JSON.stringify(text)}))
+  if (button === undefined) throw new Error('no button labelled ${text}')
+  button.click()
+  return true
+})()`
 
 function openPage(url) {
   return new Promise((done, fail) => {
@@ -159,6 +226,15 @@ let page = null
  * 1's acceptance gate reporting green over the half it existed to check.
  */
 const problems = []
+/**
+ * Things the table itself says, that a reader must act on.
+ *
+ * Kept apart from `problems` because they mean opposite things about the run: a
+ * problem says do not believe the table, a regression says believe it and look
+ * at this row. Both make the exit non-zero; conflating them would either
+ * discard a real finding or tell a reader to throw away a sound measurement.
+ */
+const regressions = []
 
 try {
   if (!existsSync(join(APP_DIR, 'dist', 'main.js'))) {
@@ -238,17 +314,34 @@ try {
   // the click threw, the exception was swallowed, `allowedMedia` stayed empty,
   // and the table came back uniformly failing. Poll for the button; never assume
   // it is there.
-  let hasButton = false
-  for (let attempt = 0; attempt < 50 && !hasButton; attempt++) {
-    hasButton = await page.evaluate(
-      'document.querySelector(\'[aria-label="Add cue"]\') !== null')
-    if (!hasButton) await sleep(200)
+  //
+  // And a mounted page is not a reachable picker: the app launches on Mapping,
+  // the cue stack is behind `Open Player`, and the `+` opens a menu rather than
+  // the picker. Each of those is polled for separately so that a failure names
+  // the step that failed instead of blaming the last one in the chain.
+  const waitFor = async (expression, complaint) => {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const value = await page.evaluate(expression)
+      if (value) return value
+      await sleep(200)
+    }
+    throw new Error(complaint)
   }
-  if (!hasButton) throw new Error('the Add cue button never appeared — the page did not mount')
+
+  await waitFor('document.querySelector(".mapping-screen") !== null',
+    'the app never mounted its Mapping surface')
+  await page.evaluate(clickButton('Open Player'))
+  await waitFor('document.querySelector(".play-screen") !== null',
+    'Open Player never reached the Play surface')
+  await waitFor('document.querySelector(\'[aria-label="Add cue"]\') !== null',
+    'the Add cue button never appeared — the page did not mount')
 
   // Populate `allowedMedia` through the real picker seam. Without this every
   // row below reads 403 and the table is uniformly, wrongly, "fails".
   await page.evaluate('document.querySelector(\'[aria-label="Add cue"]\').click()')
+  await waitFor('document.querySelectorAll(\'[role="menuitem"]\').length > 0',
+    'the + menu never opened, so the picker was never reachable')
+  await page.evaluate(clickButton('Upload'))
 
   // The picker resolves over IPC and the cues land asynchronously. Wait for the
   // stack to actually hold them rather than sleeping a guessed interval.
@@ -263,43 +356,116 @@ try {
 
   const probe = async ({ label, path }) => {
     const url = `ddf-media://file${path.split('/').map(encodeURIComponent).join('/')}`
+    // One evaluate, two independent measurements of the same URL.
+    //
+    // The `fetch` is what reads the handler's own answer: a `<video>` element
+    // exposes no response headers, so the type it was handed is invisible from
+    // the element side. Its failures are caught and returned as the cell value
+    // rather than thrown, because a row that could not be served is a fact
+    // about that row and belongs in the table where it can be read — the
+    // control below is what decides whether the table is worth printing at all.
     const result = await page.evaluate(`
-      new Promise((done) => {
-        const v = document.createElement('video')
-        v.muted = true
-        v.crossOrigin = 'anonymous'
-        const guess = v.canPlayType(${JSON.stringify(mimeFor(label))}) || 'no'
-        v.addEventListener('loadeddata', () => done(guess + '|DECODES'))
-        v.addEventListener('error', () => done(guess + '|fails: ' + (v.error?.message ?? v.error?.code)))
-        setTimeout(() => done(guess + '|fails: timeout'), 5000)
-        v.src = ${JSON.stringify(url)}
-        v.load()
-      })
+      (async () => {
+        const url = ${JSON.stringify(url)}
+        let served
+        try {
+          const response = await fetch(url)
+          served = response.ok
+            ? (response.headers.get('Content-Type') ?? '(no Content-Type)')
+            : 'HTTP ' + response.status
+        } catch (error) {
+          served = 'fetch threw: ' + String(error)
+        }
+        const decode = await new Promise((done) => {
+          const v = document.createElement('video')
+          v.muted = true
+          v.crossOrigin = 'anonymous'
+          v.addEventListener('loadeddata', () => done('DECODES'))
+          v.addEventListener('error', () => done('fails: ' + (v.error?.message ?? v.error?.code)))
+          setTimeout(() => done('fails: timeout'), 5000)
+          v.src = url
+          v.load()
+        })
+        const probeElement = document.createElement('video')
+        const guess = probeElement.canPlayType(${JSON.stringify(mimeFor(label))}) || 'no'
+        return { served, decode, guess }
+      })()
     `)
-    const [guess, outcome] = String(result).split('|')
-    return { label, guess, outcome }
+    if (result === undefined || typeof result.served !== 'string') {
+      throw new Error(`the page returned no measurement for ${label}: ${JSON.stringify(result)}`)
+    }
+    return { label, ...result }
   }
 
   const rows = []
   for (const entry of made) rows.push(await probe(entry))
 
+  // Counts first, and before anything is printed. A run that measured nothing
+  // must not read as a run that found nothing wrong, and a table silently short
+  // one container looks exactly as complete as a full one.
+  if (rows.length === 0) throw new Error('no container was measured at all — no table printed')
+  if (rows.length !== made.length) {
+    throw new Error(`authored ${made.length} clips but measured ${rows.length} — no table printed`)
+  }
+
   // The positive control. See the header: a table in which everything failed is
   // what a leaked-process or 403 fault looks like, and it is indistinguishable
-  // from a finding unless something that must pass is checked first.
+  // from a finding unless something that must pass is checked first. Both
+  // halves, because the two fail independently — an `mp4` that decodes while
+  // carrying a label nobody intended is exactly what this run was added to
+  // catch, and `<video>` will not notice it.
   const control = rows.find((row) => row.label === 'mp4')
-  if (control === undefined || control.outcome !== 'DECODES') {
+  if (control === undefined || control.decode !== 'DECODES' || control.served !== 'video/mp4') {
     throw new Error(
-      `positive control failed: mp4 reported "${control?.outcome ?? 'missing'}". ` +
-      'mp4 decodes in every build this app supports, so this is an instrument fault ' +
-      '(stale Electron, empty allowedMedia, or a broken build), not a measurement. ' +
-      'No table printed.',
+      `positive control failed: mp4 decoded "${control?.decode ?? 'missing'}" and was served ` +
+      `"${control?.served ?? 'missing'}", wanted DECODES and video/mp4. Both are corroborated ` +
+      "outside this script — Chromium's own extension table in the shipped binary carries " +
+      'mp4,m4v against video/mp4 — so this is an instrument fault (stale Electron, empty ' +
+      'allowedMedia, or a broken build), not a measurement. No table printed.',
     )
   }
 
-  console.log('\ncontainer      canPlayType        <video> decode')
-  console.log('-------------  -----------------  --------------')
-  for (const { label, guess, outcome } of rows) {
-    console.log(`${label.padEnd(13)}  ${guess.padEnd(17)}  ${outcome}`)
+  // Coverage. The table exists to supply a value for each extension the picker
+  // offers; one that never got measured is a hole the printed table cannot show.
+  const wanted = pickerExtensions()
+  const missing = wanted.filter((extension) => !rows.some((row) => row.label === extension))
+  if (missing.length > 0) {
+    throw new Error(
+      `no measurement for ${missing.join(', ')}, which the picker offers — probably an ffmpeg ` +
+      'without the encoder for it (see the SKIP lines above). The table would read as complete ' +
+      'while saying nothing about those containers. No table printed.',
+    )
+  }
+
+  // Width from the data, not a constant. A `Content-Type` longer than the
+  // column pushes the decode verdict out of alignment, and a misaligned table
+  // is the one thing a reader skims past — this is the output that gets copied
+  // into `mediaFormats.ts` by eye.
+  const typeWidth = Math.max('served Content-Type'.length, ...rows.map((row) => row.served.length))
+  console.log(`\ncontainer      canPlayType        ${'served Content-Type'.padEnd(typeWidth)}  <video> decode`)
+  console.log(`-------------  -----------------  ${'-'.repeat(typeWidth)}  --------------`)
+  for (const { label, guess, served, decode } of rows) {
+    console.log(`${label.padEnd(13)}  ${guess.padEnd(17)}  ${served.padEnd(typeWidth)}  ${decode}`)
+  }
+  // Said out loud because it otherwise reads as a defect. Only the extensions
+  // in `PICKER_EXTENSIONS` have an entry in `MEDIA_CONTENT_TYPES`; every other
+  // row here is the deliberate `application/octet-stream` fallback, reached
+  // only because this script pushes files through the picker seam that the
+  // picker's own filter would never offer.
+  console.log(`\nPicker containers: ${wanted.join(' · ')}. `
+    + 'Every other row is served the application/octet-stream fallback by design.')
+
+  // Failures in the picker's own five, found by a run whose instrument checked
+  // out. Not "probe unusable" — the table above is a measurement and stands.
+  // Recorded separately so the exit is still non-zero and `probe && next-thing`
+  // cannot sail past a container the app offers and can no longer play.
+  for (const row of rows.filter((candidate) => wanted.includes(candidate.label))) {
+    if (row.decode !== 'DECODES') {
+      regressions.push(`${row.label} is offered by the picker and did not decode: ${row.decode}`)
+    }
+    if (!/^[a-z]+\/[a-z0-9.+-]+$/.test(row.served)) {
+      regressions.push(`${row.label} was not served a media type at all: ${row.served}`)
+    }
   }
 } catch (error) {
   problems.push(String(error))
@@ -336,7 +502,10 @@ try {
 if (problems.length > 0) {
   console.log(`\nPROBE UNUSABLE — ${problems.length} problem(s):\n  - ${problems.join('\n  - ')}`)
   console.log('Any table above is not a measurement. Do not copy it into mediaFormats.ts.')
+} else if (regressions.length > 0) {
+  console.log(`\nTABLE STANDS, BUT ${regressions.length} PICKER CONTAINER(S) FAILED:\n  - ${regressions.join('\n  - ')}`)
+  console.log('The instrument checked out, so these are findings. Fix mediaFormats.ts or the handler.')
 } else {
-  console.log('\nProbe complete. Positive control passed, no process leaked.')
+  console.log('\nProbe complete. Positive control passed, all picker containers measured, no process leaked.')
 }
-process.exit(problems.length === 0 ? 0 : 1)
+process.exit(problems.length === 0 && regressions.length === 0 ? 0 : 1)

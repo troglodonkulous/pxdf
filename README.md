@@ -72,11 +72,17 @@ each. The last controller is partial — it drives 2 of its 4 ports. This is the
 acceptance geometry; nothing before it exercised multiple controllers or a
 partial one.
 
-**Job rig:** 10 × 12 tiles of `8x8_4P` = **80 × 96 px**. Same controller
+**Deep rig:** 10 × 12 tiles of `8x8_4P` = **80 × 96 px**. Same controller
 topology — three units, ports 4/4/2 — but five packets per port instead of two:
 50 packets and 23,290 bytes per frame. Every number for it is derived from
 `mapper plan`; none has been seen on hardware, and twelve tiles deep per chain
-is not rehearsed by the shop rig.
+is not rehearsed by the shop rig. It is the second geometry the sender is graded
+at, because one shape cannot catch a packets-per-port assumption.
+
+Older notes called this "the job rig". It is not a job — it is a paper geometry,
+and the one show that has actually run was 10 × 10. Per-show records live in
+`docs/JOBS.md`; a booking's tile count goes stale the night it ends, so it does
+not live in `README.md` or `CLAUDE.md`.
 
 **Target rig:** up to 14 × 10 tiles, plus arbitrary smaller *rectangular*
 layouts. Controller count is not chosen — it is

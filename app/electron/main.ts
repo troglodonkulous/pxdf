@@ -1,11 +1,18 @@
-import { statSync } from 'node:fs'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createReadStream, statSync } from 'node:fs'
+import { Readable } from 'node:stream'
+import { fileURLToPath } from 'node:url'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { networkInterfaces } from 'node:os'
-import { app, BrowserWindow, dialog, ipcMain, net, powerSaveBlocker, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, powerSaveBlocker, protocol, shell } from 'electron'
 import { floorGeometry, SHOP_RIG } from '../src/render/geometry.js'
 import { blackFrame } from '../src/render/onePass.js'
-import { PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
+import { mediaContentType, PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
+import {
+  contentRangeHeader,
+  parseRange,
+  rangeLength,
+  unsatisfiableRangeHeader,
+} from '../src/player/mediaRange.js'
 import { MEDIA_SCHEME, mediaPath, mediaUrl } from '../src/player/mediaUrl.js'
 import type { Cue, ShowFloor } from '../src/player/show.js'
 import { type BannerSource, composeBanner } from './banners.js'
@@ -577,8 +584,9 @@ ipcMain.handle('ddf:cue-seed', (): Record<string, Pick<Cue, 'loop' | 'trimStartM
  * fixed here rather than left for whoever packages for Windows to rediscover
  * as "the app refuses every clip". Running the path through the same pair the
  * renderer will means the set holds whatever the handler is going to compute,
- * whatever that pair does to it. `pathToFileURL` accepts the forward-slash form
- * on Windows, so serving is unaffected.
+ * whatever that pair does to it. `createReadStream`, which is what the handler
+ * reads the bytes with, accepts the forward-slash form on Windows, so serving
+ * is unaffected.
  */
 function servedForm(path: string): string {
   return mediaPath(mediaUrl(path)) ?? path
@@ -609,6 +617,25 @@ async function chooseMedia(): Promise<string[]> {
   return result.canceled ? [] : result.filePaths
 }
 
+/**
+ * A file read stream as the body a `Response` will take.
+ *
+ * The cast is not papering over a mismatch — it is reconciling two *type
+ * declarations* for one runtime object. `Readable.toWeb` is typed against
+ * `node:stream/web`'s `ReadableStream`, `Response` is typed against the DOM
+ * lib's, and this tsconfig pulls in both because the same project compiles
+ * renderer code. At runtime Node's web streams *are* the global `ReadableStream`
+ * the fetch implementation consumes; there is one object and one behaviour.
+ *
+ * Written as one function with this comment rather than as a cast repeated at
+ * three call sites, so that the next person meets the reason rather than the
+ * `as unknown as`.
+ */
+function readStreamBody(path: string, slice?: { start: number; end: number }): ReadableStream<Uint8Array> {
+  const stream = slice === undefined ? createReadStream(path) : createReadStream(path, slice)
+  return Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>
+}
+
 void app.whenReady().then(() => {
   // First, before anything that can fail. `app.getPath('logs')` is only legal
   // once the app is ready, which is why this is here and not at module scope —
@@ -630,17 +657,36 @@ void app.whenReady().then(() => {
 
   powerSaveBlocker.start('prevent-app-suspension')
 
-  // The other half of `mediaUrl.ts`. `net.fetch` over a `file://` URL is what
-  // serves the bytes. It does *not* honour range requests — an earlier draft of
-  // this comment claimed it did, and the measurement says otherwise: a request
-  // carrying `Range: bytes=0-` comes back `200` with the whole file and no
-  // `Content-Range`. Seeking works anyway because Chromium buffers the response
-  // it was given, which is fine for clips and would not be for a long file.
+  // The other half of `mediaUrl.ts`, and since 2026-09-18 a real HTTP server in
+  // miniature: it answers `Range` requests with a `206`.
+  //
+  // It used to serve every request with `net.fetch` over a `file://` URL, which
+  // cannot do that — `Range: bytes=0-` comes back `200`, the whole file, no
+  // `Content-Range`. That was written down here as a harmless limitation, on
+  // the reasoning that Chromium buffers what it is given. **The reasoning was
+  // wrong and the limitation was not harmless.** The scheme is registered
+  // `stream: true` and Chromium reports `kIsRangeHeaderSupported=true` for it,
+  // so Chromium *did* issue range requests, and every one of them was answered
+  // with byte 0 of the file regardless of the offset asked for. An MP4 whose
+  // `moov` atom sits after `mdat` — what `ffmpeg` writes without `+faststart` —
+  // has to be read from the tail before any frame can decode, and that read
+  // never landed. MEASURED over one night's job log: 124/124 clips with `moov`
+  // at the front played, 0/7 with `moov` at the end did, with a within-folder
+  // control (13 FRONT played, 7 END failed, one directory) that rules out the
+  // authorisation path as the explanation. 105 `DEMUXER_ERROR_COULD_NOT_OPEN`
+  // lines in one night came from it. The range arithmetic itself lives in
+  // `src/player/mediaRange.ts`, where `vitest` can grade it.
   //
   // A URL that does not decode to a path gets a 400 rather than a guess, and a
   // path the operator never chose gets a 403. See `allowedMedia`: this handler
   // is reachable from anything running in the page, so "is this URL well
-  // formed" is not the question — "did a human ask for this file" is.
+  // formed" is not the question — "did a human ask for this file" is. **Both of
+  // those run before the `Range` header is so much as read**, and that ordering
+  // is the whole of the security argument: a range request must not become a
+  // second way into the same file, and a header cannot be a way past a check it
+  // never reaches. `wire.mjs` grades a `Range`-carrying request for an
+  // unauthorised path as its own check rather than trusting the ordering to
+  // stay put.
   protocol.handle(MEDIA_SCHEME, async (request) => {
     const path = mediaPath(request.url)
     if (path === null) return new Response('bad media url', { status: 400 })
@@ -649,47 +695,95 @@ void app.whenReady().then(() => {
       : servableLibraryFile(path, authorizedMediaDir, PICKER_EXTENSIONS)
     if (servable === null) return new Response('not an opened file', { status: 403 })
 
-    // The whole reason this handler is not four lines. `net.fetch` over
-    // `file://` answers with no `Content-Length`, so Chromium's media pipeline
-    // has no total length for the resource and treats it as an unbounded
-    // stream. A race in that incremental-read path yields a premature
-    // `FFmpegDemuxer: av_read_frame(): End of file` about 20ms after `kLoad`,
-    // then `DecoderStatus::104`, then `PIPELINE_ERROR_DECODE` — with the bytes
-    // themselves complete and correct, which is what made this look like a
-    // codec problem for two floor tests. Measured base rate before this line:
-    // 0-6 failures per 36 load attempts.
-    //
-    // Deliberately *not* `Accept-Ranges: bytes`. That would advertise a
-    // capability this handler does not have — `net.fetch` over `file://`
-    // cannot answer a `Range` request with a `206`, per the comment above — and
-    // an inaccurate capability claim is a channel that cries wolf. Chromium
-    // already reports `kIsRangeHeaderSupported=true` for this scheme without
-    // the header, so nothing is bought by lying about it.
     let size: number
     try {
       size = statSync(servable).size
     } catch (error) {
       // Only reachable if the file vanished between `servableLibraryFile`'s
-      // stat and this one. A 404 rather than serving without the header,
-      // because serving without it is exactly the bug above, and a silent
-      // relapse into it is worse than a request that visibly fails.
+      // stat and this one. A 404 rather than serving without a size, because
+      // every header below is derived from it — a response built from a guessed
+      // length is the premature-EOF bug returning by a different door.
       logger?.log('ERROR', 'media', `cannot size ${servable}: ${String(error)}`)
       return new Response('media file unreadable', { status: 404 })
     }
 
-    const file = await net.fetch(pathToFileURL(servable).toString())
-    // The response half of the CORS pair set up in `registerSchemesAsPrivileged`.
-    // Electron 43 was measured to let a `corsEnabled` scheme through without
-    // this header, but that is a shortcut in its protocol layer rather than
-    // anything the CORS algorithm promises, and the failure if a future version
-    // stops taking it is the silent one this whole comment exists about. The
-    // header makes the response correct by the algorithm. `*` is the right value
-    // and not a loosening: the request is `crossOrigin = 'anonymous'`, so it
-    // carries no credentials, and the bytes are ones the renderer named itself.
-    const headers = new Headers(file.headers)
-    headers.set('Access-Control-Allow-Origin', '*')
-    headers.set('Content-Length', String(size))
-    return new Response(file.body, { status: file.status, statusText: file.statusText, headers })
+    // Derived here, once, and used by every branch below.
+    //
+    // `Content-Type` is the trap in this change and it has to be solved
+    // deliberately. The old handler never named a type: `net.fetch` supplied
+    // Chromium's own extension-to-MIME answer and the response passed it
+    // through. A `Response` built from a `createReadStream` carries no headers
+    // at all, so an otherwise-correct 206 would arrive untyped and Chromium can
+    // refuse to decode it. `mediaContentType` is that table, written down —
+    // and **both the 200 and the 206 path read this one variable**, because two
+    // types that disagree would show up as a file that plays whole and fails
+    // when seeked, which reads as flakiness rather than as a bug.
+    //
+    // `Accept-Ranges: bytes` is now correct to send, where before it would have
+    // been a lie. It is a capability claim, and the capability exists: the
+    // branch below honours any single range and answers 416 for one it cannot.
+    // It is on all three responses, not only the 206, because a client learns
+    // whether it may ask from the *first* response it gets, which is the 200.
+    //
+    // `Access-Control-Allow-Origin: *` is on all three for a harder reason.
+    // Dropping it costs the render loop a `SecurityError` on every frame from
+    // the moment the first cue goes live — 60 a second, nothing on the wire,
+    // nothing saying why — because the media taints the work canvas unless it
+    // is fetched CORS-clean. See `registerSchemesAsPrivileged` above: that flag
+    // and this header only work as a pair. A 206 that forgot it would fail
+    // exactly on the seek path, i.e. on the clips this change exists for.
+    const headers = {
+      'Content-Type': mediaContentType(servable),
+      'Accept-Ranges': 'bytes',
+      'Access-Control-Allow-Origin': '*',
+    }
+
+    const range = parseRange(request.headers.get('Range'), size)
+
+    if (range.kind === 'unsatisfiable') {
+      // 416, and the `bytes * /SIZE` form is the useful half of it: it tells the
+      // client how long the resource actually is, so its next request can be one
+      // that can be answered. A 200 here would be a wrong answer that looks
+      // right — the client asked for bytes past the end and would be handed the
+      // beginning of the file.
+      return new Response(null, {
+        status: 416,
+        headers: { ...headers, 'Content-Range': unsatisfiableRangeHeader(size) },
+      })
+    }
+
+    if (range.kind === 'range') {
+      const length = rangeLength(range)
+      return new Response(readStreamBody(servable, { start: range.start, end: range.end }), {
+        status: 206,
+        headers: {
+          ...headers,
+          'Content-Range': contentRangeHeader(range, size),
+          // The slice's length, never the file's. A `Content-Length` naming the
+          // whole file on a partial body is the same class of defect as the
+          // missing one this handler already paid for: the pipeline waits for
+          // bytes that are never coming.
+          'Content-Length': String(length),
+        },
+      })
+    }
+
+    // No range, or one this handler declines to honour — the ordinary whole-file
+    // answer, unchanged in what it says.
+    //
+    // `Content-Length` is load-bearing here and was added on its own, in
+    // 09f796d, for a defect this comment must not lose. Without it Chromium's
+    // media pipeline has no total length for the resource, treats it as an
+    // unbounded stream, and a race in that incremental-read path yields a
+    // premature `FFmpegDemuxer: av_read_frame(): End of file` about 20 ms after
+    // `kLoad`, then `DecoderStatus::104`, then `PIPELINE_ERROR_DECODE` — with
+    // the bytes themselves complete and correct, which is what made it look
+    // like a codec problem for two floor tests. Measured 16 failures in 108
+    // loads without the line, 0 in 144 with it.
+    return new Response(readStreamBody(servable), {
+      status: 200,
+      headers: { ...headers, 'Content-Length': String(size) },
+    })
   })
 
   // The stored NIC seeds the environment, and an explicit `DDF_LOCAL_IP` still

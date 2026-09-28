@@ -58,7 +58,7 @@ import { createSocket } from 'node:dgram'
 import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync, chmodSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { homedir, tmpdir } from 'node:os'
-import { join, resolve, delimiter } from 'node:path'
+import { basename, join, resolve, delimiter } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 
 /** `mapper`'s packet header. Five bytes, not eight — see `docs/PROTOCOL.md`. */
@@ -162,6 +162,89 @@ function makeUndecodableClip(directory) {
     '-c:v', 'rawvideo', '-pix_fmt', 'bgr24', path,
   ])
   return path
+}
+
+/**
+ * One clip's bytes, muxed twice with the `moov` atom at opposite ends.
+ *
+ * ## What this fixture is for
+ *
+ * `ddf-media://` served every request with `net.fetch` over a `file://` URL
+ * until 2026-09-18, and that cannot answer a `Range` request: `bytes=0-` comes
+ * back `200`, whole file, no `Content-Range`. The scheme is registered
+ * `stream: true` and Chromium reports `kIsRangeHeaderSupported=true` for it, so
+ * Chromium asked for ranges and was handed byte 0 every time. An MP4 whose
+ * `moov` atom sits after `mdat` has to be read from the tail **to open at
+ * all**, so those files never opened — 124/124 `moov`-at-front clips played and
+ * 0/7 `moov`-at-end clips did across one night's job log, 105
+ * `DEMUXER_ERROR_COULD_NOT_OPEN` lines.
+ *
+ * ## Why a pair, and why the pair is byte-identical
+ *
+ * The `front` clip is remuxed from the `end` one with `-c copy`, so the two
+ * hold the same encoded frames and differ in nothing but atom order. That makes
+ * `front` a **positive control**: if it does not play, something other than the
+ * range fix is broken — the codec, the compositor, the authorisation — and the
+ * `end` result says nothing at all. A single clip that failed would be
+ * indistinguishable from an instrument that was broken.
+ *
+ * ## Why it is noisy white and not solid
+ *
+ * Two reasons at once. `tone()` needs to tell this clip from the red cue that
+ * is live when it is fired, and near-white noise puts every byte of the
+ * framebuffer above zero, which is the `white` band. And the clip has to be
+ * *big* — a solid colour compresses to a handful of kilobytes, and a file small
+ * enough to arrive whole in one read may well open without a single range
+ * request ever being answered. Lossless noise gives about 3.4 MB from 1.5
+ * seconds, in about a fifth of a second of `ffmpeg`.
+ *
+ * **The size that is actually required is not known.** Nobody has measured the
+ * threshold at which a `moov`-at-end file stops opening over a handler that
+ * cannot answer a range, and this fixture is sized to be comfortably above the
+ * clips that failed in the field (the smallest was 5.5 MB) rather than to sit
+ * at a measured edge. If this check ever passes with the fix reverted, this
+ * number is the first thing to raise — and that would be the gate failing to
+ * be a gate, not the bug being gone.
+ *
+ * ## The atom order is verified, not assumed
+ *
+ * `ffmpeg` writes `moov` last for this muxer and `+faststart` moves it first,
+ * but a fixture whose atom order was assumed is a fixture that can silently
+ * stop being the thing under test — an `ffmpeg` upgrade that changed the
+ * default would leave this file grading two identical clips and reporting a
+ * clean pass. `tools/moov_position.py` is an independent walker with its own
+ * positive control; this refuses to run rather than grade an unverified pair.
+ */
+function makeMoovPair(directory) {
+  const end = join(directory, 'moovend-white.mp4')
+  const front = join(directory, 'moovfront-white.mp4')
+  execFileSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-f', 'lavfi', '-i', 'color=c=white:s=320x240:r=30:d=1.5',
+    '-vf', 'noise=alls=24:allf=t+u',
+    '-c:v', 'libx264', '-qp', '0', '-pix_fmt', 'yuv420p', end,
+  ])
+  // `-c copy`, so `front` is the same encoded frames with the atoms reordered.
+  execFileSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-i', end, '-c', 'copy', '-movflags', '+faststart', front,
+  ])
+
+  const order = (path) => {
+    const printed = execFileSync(
+      PYTHON, [join(REPO_ROOT, 'tools', 'moov_position.py'), path], { encoding: 'utf8' })
+    const line = printed.split('\n').find((text) => text.endsWith(basename(path)))
+    return line === undefined ? 'UNREADABLE' : line.split('\t')[0]
+  }
+  const endOrder = order(end)
+  const frontOrder = order(front)
+  if (endOrder !== 'END' || frontOrder !== 'FRONT') {
+    throw new Error(
+      `the moov fixtures are not what this file thinks they are: ` +
+      `${basename(end)} reads ${endOrder} (want END), ${basename(front)} reads ${frontOrder} ` +
+      `(want FRONT). Grading them would measure nothing.`)
+  }
+  return { end, front }
 }
 
 // ------------------------------------------------------------ wire capture
@@ -865,6 +948,13 @@ try {
   // point: the only thing that decides whether it is served is whether it was
   // opened, or lives in a folder that was.
   const unpicked = makeClip(workspace, 'green')
+  /**
+   * The `moov`-at-end clip the range fix exists for, and its byte-identical
+   * `moov`-at-front control. Outside `libraryDir` on purpose: both are
+   * authorised by being picked, and putting them in the library folder would
+   * change what `ddf:list-media-dir` lists, which section 6g grades exactly.
+   */
+  const moov = makeMoovPair(workspace)
 
   // Before the tap opens, and in its own Electron on its own ports, because
   // this one is deliberately launched broken and must not be mistaken for the
@@ -945,7 +1035,7 @@ try {
         ...process.env,
         DDF_ADDRESS: '127.0.0.1',
         DDF_PORT: String(PORT),
-        DDF_PICK_MEDIA: [...clips, undecodable, loopClip, trimClip].join(delimiter),
+        DDF_PICK_MEDIA: [...clips, undecodable, loopClip, trimClip, moov.front, moov.end].join(delimiter),
         DDF_CUE_SEED: JSON.stringify(cueSeed),
       },
       stdio: 'inherit',
@@ -1228,12 +1318,14 @@ try {
   // reads zero cues on a cold one — grading a healthy app red. This file argues
   // for polling twice in its own comments and then did this.
   //
-  // Five, not three: `red`, `white`, `undecodable`, then `loopClip` and
-  // `trimClip` — rows 3 and 4, exercised in step 6 below. Appended, so every
-  // row index the rest of this file already assumes (0, 1, 2) still holds.
+  // Seven, not three and no longer five: `red`, `white`, `undecodable`, then
+  // `loopClip` and `trimClip` — rows 3 and 4, exercised in step 6 below — then
+  // the `moov`-at-front control and the `moov`-at-end clip, rows 5 and 6, fired
+  // by section 2d. Every one of them is appended, so every row index the rest
+  // of this file already assumes (0, 1, 2, 3, 4) still holds.
   const cueCount = await waitFor(
-    'document.querySelectorAll(".cue-row").length === 5 ? 5 : 0')
-  check(cueCount === 5, 'all five seeded cues land in the stack',
+    'document.querySelectorAll(".cue-row").length === 7 ? 7 : 0')
+  check(cueCount === 7, 'all seven seeded cues land in the stack',
     `saw ${await page.evaluate('document.querySelectorAll(".cue-row").length')}`)
 
   // 2a-i. Thumbnails are real decoded frames, not a placeholder reused for
@@ -1381,13 +1473,247 @@ try {
     'a sibling of a picked file, in the same picked folder, is served though never opened by name',
     `handler returned ${siblingResult}`)
 
+  // 2d. Range requests, which this handler could not answer until 2026-09-18.
+  //
+  //     Two layers, deliberately, because they fail differently. The first is
+  //     the mechanism — status, headers and the actual bytes — read with
+  //     `fetch` from inside the page, which is the only way to put a chosen
+  //     `Range` header on a request here; a `<video>` element does not let you
+  //     write one. The second is the operator-visible consequence: a
+  //     `moov`-at-end clip fired as a cue, which is what 105 failed cues at the
+  //     2026-09-05 job actually looked like. The mechanism check is the sharp
+  //     one and the consequence check is the one that survives the mechanism
+  //     changing shape, and `docs/APP-PLAN.md` is explicit that the second is
+  //     what a gate is ultimately for.
+  const redUrl = `ddf-media://file${clips[0].split('/').map(encodeURIComponent).join('/')}`
+  const rangeProbe = await page.evaluate(`
+    (async () => {
+      const url = ${JSON.stringify(redUrl)}
+      const read = async (init) => {
+        const response = await fetch(url, init)
+        return {
+          status: response.status,
+          bytes: new Uint8Array(await response.arrayBuffer()),
+          type: response.headers.get('Content-Type'),
+          length: response.headers.get('Content-Length'),
+          contentRange: response.headers.get('Content-Range'),
+          acceptRanges: response.headers.get('Accept-Ranges'),
+          cors: response.headers.get('Access-Control-Allow-Origin'),
+        }
+      }
+      const same = (a, b) => a.length === b.length && a.every((value, i) => value === b[i])
+      const whole = await read(undefined)
+      const middle = await read({ headers: { Range: 'bytes=64-127' } })
+      const tail = await read({ headers: { Range: 'bytes=-16' } })
+      const past = await read({ headers: { Range: 'bytes=' + (whole.bytes.length + 10) + '-' } })
+      return {
+        size: whole.bytes.length,
+        whole: { ...whole, bytes: undefined },
+        middle: { ...middle, bytes: undefined, matches: same(middle.bytes, whole.bytes.slice(64, 128)) },
+        tail: { ...tail, bytes: undefined, matches: same(tail.bytes, whole.bytes.slice(whole.bytes.length - 16)) },
+        past: { ...past, bytes: undefined, served: past.bytes.length },
+      }
+    })()
+  `)
+
+  // The check the whole change turns on. Three things have to be true together
+  // and each of them is a separate way to be wrong: a `206` that carried the
+  // whole file would be the old bug wearing a new status code, a
+  // `Content-Range` that disagreed with the body would mislead the demuxer
+  // about where it is in the file, and bytes from the wrong offset are exactly
+  // what the old handler served — plausible, complete, and from position zero.
+  check(rangeProbe !== null
+    && rangeProbe.middle.status === 206
+    && rangeProbe.middle.contentRange === `bytes 64-127/${rangeProbe.size}`
+    && rangeProbe.middle.length === '64'
+    && rangeProbe.middle.matches === true,
+    'a Range request is answered with a 206 carrying exactly those bytes',
+    `status ${rangeProbe?.middle?.status} · ${rangeProbe?.middle?.contentRange} · ` +
+    `Content-Length ${rangeProbe?.middle?.length} · bytes match ${rangeProbe?.middle?.matches}`)
+
+  // The suffix form, which is the one that actually matters to a `moov`-at-end
+  // file: the demuxer reads the tail before it has read anything else. Read as
+  // an absolute offset instead of a suffix it returns plausible bytes from the
+  // wrong end of the file, and nothing downstream would name the mistake.
+  check(rangeProbe !== null && rangeProbe.tail.status === 206 && rangeProbe.tail.matches === true,
+    'a suffix range returns the end of the file, not the start of it',
+    `status ${rangeProbe?.tail?.status} · ${rangeProbe?.tail?.contentRange} · ` +
+    `bytes match ${rangeProbe?.tail?.matches}`)
+
+  // A range past the end is 416 and not a 200. Serving the beginning of the
+  // file to a client that asked for bytes beyond it is a wrong answer that
+  // looks like a right one — the client has no way to notice.
+  check(rangeProbe !== null
+    && rangeProbe.past.status === 416
+    && rangeProbe.past.contentRange === `bytes */${rangeProbe.size}`
+    && rangeProbe.past.served === 0,
+    'a range past the end of the file is refused with a 416 that names the size',
+    `status ${rangeProbe?.past?.status} · ${rangeProbe?.past?.contentRange} · ` +
+    `${rangeProbe?.past?.served} bytes served`)
+
+  // `Accept-Ranges: bytes` used to be deliberately absent, because it would
+  // have been a capability claim this handler could not honour. It can now, and
+  // it is on the whole-file response as well as the partial ones — a client
+  // learns whether it may ask from the first answer it gets, which is the 200.
+  // `Content-Length` on that response is 09f796d's fix and stays graded here:
+  // without it Chromium treats the resource as an unbounded stream and races
+  // its own EOF.
+  check(rangeProbe !== null
+    && rangeProbe.whole.status === 200
+    && rangeProbe.whole.acceptRanges === 'bytes'
+    && rangeProbe.middle.acceptRanges === 'bytes'
+    && rangeProbe.whole.length === String(rangeProbe.size),
+    'the whole-file answer still carries Content-Length, and now advertises ranges truthfully',
+    `status ${rangeProbe?.whole?.status} · Accept-Ranges ${rangeProbe?.whole?.acceptRanges} · ` +
+    `Content-Length ${rangeProbe?.whole?.length} of ${rangeProbe?.size}`)
+
+  // The two paths must agree about what the file is. They are built from
+  // different code — one streams the whole file, one streams a slice — and a
+  // `Content-Type` that differed between them would surface as a clip that
+  // plays whole and fails when seeked, which reads as flakiness rather than as
+  // a bug. Asserted as equality *and* against the expected value: equal-and-
+  // both-wrong is still wrong.
+  check(rangeProbe !== null
+    && rangeProbe.whole.type === rangeProbe.middle.type
+    && rangeProbe.whole.type === 'video/mp4',
+    'the 200 and the 206 report the same Content-Type for the same file',
+    `200 said ${rangeProbe?.whole?.type} · 206 said ${rangeProbe?.middle?.type} · ` +
+    `416 said ${rangeProbe?.past?.type}`)
+
+  // `Access-Control-Allow-Origin` on every one of them, not only the 200.
+  // Losing it costs a `SecurityError` on every frame from the moment the first
+  // cue goes live — 60 a second, nothing on the wire, nothing saying why — and
+  // a 206 that forgot it would fail on precisely the clips this change exists
+  // for. It is also what lets this very check read a status at all: without it
+  // the page gets an opaque CORS failure instead of a response.
+  check(rangeProbe !== null
+    && rangeProbe.whole.cors === '*'
+    && rangeProbe.middle.cors === '*'
+    && rangeProbe.tail.cors === '*'
+    && rangeProbe.past.cors === '*',
+    'the CORS header is on the 206 and the 416, not only on the 200',
+    `200 ${rangeProbe?.whole?.cors} · 206 ${rangeProbe?.middle?.cors} · ` +
+    `suffix ${rangeProbe?.tail?.cors} · 416 ${rangeProbe?.past?.cors}`)
+
+  // 2d-i. A Range header is not a way around the authorisation check.
+  //
+  //       The two run in a fixed order in `main.ts` — `mediaPath`, then
+  //       `allowedMedia`/`servableLibraryFile`, and only then is the `Range`
+  //       header so much as read — and this is the check that says the order
+  //       has not moved. It is graded on the same `unpicked` clip 2b uses, so
+  //       the only difference between a pass here and a pass there is the
+  //       header.
+  //
+  //       Either outcome counts as refused and both are named: the 403 carries
+  //       no CORS header, so depending on how Chromium reports it the page sees
+  //       either the status or an opaque CORS failure. What is not negotiable
+  //       is the absence of a `Content-Range` — a refusal has a short body of
+  //       its own ("not an opened file", 21 bytes, which is why this cannot be
+  //       graded on a byte count), and only a served slice carries that header.
+  const rangedOutsider = await page.evaluate(`
+    (async () => {
+      try {
+        const response = await fetch(${JSON.stringify(unpickedUrl)}, { headers: { Range: 'bytes=0-63' } })
+        return {
+          status: response.status,
+          contentRange: response.headers.get('Content-Range'),
+          body: (await response.text()).slice(0, 40),
+        }
+      } catch (error) {
+        return { status: 'CORS-BLOCKED', contentRange: null, body: '', detail: String(error) }
+      }
+    })()
+  `)
+  check(rangedOutsider !== null
+    && (rangedOutsider.status === 403 || rangedOutsider.status === 'CORS-BLOCKED')
+    && rangedOutsider.contentRange === null,
+    'a Range request for a file the operator never opened is still refused',
+    `status ${rangedOutsider?.status} · Content-Range ${rangedOutsider?.contentRange} · ` +
+    `body ${JSON.stringify(rangedOutsider?.body)}`)
+
+  // 2d-ii. The consequence, on the wire, with the control that makes it mean
+  //        something.
+  //
+  //        `moov.front` and `moov.end` hold the same encoded frames — one is a
+  //        `-c copy` remux of the other — and differ only in where the `moov`
+  //        atom sits. So the control is exact: if the FRONT clip does not play,
+  //        the codec, the compositor or the authorisation is broken and the END
+  //        result is not a measurement of anything. `CLAUDE.md` says to state
+  //        that as a refusal rather than print a table of failures, so a failed
+  //        control fails the END check explicitly with "not measured" rather
+  //        than letting it run and be read.
+  const fireAndWatch = async (rowIndex) => {
+    await page.evaluate(clickRowScript(rowIndex))
+    await page.evaluate(clickButtonScript('GO'))
+    let seen = []
+    for (let attempt = 0; attempt < 30 && countTone(seen, 'white') === 0; attempt++) {
+      seen = await tap.window(200)
+    }
+    return {
+      white: countTone(seen, 'white'),
+      packets: seen.length,
+      // Read after the wait above, so a banner that takes a sampling tick to
+      // appear has had six seconds to do so. A bare read here would report a
+      // failing cue as clean.
+      banner: await page.evaluate('document.querySelector(".error-banner")?.textContent ?? null'),
+    }
+  }
+
+  const moovFront = await fireAndWatch(5)
+  const controlHolds = moovFront.white > 0 && moovFront.banner === null
+  check(controlHolds,
+    'POSITIVE CONTROL: the moov-at-front twin of the test clip plays',
+    `${moovFront.white} white packets of ${moovFront.packets} · banner ${JSON.stringify(moovFront.banner)}`)
+
+  if (!controlHolds) {
+    check(false, 'a moov-at-end clip opens and reaches the wire',
+      'NOT MEASURED — the positive control above failed, so this result would say ' +
+      'nothing about ranges. Fix the control first.')
+  } else {
+    // Back to red first, so "white appeared" below is a statement about the
+    // clip that was just fired rather than about the one still on the wire from
+    // the control.
+    await page.evaluate(clickRowScript(0))
+    await page.evaluate(clickButtonScript('GO'))
+    let backToRed = []
+    for (let attempt = 0; attempt < 25 && countTone(backToRed, 'red') === 0; attempt++) {
+      backToRed = await tap.window(200)
+    }
+    check(countTone(backToRed, 'red') > 0,
+      'the wire is back on the red cue before the moov-at-end clip is fired',
+      `red ${countTone(backToRed, 'red')} · white ${countTone(backToRed, 'white')}`)
+
+    const moovEnd = await fireAndWatch(6)
+    // The banner is the check that survives: a cue that cannot decode while
+    // another is live leaves the *previous* cue's content on the wire, so "the
+    // wire is lit" is not evidence of anything here. White on the wire and a
+    // clear banner are two independent statements and both are asserted.
+    check(moovEnd.white > 0,
+      'a moov-at-end clip opens and reaches the wire',
+      `${moovEnd.white} white packets of ${moovEnd.packets}`)
+    check(moovEnd.banner === null,
+      'no cue failure is reported for the moov-at-end clip',
+      `banner ${JSON.stringify(moovEnd.banner)}`)
+  }
+
+  // Leave the stack as section 3 found it: cue 1 live, wire red. Section 3's
+  // first check is that precondition, so this is restoring state rather than
+  // asserting anything.
+  await page.evaluate(clickRowScript(0))
+  await page.evaluate(clickButtonScript('GO'))
+  for (let attempt = 0; attempt < 25; attempt++) {
+    if (countTone(await tap.window(200), 'red') > 0) break
+  }
+
   // 6g and 6h — the Library surface and drag-reorder — run later, right
   // before the app quits. Both add or move cues in the stack, and every
   // section between here and there (3, 3b, 4a-4d, 6a-6f) assumes the exact
-  // 5-cue [red, white, rawvideo, loop, trim] arrangement `DDF_PICK_MEDIA`
-  // seeds this run with — 3b in particular indexes rows 3 and 4; running
-  // them here would silently invalidate every assumption downstream instead
-  // of failing loudly where the mistake was made.
+  // 7-cue [red, white, rawvideo, loop, trim, moov-front, moov-end]
+  // arrangement `DDF_PICK_MEDIA` seeds this run with — 3b in particular
+  // indexes rows 3 and 4, and 2d above indexes 5 and 6; running them here
+  // would silently invalidate every assumption downstream instead of failing
+  // loudly where the mistake was made. The two moov rows are appended last
+  // for the same reason the loop and trim rows were: no existing index moves.
 
   // 3. A cue change. The first two checks establish that the change actually
   //    happened — without them, a second cue that never decodes leaves the
