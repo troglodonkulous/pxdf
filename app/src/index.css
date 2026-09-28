@@ -1484,3 +1484,10 @@ select:focus-visible {
     display: none;
   }
 }
+
+/* Pushed to the trailing edge of the title bar. Deliberately the only thing
+   there: the log is an after-the-fact affordance, not a control, and giving it
+   the far corner keeps it off the path between the operator and the diagram. */
+.reveal-log {
+  margin-left: auto;
+}

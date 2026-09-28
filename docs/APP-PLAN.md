@@ -379,6 +379,104 @@ single unretried `is-live` read against that is a race that fails about one run
 in two, and it is the gate flaking rather than the app. Every DOM assertion in
 `wire.mjs` polls.
 
+## The log, and the three failures that had no channel
+
+Added 2026-09-03, before the first floor session on the integrated app. The last
+job ran on the older `main` build because this one had playback problems that
+were never diagnosed — and the reason they were never diagnosed is that the app
+had no way to report a failure to anyone who was not watching the screen in the
+second it happened. Every channel ended in a React banner: overwritten by the
+next event, erased by a restart, invisible afterwards.
+
+**Where it is.** `~/Library/Logs/DDF Sender/ddf.log` when packaged,
+`~/Library/Logs/Electron/ddf.log` in development — macOS derives the folder from
+the app name, not from `--user-data-dir`, which is why the wire gate's log lands
+in the development one. One rotation at launch to `ddf.prev.log`, by run and not
+by size: after something goes wrong at a venue the operator restarts, and the
+file anyone wants is the one from the launch before. **Reveal log** on the
+Mapping surface opens it in Finder.
+
+**What it is for.** Three failures previously had no channel at all, and the
+third is the one that matches what went wrong at the job:
+
+| Failure | Now reported by |
+|---|---|
+| Main-process uncaught throw | `reportFatal`, `main.ts` |
+| Renderer throw before React, or during render | preload `error`/`unhandledrejection`, and `ErrorBoundary` |
+| Renderer stops producing frames | `frameWatch.ts`, from the main process |
+
+A React tree that unmounts takes the render loop's `cancelAnimationFrame` with
+it, `writeFrame` is never called again, and `Sidecar` holds the last frame on
+the wire for ever. The status pill reads `sending` and is *correct* — the Python
+child is healthy and the wire carries a valid non-black frame — so nothing in
+the app disagrees with anything else while the floor is frozen. Only the main
+process can notice, because a renderer that broken cannot report on itself.
+
+**The heartbeat is the positive control.** One line a minute carrying status,
+NIC, geometry and the frame count. Without it, "the log contains no errors" and
+"the app died twenty minutes ago" are byte-identical evidence, and `CLAUDE.md`'s
+rule that silence must be distinguishable from success would be broken by the
+instrument rather than by the thing it measures. **A gap in the timestamps is a
+finding.**
+
+**Two cry-wolf guards, both mutation-checked** (`frameWatch.test.ts`): the
+watchdog is armed only after the window has loaded and had five seconds to draw,
+and it clears only the banner it raised itself — the same rule, and the same
+reason, as `nicWatch.ts`. `wire.mjs` grades the pair against a real run: check
+106 fails if the watchdog says anything during a healthy show.
+
+**One slot per source, not one slot** (`banners.ts`). Found by review before this
+merged. Five sources publish errors — a main-process throw, a log file that could
+not be opened, the sidecar, the NIC poll, the frame watchdog — and each of them
+remembered the message it had published so that it would clear only its own. That
+guard is sound against another source *clearing* the banner and useless against
+another source *writing* it, which cost two diagnostics outright:
+
+- The launch warning "no log file this session" was wiped by the first routine
+  sidecar recovery, which publishes null. The one notice that the session had no
+  evidence chain, gone in seconds, with nowhere to write it down.
+- Overwrite the watchdog's banner with a sidecar death and its own memory still
+  holds the old string, so its edge comparison keeps matching and it never speaks
+  again. The frozen-floor channel goes out of service silently, for the rest of
+  the run.
+
+Each source now writes its own slot and nothing else can reach it, so the
+per-watcher ownership guards are structurally true rather than separately
+enforced. `composeBanner` shows the most *actionable* live message and counts the
+rest (`(+2 more)`); the log carries every one of them in full, with its source.
+
+Ordering by actionability rather than severity is the second thing review caught,
+and it is the same defect wearing the fix's clothes. `log` and `fatal` are the
+only slots nothing ever clears — a log directory does not become writable
+mid-show, and a main process that threw stays thrown. Ranked above the transient
+faults, either one parks a permanent, unactionable sentence on the banner and
+demotes every dark floor, unplugged cable and frozen renderer after it to a
+number. So they rank last; and `(+N more)`, which is a pointer at the log, is
+only used while there is a log to point at — when the `log` slot is live the
+banner carries the other messages in full, because at that moment it is the only
+surviving record of the session.
+
+Whether the log works is checked on every watchdog tick, not once at launch.
+`writeError` latches on the first failed write and is never cleared, including by
+later writes that succeed — a disk that fills and is freed leaves a hole, and a
+hole is invisible from the records that did get written. Checked only at startup,
+a log that dies at 21:40 reads exactly like one that is fine, and `(+2 more)`
+goes on pointing at a file that stopped recording hours earlier.
+
+**What is deliberately not logged.** Not frames — `ddf:frame` runs 30-60 times a
+second and does nothing but bump two counters. Not every status publish —
+`Sidecar` republishes `restarting`/`sending` on every spawn, so a crash loop
+would bury its own cause; transitions only. Not renderer console output beyond
+errors.
+
+**One trap.** `mapper stream`'s stdout is captured, and it only works because
+`sidecar.ts` sets `PYTHONUNBUFFERED=1`. Python block-buffers stdout into a pipe
+and `cmd_stream`'s opening prints carry no `flush=True`, so the first version of
+this captured nothing while looking exactly like it worked — the sender's own
+statement of the address and NIC it bound to sat in the child's buffer for the
+life of the process. Fixed on the app side because nothing in `mapper/` may
+change to accommodate the app.
+
 ## Build order
 
 One PR per gate. Branch from `main` each time, after the previous merges.

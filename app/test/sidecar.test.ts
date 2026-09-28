@@ -53,6 +53,16 @@ class FakeChild extends EventEmitter {
     setEncoding: vi.fn(),
   });
 
+  /**
+   * Present because the supervisor now reads this too. stdout was `'ignore'`
+   * until the log landed, which threw away `mapper stream`'s own statement of
+   * the address, port, rate and NIC it actually bound to — the sender naming
+   * what it is doing, as opposed to the app reporting what it asked for.
+   */
+  readonly stdout = Object.assign(new EventEmitter(), {
+    setEncoding: vi.fn(),
+  });
+
   ended = false;
 
   kill(signal?: string): boolean {
@@ -89,6 +99,7 @@ function makeSidecar() {
 
   const statuses: SenderStatus[] = [];
   const errors: (string | null)[] = [];
+  const logs: string[] = [];
   const sidecar = new Sidecar({
     isPackaged: false,
     repoRoot: '/repo',
@@ -98,8 +109,9 @@ function makeSidecar() {
     blackFrame: BLACK,
     onStatus: (s) => statuses.push(s),
     onError: (message) => errors.push(message),
+    onLog: (level, message) => logs.push(`${level} ${message}`),
   });
-  return { sidecar, children, statuses, errors };
+  return { sidecar, children, statuses, errors, logs };
 }
 
 /**
@@ -785,5 +797,140 @@ describe('stop', () => {
     await stopped;
     vi.advanceTimersByTime(10_000);
     expect(children.length).toBe(1);
+  });
+});
+
+
+/**
+ * What the supervisor writes down, as opposed to what it puts on screen.
+ *
+ * These are two different channels answering two different questions and the
+ * distinction is the point of the pair. `onError` carries the one sentence an
+ * operator should read right now; it is overwritten by the next fault and
+ * cleared five seconds after a healthy child starts. `onLog` carries the whole
+ * history, including the parts that are not faults and the parts that were
+ * superseded.
+ *
+ * The case that motivated it: a sender that crashes during load-in and recovers
+ * leaves `onError` publishing a message and then clearing it, so afterwards the
+ * fault and its resolution are the same absence. The shape of a crash loop —
+ * which argv, how many attempts, which rung of the ladder — only exists if
+ * something kept the deaths that the banner threw away.
+ */
+describe('the record it leaves behind', () => {
+  it('writes down the command line, not just the intent to spawn one', () => {
+    const { sidecar, logs } = makeSidecar();
+    sidecar.start();
+
+    const spawning = logs.find((line) => line.includes('spawning:'));
+    expect(spawning).toContain('-m mapper stream');
+    expect(spawning).toContain('--type 8x8_4P');
+    expect(spawning).toContain('--cols 10');
+    expect(spawning).toContain('--rows 5');
+  });
+
+  it("keeps the sender's own account of what it bound to", () => {
+    // `mapper stream` prints this unprompted. It is the only statement in the
+    // system about the *actual* address and NIC rather than the requested one.
+    const { sidecar, children, logs } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+    children[0].stdout.emit('data', 'sending to 255.255.255.255:60001 at 30 fps from 10.200.50.78\n');
+
+    expect(logs).toContain('INFO stdout: sending to 255.255.255.255:60001 at 30 fps from 10.200.50.78');
+  });
+
+  it('keeps every stderr line, not the ten the banner keeps', () => {
+    // `STDERR_LINE_LIMIT` clamps the banner so it stays a sentence. A traceback
+    // is mostly frames, and the frame naming the failing call is as likely to be
+    // the twelfth from the end as the first — so the record is uncapped.
+    const { sidecar, children, logs } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+    for (let i = 0; i < 15; i++) children[0].stderr.emit('data', `frame ${i}\n`);
+
+    expect(logs.filter((line) => line.startsWith('ERROR stderr:'))).toHaveLength(15);
+  });
+
+  it('records the exit status even when the child explained itself on stderr', () => {
+    // The published sentence is the child's own words, which never mention the
+    // exit code. `mapper`'s stream path exits with distinct codes specifically
+    // so a human reading a log can tell a dead NIC from a crash, and until there
+    // was a log that diagnosis had nowhere to land.
+    const { sidecar, children, logs, errors } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+    children[0].stderr.emit('data', 'floor NIC 10.200.50.78 unusable: [Errno 49]\n');
+    children[0].exitCode = 3;
+    children[0].emit('exit', 3, null);
+
+    expect(errors).toContain('floor NIC 10.200.50.78 unusable: [Errno 49]');
+    expect(logs).toContain('ERROR child died: code=3 signal=-');
+  });
+
+  it('names the ladder rung, so a crash loop is distinguishable from one crash', () => {
+    // A sender that failed once and recovered logs a single 0 ms respawn. One
+    // that cannot start at all walks the whole ladder. Those are different
+    // faults with different causes, and the delays are what tells them apart in
+    // a file read hours later.
+    const { sidecar, children, logs } = makeSidecar();
+    sidecar.start();
+
+    for (let i = 0; i < 4; i++) {
+      children[i].goLive();
+      children[i].die();
+      vi.advanceTimersByTime(5_000);
+    }
+
+    expect(logs.filter((line) => line.startsWith('INFO respawning'))).toEqual([
+      'INFO respawning in 0ms (attempt 1)',
+      'INFO respawning in 250ms (attempt 2)',
+      'INFO respawning in 500ms (attempt 3)',
+      'INFO respawning in 1000ms (attempt 4)',
+    ]);
+  });
+
+  it('records the recovery that takes the banner down', () => {
+    // `clearError` is where the operator's evidence disappears. Without a line
+    // here, a sender that crashed and recovered during load-in is indistinguishable
+    // from one that never crashed at all.
+    const { sidecar, children, logs, errors } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+    children[0].die();
+    vi.advanceTimersByTime(0);
+    children[1].goLive();
+    vi.advanceTimersByTime(STABLE_AFTER_MS);
+
+    expect(errors).toContain(null);
+    expect(logs.some((line) => line.includes('retry ladder reset, banner cleared'))).toBe(true);
+  });
+
+  it('says nothing at all when no onLog was supplied', () => {
+    // The positive control for every assertion above: `onLog` is optional, and
+    // an absent one must be a silent supervisor rather than a broken one.
+    const children: FakeChild[] = [];
+    spawn.mockImplementation(() => {
+      const child = new FakeChild();
+      children.push(child);
+      return child;
+    });
+    const quiet = new Sidecar({
+      isPackaged: false,
+      repoRoot: '/repo',
+      type: '8x8_4P',
+      cols: 10,
+      rows: 5,
+      blackFrame: BLACK,
+      onStatus: () => {},
+      onError: () => {},
+    });
+
+    expect(() => {
+      quiet.start();
+      children[0].goLive();
+      children[0].stdout.emit('data', 'hello\n');
+      children[0].die();
+    }).not.toThrow();
   });
 });

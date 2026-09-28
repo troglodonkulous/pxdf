@@ -98,6 +98,45 @@ export function App() {
   useEffect(() => window.ddf.onSenderError((payload) => setSenderError(payload?.message ?? null)), [])
   useEffect(() => window.ddf.onInterfaces(setInterfaces), [])
 
+  /*
+   * What the show did, for the log.
+   *
+   * Keyed on primitives out of `snapshot` and never on `snapshot` itself: the
+   * render loop replaces that object four times a second, so an effect
+   * depending on it would write four lines a second for the life of the
+   * session. These fire on the transition only.
+   *
+   * The sender's own transitions are not here — `main.ts` already logs status
+   * changes and every banner it publishes, and it sees them whether or not a
+   * renderer is alive to notice. Logging them again from this side would put
+   * two lines in the file for one event and make a crash loop read as twice
+   * the crash loop it is.
+   */
+  useEffect(() => {
+    if (snapshot.lastError !== null) window.ddf.log('ERROR', 'player', snapshot.lastError)
+  }, [snapshot.lastError])
+
+  useEffect(() => {
+    // Logged when it appears and not when it clears. A stall that resolves is
+    // the system working; the line that matters is the one whose timestamp can
+    // be lined up against a glitch somebody saw on the floor.
+    if (snapshot.stallWarning !== null) window.ddf.log('WARN', 'player', snapshot.stallWarning)
+  }, [snapshot.stallWarning])
+
+  useEffect(() => {
+    // The show's timeline. Read through `showRef` rather than taking `show` as
+    // a dependency, so this fires when the live cue changes and not when the
+    // operator renames one.
+    const cue = showRef.current.cues.find(({ id }) => id === snapshot.liveCueId)
+    window.ddf.log(
+      'INFO',
+      'player',
+      cue === undefined
+        ? 'live: (none)'
+        : `live: ${JSON.stringify(cue.name)} ${cue.source.path}`,
+    )
+  }, [snapshot.liveCueId])
+
   // The bound address is the main process's to know — it is what `mapper stream`
   // was actually launched with. Reading it once at start rather than assuming
   // `interfaces[0]` is what makes a `DDF_LOCAL_IP` set in the environment, or

@@ -1,12 +1,15 @@
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { networkInterfaces } from 'node:os'
-import { app, BrowserWindow, dialog, ipcMain, net, powerSaveBlocker, protocol } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, powerSaveBlocker, protocol, shell } from 'electron'
 import { floorGeometry, SHOP_RIG } from '../src/render/geometry.js'
 import { blackFrame } from '../src/render/onePass.js'
 import { PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
 import { MEDIA_SCHEME, mediaPath, mediaUrl } from '../src/player/mediaUrl.js'
 import type { Cue, ShowFloor } from '../src/player/show.js'
+import { type BannerSource, composeBanner } from './banners.js'
+import { frameVerdict } from './frameWatch.js'
+import { createLogger, type LogLevel, type Logger } from './log.js'
 import { runMapperPlan } from './mapperPlan.js'
 import { nicVerdict } from './nicWatch.js'
 import { flushSettings, loadSettings, updateSettings } from './settings.js'
@@ -94,13 +97,88 @@ let stopInProgress = false
  */
 let authorizedMediaDir: string | null = null
 
+/**
+ * The log, once `whenReady` has built it.
+ *
+ * Null before then, and `logLine` tolerates that rather than asserting: module
+ * scope runs before `app.getPath` is legal, and a crash *there* is exactly the
+ * kind of failure worth reporting — so the reporting path must not itself be
+ * the thing that throws. Those few milliseconds are covered by the
+ * `uncaughtException` handler's stderr fallback instead.
+ */
+let logger: Logger | null = null
+
+function logLine(level: LogLevel, source: string, message: string): void {
+  logger?.log(level, source, message)
+}
+
+/**
+ * A main process that threw must not read as one that answered.
+ *
+ * Installed at module scope rather than inside `whenReady` so it covers the
+ * window before the app is ready — which is where a bad `protocol` registration
+ * or a settings file that will not parse would land. `logLine` no-ops until the
+ * logger exists, so the stderr write below is not a duplicate on that path: it
+ * is the only copy.
+ *
+ * Deliberately not `app.quit()`. Node's default for an uncaught exception is to
+ * die, and installing a handler suppresses that — which is the right trade here
+ * (a show does not want the app vanishing over a failure in a settings write)
+ * but only if the failure is loud. It gets the operator's banner, the log, and
+ * stderr.
+ */
+function reportFatal(kind: string, error: unknown): void {
+  const detail = error instanceof Error
+    ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+    : String(error)
+  logLine('FATAL', 'main', `${kind}: ${detail}`)
+  process.stderr.write(`ddf: ${kind}: ${detail}\n`)
+  setBanner('fatal', `the app hit an internal error — see the log. ${kind}: ${detail.split('\n')[0]}`)
+}
+
+process.on('uncaughtException', (error) => reportFatal('uncaught exception', error))
+process.on('unhandledRejection', (reason) => reportFatal('unhandled rejection', reason))
+
 function publishStatus(status: SenderStatus): void {
+  // On change only. `Sidecar` publishes `restarting` on every spawn and
+  // `sending` 400 ms later, which during a crash loop at the bottom of the
+  // retry ladder is several transitions a second — a log that recorded each one
+  // would bury the death that caused them under the noise it produced.
+  if (status !== currentStatus) logLine('INFO', 'sender', `status ${currentStatus} -> ${status}`)
   currentStatus = status
   mainWindow?.webContents.send('ddf:status', status)
 }
 
-function publishSenderError(message: string | null): void {
-  currentSenderError = message === null ? null : { message }
+/**
+ * What each source currently has to say, one slot each.
+ *
+ * See `banners.ts` for the two ways the single shared slot this replaces ate
+ * diagnostics — a log-file warning wiped by the first routine sidecar recovery,
+ * and a frame watchdog permanently silenced by having its message overwritten.
+ * A source writes only its own key, so neither is reachable from here.
+ */
+const liveBanners: Partial<Record<BannerSource, string>> = {}
+
+function setBanner(source: BannerSource, message: string | null): void {
+  // On change only, and per source. The watchdog and the NIC poll are both
+  // level-triggered and call this on every tick with the same string for as
+  // long as the fault lasts; logging each one would put a line a second behind
+  // a banner that never changed.
+  if ((liveBanners[source] ?? null) === message) return
+
+  if (message === null) {
+    delete liveBanners[source]
+    logLine('INFO', source, 'banner cleared')
+  } else {
+    liveBanners[source] = message
+    logLine('ERROR', source, message)
+  }
+
+  // The composed line is what the renderer sees; the log above is what the
+  // session is graded on. The log gets every source's message in full even when
+  // the UI can only show the most urgent one.
+  const composed = composeBanner(liveBanners)
+  currentSenderError = composed === null ? null : { message: composed }
   mainWindow?.webContents.send('ddf:sender-error', currentSenderError)
 }
 
@@ -118,9 +196,14 @@ function pollInterfaces(): void {
     process.env.DDF_LOCAL_IP,
     interfaces,
     nicBanner,
-    currentSenderError?.message ?? null,
+    liveBanners.nic ?? null,
   )
-  if (verdict.clearBanner) publishSenderError(null)
+  // `clearBanner`'s guard — this watcher may take down only its own message —
+  // is now also structural, since `setBanner` writes a slot nothing else can
+  // reach. It is still consulted rather than deleted because `nicWatch.ts`'s
+  // tests are the record of the two regressions that produced it.
+  if (verdict.nicBanner !== null) setBanner('nic', verdict.nicBanner)
+  else if (verdict.clearBanner) setBanner('nic', null)
   nicBanner = verdict.nicBanner
   queueNicVerdict(verdict)
 
@@ -128,6 +211,14 @@ function pollInterfaces(): void {
   // an order change as a change is harmless, while sorting would make the UI's
   // presentation differ from the native enumeration used by the picker.
   if (JSON.stringify(interfaces) !== JSON.stringify(lastInterfaces)) {
+    // A cable going in or out, timestamped. At a venue this is the line that
+    // separates "the sender died" from "somebody moved a cable while it was
+    // running", and those have entirely different next steps.
+    logLine(
+      'INFO',
+      'nic',
+      `interfaces: ${interfaces.map(({ name, address }) => `${name}=${address}`).join(' ') || '(none)'}`,
+    )
     lastInterfaces = interfaces
     mainWindow?.webContents.send('ddf:interfaces', interfaces)
   }
@@ -147,6 +238,100 @@ function stopInterfacePoll(): void {
   if (interfacePollTimer === null) return
   clearInterval(interfacePollTimer)
   interfacePollTimer = null
+}
+
+/**
+ * Renderer liveness, and the log's own heartbeat.
+ *
+ * See `frameWatch.ts` for what this is watching for and why nothing else in the
+ * app can see it. This half owns the two things a pure function cannot: the
+ * clock, and the rule that the banner is published on the *edge* rather than
+ * every tick.
+ *
+ * The heartbeat is the positive control for the whole log file. Without it,
+ * "the log contains no errors" and "the app died twenty minutes ago" produce
+ * byte-identical evidence, and `CLAUDE.md`'s rule that silence must be
+ * distinguishable from success is broken by the instrument rather than by the
+ * thing it measures. One line a minute carrying the frame count is what makes a
+ * gap in the timestamps mean something.
+ */
+let frameWatchTimer: ReturnType<typeof setInterval> | null = null
+let lastFrameAt: number | null = null
+let windowReadyAt: number | null = null
+let watchdogBanner: string | null = null
+let framesSinceHeartbeat = 0
+let ticksSinceHeartbeat = 0
+
+const HEARTBEAT_TICKS = 60
+
+/**
+ * Is the log still recording?
+ *
+ * Called at launch *and* on every watchdog tick, because whether the log works
+ * is not a launch-time property. The volume it lives on can fill, a managed
+ * profile can revoke the folder, an external disk can be unplugged — and from
+ * that moment every line this app writes goes only to a stderr that a packaged
+ * `.app` launched from Finder has nowhere to put.
+ *
+ * Checked once at startup, a log that dies at 21:40 reads exactly like one that
+ * is fine, which is this project's own failure mode with the instrument as the
+ * subject. It is also the assumption `composeBanner` rests on: `(+2 more)` is a
+ * pointer at the log file, and it would go on pointing at a file that stopped
+ * recording hours ago.
+ *
+ * Never cleared, because `writeError` latches. A log that failed a write and
+ * then recovered has a hole in it, and a hole is not something the operator can
+ * see by reading what did get written.
+ */
+function checkLogHealth(): void {
+  if (logger === null) {
+    setBanner('log', 'no log file this session — the log folder could not be created')
+  } else if (logger.writeError !== null) {
+    setBanner('log', `the log is not recording — ${logger.writeError}`)
+  }
+}
+
+function checkFrames(): void {
+  checkLogHealth()
+
+  const verdict = frameVerdict({
+    lastFrameAt,
+    windowReadyAt,
+    now: Date.now(),
+    lastWatchdogBanner: watchdogBanner,
+    currentBanner: liveBanners.watchdog ?? null,
+  })
+
+  // Edge-triggered publish over a level-triggered verdict. The message carries
+  // no elapsed counter precisely so this comparison works — see the
+  // "keeps the message byte-identical" test in `frameWatch.test.ts`.
+  if (verdict.banner !== null) setBanner('watchdog', verdict.banner)
+  else if (verdict.clearBanner) setBanner('watchdog', null)
+  watchdogBanner = verdict.watchdogBanner
+
+  ticksSinceHeartbeat += 1
+  if (ticksSinceHeartbeat >= HEARTBEAT_TICKS) {
+    logLine(
+      'INFO',
+      'heartbeat',
+      `status=${currentStatus} nic=${process.env.DDF_LOCAL_IP ?? 'default'} ` +
+      `floor=${currentFloor.type} ${currentFloor.tileCols}x${currentFloor.tileRows} ` +
+      `frames=${framesSinceHeartbeat}/${HEARTBEAT_TICKS}s`,
+    )
+    ticksSinceHeartbeat = 0
+    framesSinceHeartbeat = 0
+  }
+}
+
+function startFrameWatch(): void {
+  if (frameWatchTimer !== null) return
+  frameWatchTimer = setInterval(checkFrames, 1_000)
+}
+
+function stopFrameWatch(): void {
+  if (frameWatchTimer === null) return
+  clearInterval(frameWatchTimer)
+  frameWatchTimer = null
 }
 
 // One queue for every operation that touches sidecar's lifecycle: floor
@@ -185,7 +370,11 @@ function queueNicVerdict(verdict: ReturnType<typeof nicVerdict>): void {
     () => { nicVerdictQueued = false },
     (error: unknown) => {
       nicVerdictQueued = false
-      console.error('Failed to apply NIC state to sender:', error)
+      // Was the last `console.error` in the app, which is the reason this
+      // branch exists: a suspend or resume that never reached the sender
+      // leaves the banner and the wire disagreeing, and a packaged `.app`
+      // launched from Finder has no stdout anyone will ever read.
+      logLine('ERROR', 'nic', `failed to apply NIC state to sender: ${String(error)}`)
     },
   )
 }
@@ -207,7 +396,8 @@ async function doSetFloor(next: ShowFloor): Promise<void> {
     rows: next.tileRows,
     blackFrame: black,
     onStatus: publishStatus,
-    onError: publishSenderError,
+    onError: (message: string | null) => setBanner('sender', message),
+    onLog: (level, message) => logLine(level, 'sidecar', message),
   })
   sidecar.start()
   currentFloor = next
@@ -258,9 +448,29 @@ function createWindow(): void {
     // vendor's own content when it is in Master/IR mode (in slave mode it
     // would hold its last frame instead, same as 2 and 3 — either way, black
     // is the only frame safe to leave on the floor with nobody driving it).
-    if (BrowserWindow.getAllWindows().length === 0) sidecar?.writeFrame(currentBlackFrame)
+    if (BrowserWindow.getAllWindows().length === 0) {
+      // Disarm the watchdog with the window. Nothing is expected to be drawing
+      // once there is no renderer, and a `lastFrameAt` left standing from the
+      // closed window would make the *next* one — macOS reopens on `activate` —
+      // fire "stopped producing frames" the instant it loads, before it has had
+      // a chance to draw anything. A warning that is guaranteed on a path the
+      // operator takes deliberately is the cry-wolf failure by construction.
+      windowReadyAt = null
+      lastFrameAt = null
+      watchdogBanner = null
+      setBanner('watchdog', null)
+      logLine('INFO', 'window', 'last window closed; black frame sent, watchdog disarmed')
+      sidecar?.writeFrame(currentBlackFrame)
+    }
   })
   window.webContents.on('did-finish-load', () => {
+    // Re-armed from scratch on every load, reload included: the grace period is
+    // measured from when this page started, not from when the app did.
+    windowReadyAt = Date.now()
+    lastFrameAt = null
+    watchdogBanner = null
+    setBanner('watchdog', null)
+    logLine('INFO', 'window', 'renderer loaded')
     publishStatus(currentStatus)
     window.webContents.send('ddf:sender-error', currentSenderError)
     if (lastInterfaces !== null) window.webContents.send('ddf:interfaces', lastInterfaces)
@@ -275,7 +485,21 @@ function createWindow(): void {
 }
 
 ipcMain.on('ddf:frame', (_event: unknown, frame: Uint8Array) => {
+  // Two counters and nothing else. This runs 30-60 times a second, so it is the
+  // one handler in the app that must never log, never allocate and never call
+  // into the verdict — `checkFrames` reads what this leaves behind, once a
+  // second, on its own timer.
+  lastFrameAt = Date.now()
+  framesSinceHeartbeat += 1
   sidecar?.writeFrame(frame)
+})
+
+ipcMain.on('ddf:log', (_event: unknown, level: LogLevel, source: string, message: string) => {
+  logLine(level, source, message)
+})
+
+ipcMain.on('ddf:reveal-log', () => {
+  if (logger !== null) shell.showItemInFolder(logger.path)
 })
 
 ipcMain.handle('ddf:mapper-plan', (_event, type: string, cols: number, rows: number) => {
@@ -385,6 +609,24 @@ async function chooseMedia(): Promise<string[]> {
 }
 
 void app.whenReady().then(() => {
+  // First, before anything that can fail. `app.getPath('logs')` is only legal
+  // once the app is ready, which is why this is here and not at module scope —
+  // and everything below it is something worth having a record of.
+  //
+  // Guarded, and the guard is the point. `createLogger` can throw on its
+  // `mkdirSync` — a managed profile, a full disk, a `~/Library/Logs` that is
+  // not writable — and this call sits inside `whenReady().then(...)`, so an
+  // escape would reject that promise and skip everything after it: no sidecar,
+  // no window, no interface poll. The app would fail to start *because* of the
+  // thing added to explain failures, which is the instrument breaking what it
+  // was installed to measure. Running without a log is a bad session; running
+  // without a floor is no session at all.
+  try {
+    logger = createLogger(app.getPath('logs'))
+  } catch (error) {
+    process.stderr.write(`ddf: no log this session: ${String(error)}\n`)
+  }
+
   powerSaveBlocker.start('prevent-app-suspension')
 
   // The other half of `mediaUrl.ts`. `net.fetch` over a `file://` URL is what
@@ -441,19 +683,41 @@ void app.whenReady().then(() => {
   }
   authorizedMediaDir = canonicalDir(storedSettings.lastMediaDir)
 
-  // Packaged only, and to stderr rather than the UI: this is the one record of
-  // which interpreter a `.app` launched from Finder actually reached for. The
-  // spawn itself already reports failure — `sidecar.ts`'s `publishDeath` turns
-  // `spawn python3 ENOENT` into a banner — but a sender that comes up on the
-  // *wrong* python fails no differently from one that comes up on the right
-  // one, and there is otherwise nothing to read afterwards in Console.app.
-  if (app.isPackaged) {
-    const env = resolvePythonEnv(true)
-    process.stderr.write(
-      `ddf: mapper cwd ${mapperCwd(true, devRepoRoot)}\n` +
-      `ddf: python "${process.env.DDF_PYTHON ?? 'python3'}" PATH=${env.PATH ?? ''}\n`,
-    )
-  }
+  // The launch block, and the reason it is no longer `if (app.isPackaged)`.
+  //
+  // This used to be a `process.stderr.write` on the packaged path only, on the
+  // grounds that it was the one record of which interpreter a `.app` launched
+  // from Finder reached for. That reasoning was right and the destination was
+  // wrong: a `.app` launched from Finder has no stderr anybody will ever read,
+  // so the one record was written to nowhere. It goes in the log now, and
+  // unconditionally — the dev build's answers to these questions are worth
+  // having in the same file, in the same format, as the packaged build's,
+  // because comparing the two is how "it works in dev" gets diagnosed.
+  //
+  // Everything here is something a sender can fail on and nothing here is
+  // visible from the UI afterwards.
+  const env = resolvePythonEnv(app.isPackaged)
+  logLine('INFO', 'launch', [
+    // `app.getName()` and not the literal "ddf": unpackaged, Electron answers
+    // "Electron 43.4.0" for both of these, and a line reading "ddf 43.4.0"
+    // would be the log confidently misidentifying the build that wrote it —
+    // in the one file anyone consults to answer exactly that question.
+    `${app.getName()} ${app.getVersion()} · electron ${process.versions.electron} · ${process.platform} ${process.arch}`,
+    `packaged=${String(app.isPackaged)}`,
+    `mapper cwd: ${mapperCwd(app.isPackaged, devRepoRoot)}`,
+    `python: "${process.env.DDF_PYTHON ?? 'python3'}"`,
+    `PATH: ${env.PATH ?? ''}`,
+    `floor: ${currentFloor.type} ${currentFloor.tileCols}x${currentFloor.tileRows}`,
+    `local ip: ${process.env.DDF_LOCAL_IP ?? '(default route)'}`,
+    `log: ${logger?.path ?? '(none)'}`,
+  ].join('\n'))
+
+  // The logger reporting on itself, and the one message that cannot be trusted
+  // to the logger. If there is no file, or the write of the launch block above
+  // failed, then saying so *in the log* reaches nobody — so it goes to the
+  // operator, before the session that was going to rely on it. The watchdog
+  // tick asks the same question every second afterwards.
+  checkLogHealth()
 
   sidecar = new Sidecar({
     isPackaged: app.isPackaged,
@@ -463,11 +727,13 @@ void app.whenReady().then(() => {
     rows: currentFloor.tileRows,
     blackFrame: currentBlackFrame,
     onStatus: publishStatus,
-    onError: publishSenderError,
+    onError: (message: string | null) => setBanner('sender', message),
+    onLog: (level, message) => logLine(level, 'sidecar', message),
   })
   sidecar.start()
   createWindow()
   startInterfacePoll()
+  startFrameWatch()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -479,7 +745,9 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', (event) => {
+  logLine('INFO', 'app', 'quitting')
   stopInterfacePoll()
+  stopFrameWatch()
   // Before the early return below, so a NIC changed inside the debounce window
   // and then quit on is still written.
   flushSettings()

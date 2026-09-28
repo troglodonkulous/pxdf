@@ -262,6 +262,19 @@ export function MappingScreen({
       <header className="title-bar">
         <span className="show-title">DDF Setup — Mapping</span>
         <StatusPill status={status} />
+        {/*
+          On Mapping rather than Play, and on purpose: this is the surface the
+          app launches on and the one nobody is standing at during a show. The
+          log is for after something went wrong, or for handing over — it is not
+          a control, and it should not be one keypress from the transport.
+        */}
+        <button
+          type="button"
+          className="button small ghost reveal-log"
+          onClick={() => window.ddf.revealLog()}
+        >
+          Reveal log
+        </button>
       </header>
 
       <div className="mapping-body">

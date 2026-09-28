@@ -42,6 +42,22 @@ export interface SidecarOptions {
   readonly blackFrame: Uint8Array
   readonly onStatus: (status: SenderStatus) => void
   readonly onError: (message: string | null) => void
+  /**
+   * Everything this supervisor did, for the log file.
+   *
+   * Optional and unused by most callers, which is why it is declared here
+   * rather than joining `onError` in the `Omit` dance the constructor does: an
+   * absent `onLog` is a silent supervisor, not a broken one.
+   *
+   * Distinct from `onError` on purpose. `onError` is the operator's channel and
+   * carries one live sentence at a time; this is the historian's, and carries
+   * everything including the parts that are not faults — which argv a child was
+   * spawned with, what it said on stdout, how long the ladder waited. A crash
+   * loop's *shape* is the diagnosis more often than any single death is, and
+   * the shape only exists in a record that keeps the deaths that were
+   * superseded.
+   */
+  readonly onLog?: (level: 'INFO' | 'ERROR', message: string) => void
 }
 
 const RETRY_DELAYS_MS = [0, 250, 500, 1_000, 2_000, 5_000] as const
@@ -165,12 +181,14 @@ export class Sidecar {
 
     this.options.onStatus('stopped')
     this.options.onError(reason)
+    this.options.onLog?.('INFO', `suspended: ${reason}`)
   }
 
   resume(): void {
     if (!this.suspended || this.stopping || !this.started) return
 
     this.suspended = false
+    this.options.onLog?.('INFO', 'resumed: the bound address is back')
     // A missing NIC is not evidence that the sender itself is unhealthy. Once
     // the address exists again, retaining the crash ladder's old rung would
     // leave a recovered floor dark for up to five unnecessary seconds.
@@ -180,6 +198,7 @@ export class Sidecar {
   }
 
   private async shutDown(): Promise<void> {
+    this.options.onLog?.('INFO', 'stopping: black frame, then end stdin')
     this.stopping = true
     this.started = false
     this.clearTimer('retryTimer')
@@ -266,6 +285,19 @@ export class Sidecar {
    * later deaths reported under it either.
    */
   private publishDeath(stderr: string, cause: Error | null, code: number | null, signal: string | null): void {
+    // Logged before the branch, and carrying the raw status rather than the
+    // sentence below it. The synthesised sentence deliberately loses
+    // information — a death that explained itself on stderr never mentions its
+    // exit code at all — and the exit code is the diagnosis for `mapper`'s
+    // stream path specifically, which exits with distinct codes precisely so
+    // "a human reading a log" can tell a dead NIC from a crash. Until now there
+    // was no log for it to preserve the diagnosis in.
+    this.options.onLog?.(
+      'ERROR',
+      `child died: code=${code ?? '-'} signal=${signal ?? '-'}` +
+      (cause === null ? '' : ` error=${cause.message}`),
+    )
+
     const reported = stderr.length > 0 ? stderr : (cause?.message ?? '')
     if (reported.length > 0) {
       this.lastReported = reported
@@ -334,13 +366,55 @@ export class Sidecar {
       args.push('--local-ip', localIp)
     }
 
+    // The command, in full, every time.
+    //
+    // Reconstructing it from the UI is guesswork — `--local-ip` is present or
+    // absent depending on an environment variable set from a persisted
+    // setting, and `--address` differs between packaged and dev builds. When a
+    // sender is on the wrong NIC or broadcasting to the wrong address, this
+    // line is the difference between reading the answer and inferring it.
+    this.options.onLog?.('INFO', `spawning: ${python} ${args.join(' ')}`)
+
     const child = spawn(python, args, {
       cwd: this.options.repoRoot,
-      env: resolvePythonEnv(this.options.isPackaged),
-      stdio: ['pipe', 'ignore', 'pipe'],
+      // `PYTHONUNBUFFERED` is not hygiene, it is the difference between the
+      // stdout capture below working and silently capturing nothing.
+      //
+      // MEASURED 2026-09-03, first run of this change: the log recorded the
+      // spawn and every status transition, and not one line of `mapper`'s own
+      // output. Python block-buffers stdout when it is a pipe rather than a
+      // TTY, and `cmd_stream`'s opening prints — the geometry, and
+      // `sending to <address>:<port> at <fps> fps from <nic>` — carry no
+      // `flush=True`. They sat in the child's buffer for the life of the
+      // process, so a capture that looked like it was working was recording a
+      // stream that never arrived.
+      //
+      // Fixed here rather than in `mapper/cli.py` because nothing in `mapper/`
+      // may change to accommodate the app. The cost is nil: that path prints
+      // three lines at startup and none per frame.
+      env: { ...resolvePythonEnv(this.options.isPackaged), PYTHONUNBUFFERED: '1' },
+      // stdout was `'ignore'`, which discarded the only unsolicited statement
+      // `mapper stream` makes about what it is actually doing:
+      //
+      //     sending to 255.255.255.255:60001 at 30 fps from 10.200.50.78
+      //
+      // That is the sender naming its own address, port, rate and bound NIC —
+      // the four things an operator debugging a dark floor most wants
+      // confirmed, and the four this app otherwise can only report its
+      // *intent* about. A piped stream must be drained or the child blocks once
+      // the pipe buffer fills, so the `data` handler below is load-bearing and
+      // not merely useful.
+      stdio: ['pipe', 'pipe', 'pipe'],
     })
     this.child = child
     this.writable = false
+
+    child.stdout?.setEncoding('utf8')
+    child.stdout?.on('data', (chunk: string) => {
+      for (const line of chunk.split(/\r?\n/)) {
+        if (line.trim().length > 0) this.options.onLog?.('INFO', `stdout: ${line}`)
+      }
+    })
 
     let stderrLines: string[] = []
     let stderrRemainder = ''
@@ -353,6 +427,16 @@ export class Sidecar {
 
       const lines = `${stderrRemainder}${chunk}`.split(/\r?\n/)
       stderrRemainder = lines.pop() ?? ''
+
+      // Uncapped, unlike the banner copy below. `STDERR_LINE_LIMIT` exists so a
+      // banner stays a sentence rather than a wall, which is right for the
+      // screen and wrong for the record: a Python traceback is mostly frames,
+      // and the frame that names the failing call is as likely to be the
+      // eleventh from the end as the first.
+      for (const line of lines) {
+        if (line.trim().length > 0) this.options.onLog?.('ERROR', `stderr: ${line}`)
+      }
+
       stderrLines.push(...lines)
       if (stderrLines.length > STDERR_LINE_LIMIT) {
         stderrLines = stderrLines.slice(-STDERR_LINE_LIMIT)
@@ -440,6 +524,13 @@ export class Sidecar {
         this.stableTimer = null
         if (this.child === child && !failed) {
           this.retryIndex = 0
+          // Logged because `clearError` is where the operator's evidence
+          // disappears: the banner describing the death comes down here, five
+          // seconds after a healthy child started. Before this file had a log,
+          // a sender that crashed and recovered during load-in left no trace of
+          // having crashed at all — the fault, and the fact that it resolved,
+          // were the same absence.
+          this.options.onLog?.('INFO', `stable for ${STABLE_AFTER_MS}ms; retry ladder reset, banner cleared`)
           this.clearError()
         }
       }, STABLE_AFTER_MS)
@@ -456,6 +547,11 @@ export class Sidecar {
   private scheduleRespawn(): void {
     const delay = RETRY_DELAYS_MS[Math.min(this.retryIndex, RETRY_DELAYS_MS.length - 1)]
     this.retryIndex += 1
+    // The ladder rung, which is how a crash loop identifies itself in the log.
+    // A sender that failed once and recovered logs a single 0 ms respawn; one
+    // that cannot start at all walks 0/250/500/1000/2000/5000 and then repeats
+    // 5000 for ever. Those are different faults and they read differently here.
+    this.options.onLog?.('INFO', `respawning in ${delay}ms (attempt ${this.retryIndex})`)
     // `restarting` is published by `spawnChild`, not here. During this delay —
     // up to five seconds at the top of the ladder — nothing is coming up yet, and
     // `stopped` is the accurate word for that.

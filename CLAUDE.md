@@ -100,6 +100,11 @@ Cabled left-to-right, monotonic. Sender NIC `10.200.50.78/8`; dumpcap interface 
 - `max_tolerated` budgets **measured per capture window and clip length**. Re-derive if either changes; budget carried over from different capture is exactly the unbounded tolerance the field exists to remove.
 - **Stopping the send does not black the floor.** In Master/IR mode controller 1 reverts to local content ~5 s later; in slave mode it holds its last frame like 2 and 3 do unconditionally. Either way nothing blacks the floor on its own, so app BLACKOUT, cue gaps, idle must all send *black frames*. Socket opens with show file, never closes.
 - **`design/mockups.html` renders superset of what ships.** Direction (Fwd/Rev/Bounce), Custom layout, Calibrate… all appear in it, all shelved or scrapped. `docs/REQUIREMENTS-v1.pdf` wins over mockups, `docs/APP-PLAN.md` say what cut and why.
+- **Grab the log before relaunching after a fault.** `~/Library/Logs/DDF Sender/ddf.log`
+  packaged, `~/Library/Logs/Electron/ddf.log` unpackaged — macOS derives that folder from
+  the app name, not from `--user-data-dir`. Launch rotates it to `ddf.prev.log`, so one
+  restart is survivable and **two overwrite the evidence**. Copy the file, do not rely on
+  the rotation. Timestamps are ISO **UTC**, not venue local.
 - **App traps live in `docs/APP-PLAN.md`, not here** — `corsEnabled` and the render loop that dies silently, a fix disarming the regression test for its own bug, `wire.mjs` asserting on wire then polling the DOM. Read it before app code.
 
 ## Git
@@ -125,6 +130,7 @@ Large media (`test-patterns/Test Clips/`, ~188 MB) and `tools/oracle/out/` gitig
 |---|---|
 | **A result looks right** — before believing it | `docs/POSTMORTEMS.md` |
 | **Delegating to Codex** — builder, critic, any `--write` task | `docs/DELEGATION.md` |
+| **Reading a floor-test log**, or extending what it records | `docs/APP-PLAN.md` §"The log, and the three failures that had no channel" — what each source means, what the heartbeat proves, and what is deliberately not logged |
 | **Writing app code** — any of it | `docs/APP-PLAN.md`, **the app's only copy**. `docs/app-plan.html` deleted 2026-08-12; two forms of one plan drifted on load-bearing scope once already, do not recreate it |
 | Deciding whether a feature is in scope | `docs/REQUIREMENTS-v1.pdf`, operator-annotated, wins over mockups |
 | Building any UI | `design/mockups.html`, open from disk — loads `support.js` and `design-system/` from this repo |
