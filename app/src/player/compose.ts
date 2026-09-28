@@ -67,9 +67,36 @@ export interface Composed {
   /** Always safe to put on the wire. `fallback` when composition failed. */
   readonly bytes: Uint8Array;
   /**
+   * How long `source.draw` took — the decoder handing over a frame.
+   *
+   * Null exactly when `passMs` is; see its note. The three are measured and
+   * nulled together so a reader never has to work out which subset of a frame
+   * is represented in an average.
+   */
+  readonly drawMs: number | null;
+  /**
+   * How long `getImageData` took — reading the whole work canvas back into
+   * JavaScript.
+   *
+   * Split out because it is the step this app has the least idea about and the
+   * most reason to suspect. At S = 8 an 80 x 80 floor makes a 640 x 640
+   * readback, about 1.6 MB copied per compose, and `App.tsx` composes twice per
+   * animation frame whenever Preview is showing something other than Live. Until
+   * this field existed it was charged to nothing at all: the timer used to start
+   * *after* it, so the readout and the log both attributed the whole cost of a
+   * frame to `onePass`, which is the one part of it that was already measured.
+   */
+  readonly readbackMs: number | null;
+  /**
    * How long the pass took, or `null` when there was no pass — which is what
    * keeps a failed frame out of the rolling average instead of recording it as
    * an implausibly fast one.
+   *
+   * All three timings share that rule, including the ones whose step completed
+   * before the failure. A `draw` that succeeded and a `getImageData` that then
+   * threw did produce a real number for the first step, and averaging it in
+   * anyway would fold the timings of frames that never reached the wire into
+   * the statistic describing the frames that did.
    */
   readonly passMs: number | null;
 }
@@ -77,18 +104,29 @@ export interface Composed {
 /**
  * Draw a source and pack it for the wire. Never throws.
  *
- * @returns the composed bytes, or `request.fallback` with `passMs: null` if any
- *          step failed — in which case `source.fail()` has been called.
+ * @returns the composed bytes and how long each of its three steps took, or
+ *          `request.fallback` with all three timings `null` if any step failed
+ *          — in which case `source.fail()` has been called.
  */
 export function composeFrame(request: ComposeRequest): Composed {
   const { source, context, workWidth, workHeight, floor, pass, into, fallback } = request;
 
   try {
+    // Three spans, not one. Every boundary here is a `performance.now()` that
+    // both neighbours read, so the three add up to the whole of this function's
+    // work and no step can hide inside another one.
+    const drawStartedAt = performance.now();
     source.draw(context, workWidth, workHeight);
+    const readbackStartedAt = performance.now();
     const pixels = context.getImageData(0, 0, workWidth, workHeight);
-    const startedAt = performance.now();
+    const passStartedAt = performance.now();
     const bytes = onePass(pixels.data, floor, pass, into);
-    return { bytes, passMs: performance.now() - startedAt };
+    return {
+      bytes,
+      drawMs: readbackStartedAt - drawStartedAt,
+      readbackMs: passStartedAt - readbackStartedAt,
+      passMs: performance.now() - passStartedAt,
+    };
   } catch (error) {
     // The exception is repetitive — the same one every frame until the engine
     // reaps this source — but it is not uninformative, and an earlier version
@@ -98,6 +136,6 @@ export function composeFrame(request: ComposeRequest): Composed {
     // itself. Those send the operator to different places, so the string goes
     // with the failure and the engine puts it after the cue's name.
     source.fail(error instanceof Error ? `${error.name}: ${error.message}` : String(error));
-    return { bytes: fallback, passMs: null };
+    return { bytes: fallback, drawMs: null, readbackMs: null, passMs: null };
   }
 }

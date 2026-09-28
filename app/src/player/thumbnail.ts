@@ -1,3 +1,4 @@
+import { openDecoder } from './decoderCensus'
 import { coverRect } from './videoSource'
 import { mediaUrl } from './mediaUrl'
 
@@ -67,6 +68,14 @@ export async function captureThumbnail(
 ): Promise<HTMLCanvasElement> {
   const timeoutMs = options.timeoutMs ?? THUMBNAIL_TIMEOUT_MS
   const video = document.createElement('video')
+  // The second of the app's two decoder-creation sites, and the one that fans
+  // out: `PlayScreen` calls this once per cue with no concurrency limit, so
+  // adding forty clips opens forty of these at once. Counted from immediately
+  // after the element exists to the `finally` below, which runs on the decode
+  // failure and the timeout as well as the happy path — those are exactly the
+  // paths that abandon a throwaway decoder, and a census that skipped them
+  // would climb for ever and invent an exhaustion. See `decoderCensus.ts`.
+  const closeCensusEntry = openDecoder()
   video.muted = true
   video.playsInline = true
   video.preload = 'auto'
@@ -110,5 +119,6 @@ export async function captureThumbnail(
   } finally {
     video.removeAttribute('src')
     video.load()
+    closeCensusEntry()
   }
 }

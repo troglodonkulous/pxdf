@@ -1035,6 +1035,14 @@ try {
         ...process.env,
         DDF_ADDRESS: '127.0.0.1',
         DDF_PORT: String(PORT),
+        // The heartbeat is once a minute in every build anyone ships, and this
+        // run lasts well under that — so without this the log section below
+        // would be grading a channel that had never spoken, and would pass by
+        // finding nothing. Turned down rather than faked: these are real
+        // heartbeats from a real run, and the line says its own cadence
+        // (`frames=N/5s`) so nothing downstream can mistake them for a
+        // minute's counting.
+        DDF_HEARTBEAT_SECONDS: '5',
         DDF_PICK_MEDIA: [...clips, undecodable, loopClip, trimClip, moov.front, moov.end].join(delimiter),
         DDF_CUE_SEED: JSON.stringify(cueSeed),
       },
@@ -2840,6 +2848,76 @@ try {
   check(!logText.includes('stopped producing frames') && !logText.includes('never produced a frame'),
     'the renderer watchdog stayed quiet through a healthy run',
     logText.split('\n').filter((line) => line.includes('producing frame')).join(' | '))
+
+  // 6a. The failing clip's path.
+  //
+  //     The banner sentence and the log line used to be the same string, so the
+  //     log inherited a constraint that belongs only to a UI element an
+  //     operator reads over a console mid-show. The consequence is on record:
+  //     the 2026-09-05/06 job wrote 116 `ERROR player` lines naming cues and
+  //     no paths, while every `INFO player live:` line beside them — the ones
+  //     nobody needed to chase — carried a full path.
+  //
+  //     Graded here rather than only in `engine.test.ts` because the unit test
+  //     can only prove the string exists; this proves it survives the trip
+  //     through `App.tsx`'s effect, the IPC, and `log.ts` into the file an
+  //     operator actually hands over. The cue is the `rawvideo.avi` fixture,
+  //     fired from idle back in section 2a.
+  const playerErrors = logText.split('\n').filter((line) => line.includes('  ERROR  player  '))
+  check(playerErrors.length > 0 && playerErrors.some((line) => line.includes(undecodable)),
+    'the log names the file behind a cue that would not play, not only the cue',
+    `${playerErrors.length} player errors · ${playerErrors[0] ?? '(none)'}`)
+
+  // 6b. The heartbeat's renderer field.
+  //
+  //     Three assertions in a fixed order, because they fail differently. That
+  //     there are heartbeats at all is the positive control: without it the two
+  //     below would both pass on an empty file by finding nothing to disagree
+  //     with, which is this project's own signature failure with the instrument
+  //     as the subject.
+  const heartbeats = logText.split('\n').filter((line) => line.includes('  INFO   heartbeat  '))
+  check(heartbeats.length > 0, 'the run left heartbeats to read',
+    `${heartbeats.length} heartbeats · ${heartbeats[heartbeats.length - 1] ?? '(none)'}`)
+
+  //     A heartbeat that reported the renderer live *and* saw it compose
+  //     something. An idle renderer is healthy and prints `composes=0
+  //     draw=-/-ms`, which is correct and useless for grading the numbers, so
+  //     the line this reads is one from while the show was actually running.
+  const composing = heartbeats.filter((line) => /renderer=live\b/.test(line)
+    && /composes=[1-9]/.test(line))
+  check(composing.length > 0,
+    'a heartbeat catches the renderer live and composing, rather than silent',
+    heartbeats.map((line) => line.slice(line.indexOf('renderer='))).join('\n          '))
+
+  const lastComposing = composing[composing.length - 1] ?? ''
+  const field = (name) => new RegExp(`\\b${name}=(\\S+)`).exec(lastComposing)?.[1] ?? null
+  const readback = field('readback')
+  //     `avg/max` in milliseconds, and the assertion is on the shape rather
+  //     than on a bound. A threshold here would be a performance target this
+  //     gate has no business enforcing on whatever machine it runs on; what it
+  //     is entitled to insist on is that the cost was measured and written
+  //     down, in a form the next investigation can read.
+  check(readback !== null && /^\d+\.\d\d\/\d+\.\d\dms$/.test(readback),
+    'the heartbeat carries the canvas readback cost, the span that used to be charged to nothing',
+    `readback=${readback} · draw=${field('draw')} · pass=${field('pass')}`)
+
+  const decoders = Number(field('decoders'))
+  const opened = Number(field('opened'))
+  const peak = Number(field('peak'))
+  //     The census, and the half of it that can be wrong in the reassuring
+  //     direction. This run adds seven cues, each of which opens a throwaway
+  //     thumbnail decoder and a throwaway duration probe, on top of the three
+  //     slots the engine holds — so `opened` has to be well into double
+  //     figures, and `decoders` has to be back down among the slots. A census
+  //     that only counted up would satisfy the first and fail the second,
+  //     which is the point of asserting both: it would otherwise sit there
+  //     climbing, and eventually report an exhaustion that never happened.
+  check(Number.isFinite(opened) && opened >= 10 && Number.isFinite(peak) && peak >= 2,
+    'the heartbeat carries the decoder census, and the run really did open decoders',
+    `decoders=${decoders} peak=${peak} opened=${opened}`)
+  check(Number.isFinite(decoders) && Number.isFinite(opened) && opened >= 10 && decoders <= 5,
+    'the decoder count comes back down — the census releases, it does not only count up',
+    `decoders=${decoders} of ${opened} opened, peak ${peak}`)
 
   // 7. The reauthorisation policy, proved rather than only documented — see
   //    `checkLibrarySurvivesRestart`. Run after the main run's Electron has

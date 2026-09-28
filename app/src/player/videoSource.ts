@@ -1,3 +1,4 @@
+import { openDecoder } from './decoderCensus'
 import type { FrameSource } from './engine'
 import { mediaUrl } from './mediaUrl'
 import { SourceReadiness } from './sourceReadiness'
@@ -138,6 +139,16 @@ export class VideoSource implements FrameSource {
   private readonly trimEndMs: number | null
   /** Ready / failed / disposed, and the ordering between them. */
   private readonly state = new SourceReadiness()
+  /**
+   * The census entry for this source's decoder, closed by `dispose`.
+   *
+   * Opened here and not at the `document.createElement` in the constructor's
+   * default parameter, because what holds an element open is the source's
+   * lifetime rather than who allocated it — and putting it in the default
+   * would count only the sources that did not get one injected, which is every
+   * source in the app and none in the tests. See `decoderCensus.ts`.
+   */
+  private readonly closeCensusEntry = openDecoder()
   private frameCallbackId: number | null = null
   /**
    * Whether the engine has told this source to stop, as opposed to the element
@@ -411,6 +422,11 @@ export class VideoSource implements FrameSource {
 
   dispose(): void {
     if (!this.state.dispose()) return
+    // First, and unconditionally past the idempotence guard above: everything
+    // below this line can in principle throw on a hostile element, and a census
+    // that stops decrementing the moment something else goes wrong would report
+    // an exhaustion that never happened.
+    this.closeCensusEntry()
 
     if (this.frameCallbackId !== null && this.hasVideoFrameCallbacks()) {
       this.video.cancelVideoFrameCallback(this.frameCallbackId)

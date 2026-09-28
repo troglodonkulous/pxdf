@@ -1332,3 +1332,109 @@ describe('the hold is loop × the trimmed clip duration', () => {
     expect(rig.engine.snapshot().cueDurationMs).toBe(300);
   });
 });
+
+/**
+ * The banner sentence and the log sentence, which used to be one string.
+ *
+ * `App.tsx` logged `snapshot.lastError` verbatim, so the file inherited a
+ * constraint that belongs only to a UI element — and the 2026-09-05/06 job's
+ * log is what that cost. Its 116 `ERROR player` lines, the clips that actually
+ * needed investigating, name a cue and nothing else; its `INFO player live:`
+ * lines, which needed no investigation at all, carry full paths. The one field
+ * an investigator needs was present on exactly the records that did not need
+ * it.
+ *
+ * Both halves are asserted on every case below. "The log line contains a path"
+ * would pass against an engine that had simply moved the path into the banner
+ * too, which is the fix that breaks the surface it was meant to leave alone.
+ */
+describe('the log line carries the path the banner has no room for', () => {
+  it('names the failing media in the log and keeps it out of the banner', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    rig.source('a').failed = true;
+    rig.engine.tick();
+
+    const snapshot = rig.engine.snapshot();
+    expect(snapshot.lastErrorLog).toContain('/media/a.mp4');
+    expect(snapshot.lastErrorLog).toContain('Cue a');
+    expect(snapshot.lastError).toContain('Cue a');
+    expect(snapshot.lastError).not.toContain('/media/a.mp4');
+  });
+
+  it('keeps the decoder’s own detail, which is what says why', () => {
+    const rig = build(show(cue('a')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    rig.source('a').reasonWhileAlive = 'PIPELINE_ERROR_DECODE';
+    rig.source('a').failed = true;
+    rig.engine.tick();
+
+    // The path is additive. An implementation that replaced the detail with it
+    // would trade the answer to "why" for the answer to "which file", and the
+    // log needs both — that pairing is the whole point of the line.
+    expect(rig.engine.snapshot().lastErrorLog).toContain('PIPELINE_ERROR_DECODE');
+    expect(rig.engine.snapshot().lastErrorLog).toContain('/media/a.mp4');
+  });
+
+  it('is null exactly when the banner is', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    expect(rig.engine.snapshot().lastError).toBe(null);
+    expect(rig.engine.snapshot().lastErrorLog).toBe(null);
+
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    rig.source('a').failed = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().lastError).not.toBe(null);
+    expect(rig.engine.snapshot().lastErrorLog).not.toBe(null);
+
+    // `App.tsx` keys its logging effect on `lastErrorLog` alone. If the two
+    // could disagree about null, a failure would either be banner-only or
+    // file-only, and which one you got would depend on a field nobody reads.
+    rig.engine.setShow(show(cue('b')));
+    rig.engine.tick();
+    expect(rig.engine.snapshot().lastError).toBe(null);
+    expect(rig.engine.snapshot().lastErrorLog).toBe(null);
+  });
+
+  it('renames with the show, and still prints the path that failed', () => {
+    const rig = build(show(cue('a')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    rig.source('a').failed = true;
+    rig.engine.tick();
+
+    rig.engine.setShow(show({ ...cue('a'), name: 'renamed mid-fault' }));
+    rig.engine.tick();
+    const snapshot = rig.engine.snapshot();
+    expect(snapshot.lastError).toContain('renamed mid-fault');
+    expect(snapshot.lastErrorLog).toContain('renamed mid-fault');
+    expect(snapshot.lastErrorLog).toContain('/media/a.mp4');
+  });
+
+  it('reports the live failure in both, when preview has failed as well', () => {
+    // One resolver behind both fields. Picking a surface twice, independently,
+    // would let the banner describe one cue while the file describes another —
+    // a log of an event nobody watching the app ever saw.
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    rig.engine.setMode('preview');
+    rig.engine.selectCue('b');
+    rig.source('b').failed = true;
+    rig.engine.tick();
+    rig.source('a').failed = true;
+    rig.engine.tick();
+
+    expect(rig.engine.snapshot().lastError).toContain('Cue a');
+    expect(rig.engine.snapshot().lastErrorLog).toContain('/media/a.mp4');
+    expect(rig.engine.snapshot().lastErrorLog).not.toContain('/media/b.mp4');
+  });
+});

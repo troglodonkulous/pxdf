@@ -161,6 +161,24 @@ export interface EngineSnapshot {
    */
   readonly lastError: string | null;
   /**
+   * The same failure, written for the log file rather than for the banner.
+   *
+   * Null exactly when `lastError` is, and carrying the same sentence with the
+   * failing media's path appended — which is the one thing an investigator
+   * needs and the banner has no room for.
+   *
+   * The two are separate fields rather than one string used twice because they
+   * answer to different readers. The banner is read by an operator, over a
+   * console, during a show, and has to stay short enough to be taken in at a
+   * glance; the log is read afterwards by someone who has forty clips, a
+   * timestamp, and no idea which file on disk the cue named "Color Fireflys"
+   * pointed at. The 2026-09-05/06 job's log is what settled it: every
+   * `INFO player live:` line in it carries a full path, and every one of the
+   * 116 `ERROR player` lines — the clips that actually needed investigating —
+   * carries only a cue name the operator has since been free to rename.
+   */
+  readonly lastErrorLog: string | null;
+  /**
    * A cue that is playing but waiting for data, right now. Null when nothing is
    * stalled.
    *
@@ -537,6 +555,7 @@ export class PlayerEngine<S extends FrameSource> {
       positionMs: this.live?.source.positionMs ?? 0,
       mediaDurationMs: this.live?.source.mediaDurationMs ?? null,
       lastError: this.lastError,
+      lastErrorLog: this.lastErrorLog,
       stallWarning: this.stallWarning,
     };
   }
@@ -611,22 +630,65 @@ export class PlayerEngine<S extends FrameSource> {
   }
 
   /**
-   * The one line the banner shows.
+   * The failure the banner and the log are both derived from, resolved against
+   * the show as it stands now.
    *
    * Live wins when both surfaces have failed. Both are true and only one fits,
    * and the floor is the show — an operator reading "could not preview" while
    * the floor is dark has been told the less useful of two true things.
+   *
+   * One resolver for both readouts, so they cannot disagree about *which*
+   * failure is current. If the banner and the log picked their surface
+   * independently, a live and a preview failure standing at the same time would
+   * put one cue on screen and a different cue in the file — and the log would be
+   * describing an event nobody watching the app ever saw.
    */
-  private get lastError(): string | null {
+  private get currentError(): { readonly cue: Cue; readonly error: SurfaceError } | null {
     const error = this.liveError ?? this.previewError;
     if (error === null) return null;
     // Named from the show as it is now, not as it was when this was recorded.
     // Renaming the cue that would not play is an ordinary thing to do with the
     // banner up, and the old name is one the operator can no longer find.
+    //
+    // A cue deleted while failed yields null here, which is what has always
+    // happened and what `retireStaleErrors` then makes permanent a tick later.
     const cue = this.cueById(error.cueId);
     if (cue === null) return null;
-    const sentence = `cue ${JSON.stringify(cue.name)} ${error.reason}`;
-    return error.detail === null ? sentence : `${sentence} — ${error.detail}`;
+    return { cue, error };
+  }
+
+  /**
+   * The one line the banner shows. Short, because it is a UI element on a
+   * surface an operator is working during a show.
+   */
+  private get lastError(): string | null {
+    const current = this.currentError;
+    if (current === null) return null;
+    const sentence = `cue ${JSON.stringify(current.cue.name)} ${current.error.reason}`;
+    return current.error.detail === null ? sentence : `${sentence} — ${current.error.detail}`;
+  }
+
+  /**
+   * The same line for the log, with the path of the media that failed.
+   *
+   * `error.path` and not `cue.source.path`: the path this failure was actually
+   * recorded against. They are equal whenever this returns non-null, because
+   * `retireStaleErrors` drops an error whose cue has been pointed at different
+   * media — but the field that means "the file that would not play" is the one
+   * to print, rather than a field that means "the file this cue points at now"
+   * and happens to agree.
+   *
+   * The path goes before the reason rather than after the detail. The detail is
+   * the decoder's own free text, unbounded and occasionally several clauses
+   * long; a path tacked on the end of it is the field most likely to be
+   * truncated, mis-split or mistaken for part of the error message, and it is
+   * the field with the most investigation riding on it.
+   */
+  private get lastErrorLog(): string | null {
+    const current = this.currentError;
+    if (current === null) return null;
+    const sentence = `cue ${JSON.stringify(current.cue.name)} (${current.error.path}) ${current.error.reason}`;
+    return current.error.detail === null ? sentence : `${sentence} — ${current.error.detail}`;
   }
 
   /**

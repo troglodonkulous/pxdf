@@ -4,6 +4,7 @@ import { MappingScreen, type NetworkInterface } from './mapping/MappingScreen.js
 import { applyFloorSelection } from './mapping/floorSelection.js'
 import { PlayScreen } from './PlayScreen.js'
 import { composeFrame } from './player/compose.js'
+import { decoderCensus } from './player/decoderCensus.js'
 import { PlayerEngine, type EngineSnapshot } from './player/engine.js'
 import { emptyShow, type Show, type ShowFloor } from './player/show.js'
 import { VideoSource } from './player/videoSource.js'
@@ -113,8 +114,15 @@ export function App() {
    * the crash loop it is.
    */
   useEffect(() => {
-    if (snapshot.lastError !== null) window.ddf.log('ERROR', 'player', snapshot.lastError)
-  }, [snapshot.lastError])
+    // `lastErrorLog`, not `lastError`. The banner and the log line used to be
+    // the same string, which meant the log inherited a constraint that belongs
+    // only to the banner — it has to be short, because an operator reads it
+    // over a console mid-show. The file has no such limit and the reader of the
+    // file has the opposite need, so it gets the failing path too. The two
+    // fields are null and non-null together (`engine.ts`), so keying on this
+    // one fires on exactly the transitions the old one did.
+    if (snapshot.lastErrorLog !== null) window.ddf.log('ERROR', 'player', snapshot.lastErrorLog)
+  }, [snapshot.lastErrorLog])
 
   useEffect(() => {
     // Logged when it appears and not when it clears. A stall that resolves is
@@ -194,6 +202,16 @@ export function App() {
     let sampledFrames = 0
     let sampledPasses = 0
     let sampledPassTime = 0
+    // The other two thirds of a composed frame, accumulated the same way and
+    // reported to the main process rather than to React. The on-screen readout
+    // keeps saying "one-pass" and means it; these go to the log, where the
+    // question "what did a frame actually cost during the job" can still be
+    // asked the next morning. See `electron/renderStats.ts`.
+    let sampledDrawTime = 0
+    let sampledReadbackTime = 0
+    let sampledDrawMax = 0
+    let sampledReadbackMax = 0
+    let sampledPassMax = 0
 
     // Composition is the one step here that touches a decoder, a canvas and
     // cross-origin media, so it is the one that is allowed to fail — and
@@ -217,8 +235,16 @@ export function App() {
         into,
         fallback: blackFrameRef.current,
       })
-      if (composed.passMs !== null) {
+      // All three timings are non-null together or null together, so one guard
+      // covers them — and a failed frame contributes to none of the six
+      // accumulators rather than to some of them.
+      if (composed.passMs !== null && composed.drawMs !== null && composed.readbackMs !== null) {
         sampledPassTime += composed.passMs
+        sampledDrawTime += composed.drawMs
+        sampledReadbackTime += composed.readbackMs
+        if (composed.passMs > sampledPassMax) sampledPassMax = composed.passMs
+        if (composed.drawMs > sampledDrawMax) sampledDrawMax = composed.drawMs
+        if (composed.readbackMs > sampledReadbackMax) sampledReadbackMax = composed.readbackMs
         sampledPasses += 1
       }
       return composed.bytes
@@ -271,10 +297,34 @@ export function App() {
           passMs: sampledPasses === 0 ? 0 : sampledPassTime / sampledPasses,
         })
         setSnapshot(engine.snapshot())
+        // Sums and maxima, not averages: the main process folds four of these a
+        // second into a minute and must be able to weight them by how many
+        // frames each one saw. The decoder census is read here rather than at
+        // either creation site because this is the only place in the app that
+        // runs on a clock — a push from `VideoSource`'s constructor would put an
+        // IPC send on the cue-arming path.
+        const census = decoderCensus()
+        window.ddf.renderStats({
+          composes: sampledPasses,
+          drawMsTotal: sampledDrawTime,
+          readbackMsTotal: sampledReadbackTime,
+          passMsTotal: sampledPassTime,
+          drawMsMax: sampledDrawMax,
+          readbackMsMax: sampledReadbackMax,
+          passMsMax: sampledPassMax,
+          decodersLive: census.live,
+          decodersPeak: census.peak,
+          decodersOpened: census.opened,
+        })
         sampleStartedAt = now
         sampledFrames = 0
         sampledPasses = 0
         sampledPassTime = 0
+        sampledDrawTime = 0
+        sampledReadbackTime = 0
+        sampledDrawMax = 0
+        sampledReadbackMax = 0
+        sampledPassMax = 0
       }
     }
 

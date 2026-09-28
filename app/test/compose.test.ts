@@ -112,3 +112,90 @@ describe('composeFrame', () => {
     expect(source.fail).toHaveBeenCalledOnce();
   });
 });
+
+/**
+ * The three spans, and why they had to be three.
+ *
+ * The timer used to start *after* `getImageData`, so `passMs` was the pack step
+ * alone and everything before it — the decoder handing over a frame, and a
+ * full-canvas readback that at S = 8 copies about 1.6 MB — was charged to
+ * nothing at all. The readout said `0.00 ms one-pass` and was telling the truth
+ * about a third of the work. That is not a wrong number, which is the problem:
+ * it is a right number for a question nobody was asking, standing where the
+ * answer to the question they were asking should have been.
+ *
+ * The contract these grade is the one the render loop and the heartbeat both
+ * depend on: three fields that are all real or all null, never a mixture, so a
+ * caller needs one guard rather than three and an average can never be made of
+ * a frame that half happened.
+ */
+describe('composeFrame timings', () => {
+  it('reports draw, readback and pass separately on a good frame', () => {
+    const composed = composeFrame(request(fakeSource(), fakeContext({ readable: true, value: 255 })));
+
+    expect(composed.drawMs).not.toBeNull();
+    expect(composed.readbackMs).not.toBeNull();
+    expect(composed.passMs).not.toBeNull();
+    for (const span of [composed.drawMs, composed.readbackMs, composed.passMs]) {
+      expect(span).toBeGreaterThanOrEqual(0);
+      expect(Number.isFinite(span)).toBe(true);
+    }
+  });
+
+  it('charges the readback to the readback, not to the pass', () => {
+    // The regression this whole split exists for. A context whose
+    // `getImageData` takes measurable time must move `readbackMs` and must not
+    // move `passMs`; before the split it moved neither, because the clock had
+    // not started yet.
+    const SLOW_MS = 12;
+    const base = fakeContext({ readable: true, value: 255 });
+    const slow = {
+      getImageData: (...args: unknown[]): ImageData => {
+        const until = performance.now() + SLOW_MS;
+        while (performance.now() < until) { /* burn, so the span is real time */ }
+        return (base.getImageData as unknown as (...a: unknown[]) => ImageData)(...args);
+      },
+    } as unknown as CanvasRenderingContext2D;
+
+    const composed = composeFrame(request(fakeSource(), slow));
+    expect(composed.readbackMs).toBeGreaterThanOrEqual(SLOW_MS);
+    // Paired with its own disproof: an implementation that simply reported the
+    // whole function's duration in every field would satisfy the line above.
+    expect(composed.passMs).toBeLessThan(SLOW_MS);
+    expect(composed.drawMs).toBeLessThan(SLOW_MS);
+  });
+
+  it('charges a slow decoder to the draw', () => {
+    const SLOW_MS = 12;
+    const source = {
+      draw: (): void => {
+        const until = performance.now() + SLOW_MS;
+        while (performance.now() < until) { /* burn */ }
+      },
+      fail: vi.fn<() => void>(),
+    } satisfies ComposeSource;
+
+    const composed = composeFrame(request(source, fakeContext({ readable: true, value: 255 })));
+    expect(composed.drawMs).toBeGreaterThanOrEqual(SLOW_MS);
+    expect(composed.readbackMs).toBeLessThan(SLOW_MS);
+    expect(composed.passMs).toBeLessThan(SLOW_MS);
+  });
+
+  it('nulls all three when the readback fails, including the draw that succeeded', () => {
+    // `draw` really did complete and really was measured, and the number is
+    // still discarded. Averaging the timings of frames that never reached the
+    // wire into the statistic describing the frames that did is how a readout
+    // gets quietly faster the worse the show goes.
+    const composed = composeFrame(request(fakeSource(), fakeContext({ readable: false })));
+    expect(composed.drawMs).toBeNull();
+    expect(composed.readbackMs).toBeNull();
+    expect(composed.passMs).toBeNull();
+  });
+
+  it('nulls all three when the draw fails', () => {
+    const composed = composeFrame(request(fakeSource({ drawThrows: true }), fakeContext({ readable: true })));
+    expect(composed.drawMs).toBeNull();
+    expect(composed.readbackMs).toBeNull();
+    expect(composed.passMs).toBeNull();
+  });
+});
