@@ -20,10 +20,11 @@ this plan shelves.
 
 ## The decision
 
-1. **Do not port the mapper.** It is the only part of this project graded against
+1. **Do not port the mapper** (D-04 in `docs/DECISIONS.md`, now a preference: the
+   "buys nothing" half of the reasoning below no longer holds). It is the only part of this project graded against
    hardware — 80/80 frames exact against Ledset's 68/72, `RUNSHEET-10x5-4P.md`
    §11 P4-7. A Swift or JS rewrite restarts exactly the risk `CLAUDE.md` exists
-   to prevent and buys nothing: the deepest floor it is graded at is 7,680 pixels
+   to prevent and, as written on 2026-08-11, buys nothing: the deepest floor it is graded at is 7,680 pixels
    at 30 fps, and the one show it has run was 6,400.
 2. **Electron + TypeScript + React, with `mapper/` as a sidecar process.** The
    mockups are working HTML against a real token system, the compositor is
@@ -105,7 +106,8 @@ own 30 Hz clock  verified·untouched  reader thread
    CTRL 1 (4p) · CTRL 2 (4p) · CTRL 3 (2p)
 ```
 
-Python owning the clock is the README's double-buffering requirement for free: a
+Python owning the clock (D-03 — **challenged 2026-09-28** by the render-rate
+cadence measurement; see `docs/DECISIONS.md`) is the README's double-buffering requirement for free: a
 renderer hitch re-sends the previous frame instead of producing a gap, and the
 wire keeps its measured ±0.4 ms pacing whatever Chromium is doing.
 
@@ -136,7 +138,7 @@ on the floor becomes a decision instead of an accident. The lesson is not "add a
 try/catch"; it is that a show surface needs a structural guarantee rather than
 one that holds as long as nothing in the middle misbehaves.
 
-**S is a setting — 4 / 8 / 16, default 8** — beside a live render-ms readout,
+**S is a setting — 4 / 8 / 16, default 8** (D-10) — beside a live render-ms readout,
 settled at the shop against real clips. The 16× sweet spot was measured through
 `make_clip.py --scaler area`, judged partly on file size and generation time,
 neither of which exists in the app. The principle transfers; the number does
@@ -153,14 +155,14 @@ load-bearing part, and that ports unchanged.)
 ## Rotation is not orientation
 
 `mapper/orientation.py` is **cabling compensation**, applied at the wire-mapping
-stage. `CLAUDE.md` settles it as `identity`, permanently, and it stays settled.
+stage. It is `identity` (D-13 in `docs/DECISIONS.md`).
 
 Mapping's **Rotation** (0 / 90 / 180 / 270) is a **presentation transform**, so an
 operator can author a physically 80 × 96 portrait floor as a 96 × 80 landscape
 canvas. It lives in the final composite pass. The mapper receives an 80 × 96
 row-major RGB framebuffer at every rotation.
 
-**Zero changes to `mapper/`.** Do not merge the two concepts.
+**Zero changes to `mapper/`** (D-12). Do not merge the two concepts.
 
 Rotation lives on the **Mapping** surface, with the floor it presents. It is not
 in mockup 1a — that is an addition to the mockup, made deliberately, because
@@ -636,8 +638,10 @@ errors.
 and `cmd_stream`'s opening prints carry no `flush=True`, so the first version of
 this captured nothing while looking exactly like it worked — the sender's own
 statement of the address and NIC it bound to sat in the child's buffer for the
-life of the process. Fixed on the app side because nothing in `mapper/` may
-change to accommodate the app.
+life of the process. Fixed on the app side, because at the time nothing in
+`mapper/` could change for the app. That rule is now scoped by D-01 and D-02 in
+`docs/DECISIONS.md`: the encoder and `play`/`send` stay frozen; `stream` may
+change, opt-in and graded.
 
 ## Build order
 
@@ -864,7 +868,7 @@ Named so they do not creep back in.
   wanted.
 - **Remote control** (§11) and **mapping export** (§10). Marked post-MVP in the
   requirements themselves.
-- **Colour calibration.** Scrapped, not shelved — see `CLAUDE.md`. A `Calibrate…`
+- **Colour calibration.** Scrapped, not shelved — see D-17 in `docs/DECISIONS.md`. A `Calibrate…`
   button in a mockup is not permission to reopen it.
 - **WebGL generators.** Conditional on S = 16 winning at the shop.
 
@@ -880,6 +884,10 @@ Named so they do not creep back in.
   controller order. The white frame and per-column walk are not optional.
 - **Frame pacing matters more than measured.** The 7.8 %-of-a-frame worst case
   at 60 fps is documented and unexplained. Harmless at 30.
+- **Content cadence on the app path is off-pattern even at 30.** A separate risk
+  from the one above, found 2026-09-28: 35–46 % of wire frames repeat or skip
+  with the renderer uncapped (`captures/measurements/README.md`, render-rate).
+  Cause not diagnosed. D-03 in `docs/DECISIONS.md` carries it.
 - **The app must run unattended for hours.** Nothing here is soak-tested. PR 6's
   drills are the minimum, not proof.
 

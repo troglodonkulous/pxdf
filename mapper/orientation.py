@@ -100,7 +100,7 @@ class Orientation:
 
 
 #: What Ledset itself does: no transform at all, and what this project sends —
-#: `CLAUDE.md` settles orientation as `identity`, permanently, because the floor
+#: orientation is `identity`, permanently (docs/DECISIONS.md D-13), because the floor
 #: is cabled left-to-right and monotonically. The non-identity flags above stay
 #: as the cabling knob for a floor that is patched differently, and as the
 #: non-trivial permutations `test_invariants` runs the packing bijection over.

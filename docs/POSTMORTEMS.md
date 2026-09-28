@@ -12,7 +12,7 @@ mapping fault and emitted it under a different label. The stored capture's
 timestamp was on disk. `node_modules` was empty. The `SecurityError` was raised
 sixty times a second. None of it reached a reader. That is the whole failure
 mode, and every fix that has ever worked here was **adding a channel for bad
-news** — see `CLAUDE.md`, "Channels for bad news", which is the actionable form
+news** — see `CLAUDE.md`, "The one thing to internalise", which is the actionable form
 of this document.
 
 **Ordinals are retired.** These used to be cited as "the fifth", "the seventh",

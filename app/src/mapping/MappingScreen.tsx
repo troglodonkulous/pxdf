@@ -231,7 +231,7 @@ export function MappingScreen({
   // Rotation is applied here, at render time, and never reaches `buildDiagram`.
   // It is a *presentation* transform — the operator authoring a portrait floor
   // on a landscape canvas — not `mapper/orientation.py`, which is cabling
-  // compensation and is settled at `identity` permanently. Keeping it out of the
+  // compensation and is `identity`, permanently (D-13). Keeping it out of the
   // model is what stops the two ever merging: `buildDiagram` is graded against
   // `mapper plan`, and a rotation argument would put a presentation choice
   // inside the thing that gate measures.

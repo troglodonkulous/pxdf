@@ -390,8 +390,9 @@ export class Sidecar {
       // process, so a capture that looked like it was working was recording a
       // stream that never arrived.
       //
-      // Fixed here rather than in `mapper/cli.py` because nothing in `mapper/`
-      // may change to accommodate the app. The cost is nil: that path prints
+      // Fixed here rather than in `mapper/cli.py` because, when this was
+      // written, nothing in `mapper/` could change for the app (now scoped by
+      // D-01/D-02 in docs/DECISIONS.md). The cost is nil: that path prints
       // three lines at startup and none per frame.
       env: { ...resolvePythonEnv(this.options.isPackaged), PYTHONUNBUFFERED: '1' },
       // stdout was `'ignore'`, which discarded the only unsolicited statement
