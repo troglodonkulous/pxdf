@@ -35,6 +35,21 @@ was never a fix *of*.
   that blinded `tsc` in PR 1, and it reads as a reasonable local workaround
   every time it happens.
 
+## Pass a prompt to `codex-companion.mjs` as a file, not as shell text
+
+`task --prompt-file <path>` reads a prompt from disk. `task '<text>'` passes it
+through the shell first, and a prompt built from repo content routinely
+contains backtick-quoted code (`` `mapper stream --pace input` ``) or command
+substitution look-alikes — the shell runs those before Codex ever sees them.
+On 2026-09-28 a rescue prompt reached Codex with `` `mapper stream --pace
+input` `` stripped out and three "command not found" lines in its place; the
+prompt was reconstructed and sent again via `--prompt-file`.
+
+Write the prompt to a scratch file and pass `--prompt-file`, always, once it
+has more than a line or two of repo-derived text. Check the task's own stderr
+log for shell errors (`command not found`, unexpected expansion) before
+trusting what Codex reports it received.
+
 ## The acceptance command needs a leg that fails when a dependency is absent
 
 PR 1's was `typecheck && test && build`, run in a sandbox without network where
