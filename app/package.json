@@ -11,7 +11,7 @@
     "dev:floor": "DDF_ADDRESS=255.255.255.255 npm run dev",
     "build": "vite build && npm run build:electron",
     "build:electron": "vite build --mode electron-main && vite build --mode electron-preload",
-    "dist": "npm run build && electron-builder --mac",
+    "dist": "node scripts/releaseTree.mjs && npm run build && electron-builder --mac",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

@@ -33,6 +33,9 @@ import { canonicalDir, listLibraryFiles, servableLibraryFile } from './mediaAuth
 import { mapperCwd, resolvePythonEnv } from './paths.js'
 import { Sidecar, type SenderStatus } from './sidecar.js'
 
+/** Baked in by `vite.config.ts` from `scripts/releaseTree.mjs`: `git describe`, `-dirty`, or `unknown`. */
+declare const __DDF_BUILD__: string
+
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 const devRepoRoot = resolve(currentDirectory, '../..')
 
@@ -883,6 +886,10 @@ void app.whenReady().then(() => {
     // would be the log confidently misidentifying the build that wrote it —
     // in the one file anyone consults to answer exactly that question.
     `${app.getName()} ${app.getVersion()} · electron ${process.versions.electron} · ${process.platform} ${process.arch}`,
+    // The code this is, as `git describe` saw it at build time. The version
+    // above names the package, never the commit; this line is what lets a show
+    // log answer "was that fixed in what we ran?". `scripts/releaseTree.mjs`.
+    `build: ${__DDF_BUILD__}`,
     `packaged=${String(app.isPackaged)}`,
     `mapper cwd: ${mapperCwd(app.isPackaged, devRepoRoot)}`,
     `python: "${process.env.DDF_PYTHON ?? 'python3'}"`,
@@ -897,6 +904,14 @@ void app.whenReady().then(() => {
     `heartbeat: every ${HEARTBEAT_TICKS}s · draw/readback/pass are avg/max ms per composed frame · ` +
       'decoders=open now, peak=high-water mark, opened=total this page',
   ].join('\n'))
+  // A packaged build is what a show runs, and `npm run dist` refuses a dirty or
+  // unreadable tree unless overridden. When it was overridden, say so at every
+  // launch rather than once at build time, where nobody at the show will look.
+  // Unpackaged runs are dev builds, dirty as a matter of course, and a warning
+  // on every one of them would be a channel that cries wolf.
+  if (app.isPackaged && (__DDF_BUILD__.endsWith('-dirty') || __DDF_BUILD__ === 'unknown')) {
+    logLine('WARN', 'launch', `this build's code is not a commit (${__DDF_BUILD__}) — it was packaged with DDF_ALLOW_DIRTY, and no record says exactly what it contains`)
+  }
 
   // The logger reporting on itself, and the one message that cannot be trusted
   // to the logger. If there is no file, or the write of the launch block above

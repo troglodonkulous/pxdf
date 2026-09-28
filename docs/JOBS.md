@@ -15,6 +15,12 @@ So: job specifics live here, dated and closed. A permanent conclusion drawn
 *from* a job is the thing that graduates to `CLAUDE.md`, and it graduates as the
 conclusion, not as the booking.
 
+**Every record carries a `build` row, copied from the show log's launch line**
+(`build: <git describe>`). A show runs a packaged build of a `floor-` tag
+(`docs/DECISIONS.md` D-20), so that string names a commit. If it ends in
+`-dirty` or reads `unknown`, the record says so plainly: that show's code
+cannot be reconstructed.
+
 ---
 
 ## 2026-09-05/06 — first real job
@@ -37,7 +43,7 @@ about, this is the one that has been on hardware.
 | controllers | three |
 | sender NIC | `10.200.50.78` |
 | sender rate | `mapper stream --fps 30` |
-| build | unpackaged, from `/Users/USER/dev/ddf`, on `app-media-content-length` |
+| build | unpackaged, from `/Users/USER/dev/ddf`, on `app-media-content-length`. **Commit not recorded, and whether the working tree was clean is unknown.** The branch tip was `09f796d`, tagged `show-2026-09-05` after the fact; that is the best available answer, not a record |
 | ran | 2026-09-06T00:01:59Z → 08:06:59Z (UTC; the venue evening of 09-05) |
 
 **The log is tracked** at `captures/ddf-job-2026-09-05T23-2026-09-06T08.log`,

@@ -268,3 +268,27 @@ for a month; the only show that has run was 10 × 10.
 Evidence: `docs/JOBS.md`, 2026-09-18.
 Reopen if: not reopenable — a booking is true for one show. Per-show records
 live in `docs/JOBS.md`, dated and closed.
+
+### D-20 — Merge on the off-hardware bar; the floor certifies a tag, and shows run a tag
+Protects: two things the old rule traded against each other. `main` stays
+current, so work is not stacked for weeks. And a show runs code that the floor
+has tested and that the log can name.
+Evidence: the rule it replaces failed on both counts. "Core PRs stay draft
+until floor-tested", kept in one machine's private memory, left `main` six weeks
+and 86 commits behind, while the 2026-09-05/06 show ran from an unmerged branch
+whose exact commit and tree state were never recorded (`docs/JOBS.md`).
+Reopen if: a merged-but-untested change reaches a show, or `main` again falls
+weeks behind open work.
+
+- A PR merges when reviewer findings are resolved and the off-hardware bar
+  passes. The user still approves every merge (D-18); nothing is held in draft
+  waiting for hardware.
+- After a floor session passes, the user tags the tested commit
+  `floor-YYYY-MM-DD` (annotated). `git log floor-<latest>..main` is what the
+  floor still owes a test.
+- A show runs `npm run dist` from a `floor-` tag. `dist` refuses a tree with
+  uncommitted changes under `app/` or `mapper/` (`app/scripts/releaseTree.mjs`);
+  `DDF_ALLOW_DIRTY=1` overrides, and such a build logs a WARN at every launch.
+  The launch line's `build:` field goes into the show's `docs/JOBS.md` record.
+- A failed floor session means fix forward or revert. The previous `floor-` tag
+  is still there to run.
