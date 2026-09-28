@@ -402,6 +402,14 @@ single unretried `is-live` read against that is a race that fails about one run
 in two, and it is the gate flaking rather than the app. Every DOM assertion in
 `wire.mjs` polls.
 
+**Only one launch of the built app at a time.** `wire.mjs`, every `probe-*.mjs`,
+and `npm run dev` each start their own Electron instance, and two running
+together contend for the same `ddf.log` (whichever exits last wins the file),
+the same DevTools debug port, and the same CPU — the last of which silently
+perturbs any cadence measurement (`probe-render-rate.mjs`) without producing an
+error either harness would report. Run one, let it exit, confirm no Electron
+process survives, then run the next.
+
 ## The log, and the three failures that had no channel
 
 Added 2026-09-03, before the first floor session on the integrated app. The last

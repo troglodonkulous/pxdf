@@ -124,6 +124,11 @@ The full entries — what each protects, its evidence, and what reopens it — a
   the app name, not from `--user-data-dir`. Launch rotates it to `ddf.prev.log`, so one
   restart is survivable and **two overwrite the evidence**. Copy the file; do not rely on
   the rotation. Timestamps are ISO **UTC**, not venue local.
+- **The same rotation applies to a batch of measurement runs, not just a fault.**
+  Any launch of the built app — `wire.mjs`, a `probe-*.mjs`, or the app itself —
+  rotates the log the same way, so the second of two back-to-back runs
+  overwrites the first's. Copy what a run needs out of the log before starting
+  the next one.
 - **App traps live in `docs/APP-PLAN.md`, not here** — `corsEnabled` and the render loop that dies silently, a fix disarming the regression test for its own bug, and `wire.mjs` asserting on the wire and then polling the DOM. Read it before writing app code.
 
 ## Git
