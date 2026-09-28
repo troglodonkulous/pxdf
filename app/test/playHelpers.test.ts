@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   cueNameFromPath,
-  durationSecondsText,
   formatTimecode,
   insertCue,
   moveCue,
-  parseDurationSeconds,
   removeCue,
   renameCue,
-  setCueDuration,
   setCueRotation,
 } from '../src/player/playHelpers'
 import type { Cue } from '../src/player/show'
@@ -17,7 +14,10 @@ const cue = (id: string): Cue => ({
   id,
   name: `Cue ${id}`,
   source: { kind: 'video', path: `/media/${id}.mp4` },
-  durationMs: null,
+  loop: null,
+  trimStartMs: 0,
+  trimEndMs: null,
+  mediaDurationMs: null,
   rotation: 0,
 })
 
@@ -40,11 +40,41 @@ describe('Play helpers', () => {
     expect(removeCue([cue('a'), cue('b'), cue('c')], 'b').map(({ id }) => id)).toEqual(['a', 'c'])
   })
 
-  it('moves a cue one keyboard-reachable step and stops at the edges', () => {
+  it('moves a cue to an arbitrary target index', () => {
+    // The signature the drag-and-drop handler needs: a drop index, not a
+    // step. Dropping row 'a' onto row 'c''s position lands it at index 2.
+    const cues = [cue('a'), cue('b'), cue('c'), cue('d')]
+    expect(moveCue(cues, 'a', 2).map(({ id }) => id)).toEqual(['b', 'c', 'a', 'd'])
+    expect(moveCue(cues, 'd', 0).map(({ id }) => id)).toEqual(['d', 'a', 'b', 'c'])
+  })
+
+  it('still serves the keyboard up/down buttons, which pass selectedIndex ± 1', () => {
     const cues = [cue('a'), cue('b'), cue('c')]
-    expect(moveCue(cues, 'b', -1).map(({ id }) => id)).toEqual(['b', 'a', 'c'])
-    expect(moveCue(cues, 'b', 1).map(({ id }) => id)).toEqual(['a', 'c', 'b'])
-    expect(moveCue(cues, 'a', -1).map(({ id }) => id)).toEqual(['a', 'b', 'c'])
+    expect(moveCue(cues, 'b', 0).map(({ id }) => id)).toEqual(['b', 'a', 'c'])
+    expect(moveCue(cues, 'b', 2).map(({ id }) => id)).toEqual(['a', 'c', 'b'])
+  })
+
+  it('clamps a target past either edge rather than refusing the move', () => {
+    // A drop below the last row or above the first is an ordinary drag
+    // gesture, not an error — unlike the old `-1 | 1` offset form, which
+    // returned the stack unchanged at an edge because there was no next slot
+    // to step into. Clamping is that same "do nothing more" outcome for the
+    // in-bounds edge case (moving the first cue further up) and an active
+    // move for the out-of-bounds one (a drop past the end).
+    const cues = [cue('a'), cue('b'), cue('c')]
+    expect(moveCue(cues, 'a', -5).map(({ id }) => id)).toEqual(['a', 'b', 'c'])
+    expect(moveCue(cues, 'a', 99).map(({ id }) => id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('leaves the stack unchanged for an id that is not in it', () => {
+    const cues = [cue('a'), cue('b'), cue('c')]
+    expect(moveCue(cues, 'ghost', 1).map(({ id }) => id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('does not mutate the array it was given', () => {
+    const original = [cue('a'), cue('b'), cue('c')]
+    moveCue(original, 'a', 2)
+    expect(original.map(({ id }) => id)).toEqual(['a', 'b', 'c'])
   })
 
   it('renames non-destructively and derives readable names from media paths', () => {
@@ -54,69 +84,11 @@ describe('Play helpers', () => {
   })
 })
 
-/**
- * The duration field is a text input wired to a number the render loop reads
- * sixty times a second, and the engine's duration check is `elapsedMs() <
- * duration`. That comparison is false for `NaN`, for `0` and for negatives — so
- * every value rejected here would otherwise produce a cue that advances on the
- * next tick and every tick after it, walking the whole stack in under a second
- * with no error raised anywhere. This is the edge where that is catchable.
- */
-describe('parseDurationSeconds', () => {
-  it('reads a plain number of seconds', () => {
-    expect(parseDurationSeconds('10')).toBe(10_000)
-    expect(parseDurationSeconds(' 2.5 ')).toBe(2_500)
-    expect(parseDurationSeconds('0.5')).toBe(500)
-  })
-
-  it.each([
-    ['', 'an empty field, which Number() reads as 0'],
-    ['   ', 'whitespace, likewise'],
-    ['abc', 'text'],
-    ['NaN', 'the literal'],
-    ['0', 'zero, which advances every tick'],
-    ['-4', 'a negative, which is already spent'],
-    ['Infinity', 'a duration that never elapses but is not a hold'],
-    ['1e400', 'an overflow to Infinity'],
-  ])('rejects %s (%s)', (text) => {
-    expect(parseDurationSeconds(text)).toBe(null)
-  })
-
-  it('rejects a positive number that rounds away to nothing', () => {
-    // The guard has to be on the milliseconds, not the seconds: 0.0001 is
-    // finite and positive and still produces a duration of 0.
-    expect(parseDurationSeconds('0.0001')).toBe(null)
-    expect(parseDurationSeconds('0.001')).toBe(1)
-  })
-
-  it('round-trips through the field text', () => {
-    for (const milliseconds of [1_000, 2_500, 90_000, 1]) {
-      expect(parseDurationSeconds(durationSecondsText(milliseconds))).toBe(milliseconds)
-    }
-  })
-
-  it('shows an empty field for a cue that holds', () => {
-    expect(durationSecondsText(null)).toBe('')
-    // Not a number the field could round-trip into a duration, so it must read
-    // as empty rather than as `0`, which the operator would take for a value.
-    expect(durationSecondsText(0)).toBe('')
-    expect(durationSecondsText(Number.NaN)).toBe('')
-  })
-})
-
-describe('setCueDuration', () => {
-  it('sets one cue and leaves the array it was given alone', () => {
-    const original = [cue('a'), cue('b')]
-    const edited = setCueDuration(original, 'b', 4_000)
-    expect(edited[1].durationMs).toBe(4_000)
-    expect(edited[0].durationMs).toBe(original[0].durationMs)
-    expect(original[1].durationMs).not.toBe(4_000)
-  })
-
-  it('writes null for a cue that holds until GO', () => {
-    expect(setCueDuration([{ ...cue('a'), durationMs: 4_000 }], 'a', null)[0].durationMs).toBe(null)
-  })
-})
+// parseDurationSeconds/durationSecondsText/setCueDuration/DEFAULT_CUE_DURATION_MS
+// are deleted with the v1 durationMs model (see app/src/player/show.ts's
+// loop/trimStartMs/trimEndMs/mediaDurationMs and playHelpers.ts). No editing
+// helper replaces setCueDuration in this PR -- the Loop/Trim editing UI is a
+// later PR (docs/APP-PLAN.md); see HANDOFF.md decision 4.
 
 describe('setCueRotation', () => {
   it('sets one cue and leaves the array it was given alone', () => {

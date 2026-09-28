@@ -45,8 +45,8 @@ import { onePass, type PassOptions } from '../render/onePass';
  */
 export interface ComposeSource {
   draw(context: CanvasRenderingContext2D, width: number, height: number): void;
-  /** Terminal. See `VideoSource.fail`. */
-  fail(): void;
+  /** Terminal, with the reason this step is the one that has. See `VideoSource.fail`. */
+  fail(reason: string): void;
 }
 
 export interface ComposeRequest {
@@ -89,11 +89,15 @@ export function composeFrame(request: ComposeRequest): Composed {
     const startedAt = performance.now();
     const bytes = onePass(pixels.data, floor, pass, into);
     return { bytes, passMs: performance.now() - startedAt };
-  } catch {
-    // The exception itself is not worth surfacing: it is the same one every
-    // frame, and what the operator needs is the cue's name, which the engine
-    // supplies once it reaps this source.
-    source.fail();
+  } catch (error) {
+    // The exception is repetitive — the same one every frame until the engine
+    // reaps this source — but it is not uninformative, and an earlier version
+    // of this comment said it was. A `SecurityError` here is `getImageData`
+    // refusing a tainted canvas, which is a `corsEnabled`/`crossOrigin`
+    // problem and not a problem with the clip; anything else is the frame
+    // itself. Those send the operator to different places, so the string goes
+    // with the failure and the engine puts it after the cue's name.
+    source.fail(error instanceof Error ? `${error.name}: ${error.message}` : String(error));
     return { bytes: fallback, passMs: null };
   }
 }

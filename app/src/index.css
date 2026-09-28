@@ -82,7 +82,6 @@ input:disabled {
 .cue-duration,
 .cue-summary span,
 .render-readout,
-.timecode,
 .master-control output,
 .disabled-control output {
   color: var(--text-numeric);
@@ -220,6 +219,19 @@ input:disabled {
   min-height: 0;
 }
 
+.resize-gutter {
+  width: 5px;
+  flex: none;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
+}
+
+.resize-gutter:hover,
+.resize-gutter:active {
+  background: var(--border-accent);
+}
+
 .cue-stack {
   display: flex;
   width: var(--w-sidebar);
@@ -270,7 +282,7 @@ input:disabled {
 .cue-row {
   display: flex;
   width: 100%;
-  min-height: 42px;
+  min-height: 48px;
   align-items: center;
   gap: var(--sp-6);
   padding: 0 var(--sp-6);
@@ -284,6 +296,23 @@ input:disabled {
     background var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.cue-thumb {
+  display: block;
+  width: 40px;
+  height: 24px;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--r-cell);
+  background: var(--surface-well);
+}
+
+.cue-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .cue-row:hover {
@@ -378,17 +407,131 @@ input:disabled {
   padding: var(--sp-3) var(--sp-8);
 }
 
-.go-wrap {
-  padding: var(--sp-6) var(--sp-10) var(--sp-8);
+.library-section {
+  display: flex;
+  max-height: 220px;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-3);
+  overflow: auto;
+  padding: var(--sp-5);
+  border-top: 1px solid var(--border-hairline);
+}
+
+.library-toggle,
+.library-row {
+  width: 100%;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-md);
+  color: var(--text-secondary);
+  background: var(--surface-well);
+  cursor: pointer;
+  text-align: left;
+}
+
+.library-toggle {
+  height: var(--h-control);
+  padding: 0 var(--sp-6);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+}
+
+.library-row {
+  min-height: 32px;
+  padding: var(--sp-3) var(--sp-5);
+  overflow: hidden;
+  font-size: var(--fs-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-toggle:hover,
+.library-row:hover {
+  background: var(--surface-raised);
 }
 
 .go-button {
-  width: 100%;
   height: 52px;
   border-radius: var(--r-2xl);
   letter-spacing: var(--ls-badge);
   box-shadow: var(--glow-accent-lg);
 }
+
+.standby-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  padding: var(--sp-6) var(--sp-10) var(--sp-8);
+}
+
+.standby-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--sp-6);
+}
+
+.standby-step {
+  display: inline-flex;
+  width: 44px;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-lg);
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  cursor: pointer;
+}
+
+.standby-step:hover:not(:disabled) {
+  background: var(--n-5);
+}
+
+.standby-row .go-button {
+  min-width: 0;
+  flex: 1;
+}
+
+.standby-helper {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+  font-family: var(--font-mono);
+}
+
+.standby-helper span:first-child,
+.standby-helper span:last-child {
+  width: 44px;
+  text-align: center;
+}
+
+.standby-helper span:nth-child(2) {
+  flex: 1;
+  text-align: center;
+  letter-spacing: var(--ls-label);
+}
+
+.playing-indicator {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.playing-indicator span {
+  width: 2px;
+  border-radius: 1px;
+  background: var(--text-on-accent);
+}
+
+.playing-indicator span:nth-child(1) { height: 6px; }
+.playing-indicator span:nth-child(2) { height: 12px; }
+.playing-indicator span:nth-child(3) { height: 9px; }
 
 .preview-column {
   display: flex;
@@ -458,19 +601,6 @@ input:disabled {
   box-shadow: var(--shadow-raised);
 }
 
-.preview-well canvas {
-  display: block;
-  width: 100%;
-  max-width: 720px;
-  height: auto;
-  max-height: 100%;
-  aspect-ratio: 2 / 1;
-  border-radius: var(--r-cell);
-  background: var(--ddf-ink);
-  image-rendering: pixelated;
-  object-fit: contain;
-}
-
 .render-readout {
   color: var(--text-muted);
   font-size: var(--fs-label);
@@ -485,6 +615,87 @@ input:disabled {
 .mode-preview .render-readout strong {
   color: var(--sem-info);
 }
+
+.timeline-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding: var(--sp-8) var(--sp-9) var(--sp-7);
+  border: 1px solid var(--border-well);
+  border-radius: var(--r-xl);
+  background: var(--surface-well);
+}
+
+.timeline-heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-8);
+}
+
+.timeline-spacer { flex: 1; }
+
+.timeline-time {
+  flex: none;
+  color: var(--text-primary);
+  font-size: var(--fs-body-lg);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.timeline-time span {
+  color: var(--text-muted);
+  font-size: var(--fs-caption);
+}
+
+.timeline-loop-chip {
+  flex: none;
+  padding: 3px var(--sp-5);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-sm);
+  color: var(--text-numeric);
+  background: var(--surface-raised);
+  font-size: var(--fs-micro);
+  font-family: var(--font-mono);
+}
+
+.timeline-track {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  height: 14px;
+}
+
+.timeline-segment {
+  flex: 1;
+  align-self: center;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--led-cell-off);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.timeline-segment.is-played {
+  height: 10px;
+  background: var(--ddf-green-hot);
+}
+
+.timeline-segment.is-cursor {
+  height: 12px;
+  background: var(--ddf-green-glow);
+  box-shadow: var(--glow-accent);
+}
+
+.timeline-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+  font-family: var(--font-mono);
+}
+
+.timeline-footer .render-readout { text-align: right; }
 
 .error-banner {
   padding: var(--sp-4) var(--sp-6);
@@ -643,32 +854,6 @@ input:disabled {
   border-top: 1px solid var(--border-hairline);
 }
 
-.blackout-button {
-  width: 100%;
-  height: 40px;
-  margin-top: auto;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-lg);
-  color: var(--text-primary);
-  background: var(--surface-canvas);
-  cursor: pointer;
-  font-size: var(--fs-caption);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--ls-label);
-  transition: all var(--dur-base) var(--ease-out);
-}
-
-.blackout-button:hover {
-  border-color: var(--sem-danger);
-}
-
-.blackout-button.is-active {
-  border-color: var(--sem-danger);
-  color: var(--text-primary);
-  background: var(--sem-danger);
-  box-shadow: 0 0 18px color-mix(in oklch, var(--sem-danger) 50%, transparent);
-}
-
 .transport {
   display: flex;
   height: var(--h-transport);
@@ -680,81 +865,11 @@ input:disabled {
   background: var(--surface-chrome);
 }
 
-.transport-buttons {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-}
-
-.transport-play {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--r-2xl);
-}
-
-.timecode {
-  flex: none;
-  color: var(--text-primary);
-  font-size: var(--fs-caption);
-}
-
-.timecode span {
-  color: var(--text-muted);
-}
-
-.progress {
-  position: relative;
-  height: 14px;
-  min-width: 80px;
-  flex: 1;
-  overflow: hidden;
-}
-
-.progress::before,
-.progress > span {
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  left: 0;
-  border-radius: var(--r-cell);
-}
-
-.progress::before {
-  width: 100%;
-  content: '';
-  background: var(--led-cell-off);
-}
-
-.progress > span {
-  background: var(--ddf-green-hot);
-}
-
-.progress > i {
-  position: absolute;
-  top: 0;
-  width: 6px;
-  height: 14px;
-  border-radius: var(--r-cell);
-  background: var(--ddf-green-glow);
-  box-shadow: var(--glow-accent);
-}
-
-.transport-disabled,
 .master-control {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--sp-5);
-}
-
-.transport-disabled button {
-  padding: var(--sp-2) var(--sp-5);
-  border: 1px solid var(--border-hairline);
-  border-radius: var(--r-xs);
-  color: var(--text-numeric);
-  background: var(--surface-raised);
-  font-family: var(--font-mono);
-  font-size: var(--fs-caption);
 }
 
 .master-control input {
@@ -766,11 +881,95 @@ input:disabled {
   font-size: var(--fs-body);
 }
 
-@media (max-width: 1000px) {
-  .transport-disabled {
-    display: none;
-  }
+.transport-divider {
+  width: 1px;
+  height: 38px;
+  flex: none;
+  background: var(--border-hairline);
+}
 
+.transport-spacer { flex: 1; }
+
+.crossfade-control {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-5);
+  color: var(--text-muted);
+}
+
+.crossfade-control input {
+  width: 140px;
+  margin: 0;
+  accent-color: var(--ddf-green-hot-hex);
+}
+
+.crossfade-control output {
+  width: 46px;
+  color: var(--text-numeric);
+  font-family: var(--font-mono);
+  font-size: var(--fs-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.transport-action {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-5);
+}
+
+.transport-big-button {
+  display: inline-flex;
+  width: 150px;
+  height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-label);
+  font-family: inherit;
+}
+
+.transport-blackout {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  background: var(--surface-canvas);
+}
+
+.transport-blackout:hover { border-color: var(--sem-danger); }
+
+.transport-blackout.is-active {
+  border-color: var(--sem-danger);
+  color: var(--text-primary);
+  background: var(--sem-danger);
+  box-shadow: 0 0 18px color-mix(in oklch, var(--sem-danger) 50%, transparent);
+}
+
+.key-hint {
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+  font-family: var(--font-mono);
+}
+
+.zoom-percent-input {
+  width: 40px;
+  padding: 0;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--r-sm);
+  background: var(--surface-well);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-body);
+  text-align: center;
+}
+
+@media (max-width: 1000px) {
   .preview-column {
     padding-right: var(--sp-8);
     padding-left: var(--sp-8);
@@ -1045,6 +1244,166 @@ select:focus-visible {
 .mapping-fields label > span {
   color: var(--text-muted);
   font-size: var(--fs-label);
+}
+
+/* ---------------------------------------------------- the help popover
+
+   The design system defines --shadow-popover and --blur-popover and has never
+   had anything to hang them on; its readme reserves transparency and blur for
+   popovers and menus specifically, to match macOS materials. This is the first
+   one, so it uses both rather than inventing a third surface treatment. */
+
+.label-with-help {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.help-button {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--fs-micro);
+  font-style: italic;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+
+.help-button:hover,
+.help-button:is(:popover-open, [popovertarget]:active) {
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+
+/* `[popover]` renders in the top layer, so nothing here fights an ancestor for
+   stacking or clipping — which is the entire reason it is a popover. The UA
+   default centres it in the viewport and draws a border and background; the
+   reset below is what the design system's surface replaces. */
+.popover:popover-open {
+  display: flex;
+}
+
+.popover {
+  width: 360px;
+  max-width: min(80vw, 360px);
+  max-height: 80vh;
+  overflow-y: auto;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: auto;
+  padding: var(--sp-6);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  backdrop-filter: var(--blur-popover);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-body);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-prose);
+}
+
+/* The UA's ::backdrop is transparent by default. The scrim is what makes a
+   panel over a dark wiring diagram legible as a panel rather than as more
+   diagram. */
+.popover::backdrop {
+  background: var(--scrim);
+}
+
+.popover p {
+  margin: 0;
+}
+
+.popover-title {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+}
+
+.popover-step {
+  color: var(--text-muted);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+
+.popover code {
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-cell);
+  background: var(--surface-well);
+  color: var(--text-numeric);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  /* Commands are long and a horizontal scrollbar inside a popover is a trap. */
+  overflow-wrap: anywhere;
+}
+
+.popover-note {
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+}
+
+.add-menu:popover-open {
+  display: flex;
+}
+
+.add-cue-trigger {
+  anchor-name: --add-cue;
+}
+
+.add-menu {
+  /* A `popover` lives in the top layer, where the UA sheet sets
+     `position: fixed; inset: 0; margin: auto` — an unstyled popover centres
+     itself in the *viewport*, which is exactly where this menu was landing:
+     mid-preview, nowhere near the `+` that opened it. The top layer also
+     escapes ancestor containment, so wrapping it in a `position: relative`
+     parent cannot pull it back. Anchor positioning is the fix; `margin: 0`
+     is load-bearing, it defeats the UA's centring shorthand. */
+  position: fixed;
+  position-anchor: --add-cue;
+  position-area: block-end span-inline-start;
+  position-try-fallbacks: flip-block, flip-inline;
+  margin: var(--sp-1) 0 0 0;
+  width: 240px;
+  max-width: min(80vw, 240px);
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-body);
+}
+
+.add-menu [role="menuitem"] {
+  width: 100%;
+  min-height: var(--h-control);
+  padding: 0 var(--sp-5);
+  border: 0;
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.add-menu [role="menuitem"]:hover:not(:disabled) {
+  background: var(--surface-raised);
+}
+
+.add-menu [role="menuitem"]:disabled {
+  opacity: 0.4;
 }
 
 .mapping-readout {

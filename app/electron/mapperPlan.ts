@@ -2,19 +2,29 @@ import { execFile } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
+import { mapperCwd, resolvePythonEnv } from './paths.js'
 
 const execFileAsync = promisify(execFile)
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
-const repoRoot = resolve(currentDirectory, '../..')
+const devRepoRoot = resolve(currentDirectory, '../..')
 
-export async function runMapperPlan(type: string, cols: number, rows: number): Promise<string> {
+export async function runMapperPlan(
+  type: string,
+  cols: number,
+  rows: number,
+  isPackaged: boolean,
+): Promise<string> {
   const python = process.env.DDF_PYTHON ?? 'python3'
 
   try {
     const { stdout } = await execFileAsync(
       python,
       ['-m', 'mapper', 'plan', '--type', type, '--cols', String(cols), '--rows', String(rows)],
-      { cwd: repoRoot, encoding: 'utf8' },
+      {
+        cwd: mapperCwd(isPackaged, devRepoRoot),
+        env: resolvePythonEnv(isPackaged),
+        encoding: 'utf8',
+      },
     )
     return stdout
   } catch (error) {

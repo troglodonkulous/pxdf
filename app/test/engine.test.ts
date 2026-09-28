@@ -37,6 +37,37 @@ import type { Rotation } from '../src/render/geometry';
 class FakeSource implements FrameSource {
   ready = false;
   failed = false;
+  /**
+   * Defaulted rather than required so the ~30 tests that only care that a
+   * source died stay unchanged — but defaulted to a *string*, not null, so a
+   * test setting `failed = true` without a thought still exercises the engine's
+   * reason path. A null default would make every one of those tests pass
+   * against an engine that dropped the reason on the floor.
+   */
+  reasonWhileAlive: string | null = 'fake source failed';
+  /**
+   * Null once disposed, which is the whole point of it being a getter.
+   *
+   * `reapFailures` reads the reason *before* `release` tears the source down,
+   * and that ordering is load-bearing — reversed, every failure banner loses
+   * its detail again. A plain field cannot grade it: the reason would still be
+   * sitting there after teardown and the reordered engine would pass. This
+   * makes reading late return exactly what a disposed decoder is entitled to
+   * say, so the ordering has somewhere to fail.
+   *
+   * Weaker than a real `VideoSource`, deliberately: that class keeps its reason
+   * across `dispose`, and nothing here asks it to change. The fixture is
+   * stricter than the contract so the test can see a violation of it.
+   */
+  get failureReason(): string | null {
+    return this.disposed ? null : this.reasonWhileAlive;
+  }
+
+  set failureReason(reason: string | null) {
+    this.reasonWhileAlive = reason;
+  }
+
+  stallReason: string | null = null;
   positionMs = 0;
   mediaDurationMs: number | null = null;
   playCalls = 0;
@@ -44,6 +75,8 @@ class FakeSource implements FrameSource {
   disposed = false;
   /** Set to make teardown throw, as a real element's can. */
   disposeThrows = false;
+  /** Set to make startup throw, as `HTMLMediaElement.play` can. */
+  playThrows = false;
   rotation: Rotation = 0;
   rotationSets = 0;
 
@@ -51,6 +84,7 @@ class FakeSource implements FrameSource {
 
   play(): void {
     this.playCalls += 1;
+    if (this.playThrows) throw new Error(`startup of ${this.cueId} failed`);
   }
 
   pause(): void {
@@ -68,8 +102,29 @@ class FakeSource implements FrameSource {
   }
 }
 
-function cue(id: string, durationMs: number | null = null): Cue {
-  return { id, name: `Cue ${id}`, source: { kind: 'video', path: `/media/${id}.mp4` }, durationMs, rotation: 0 };
+/**
+ * A cue with a hold expressed the way most of this file's tests want it: `null`
+ * holds until GO, and a number is exactly how long the cue holds before the
+ * stack advances.
+ *
+ * Built on the PR 3 model — `loop: 1` and `mediaDurationMs: holdMs`, with no
+ * trim — rather than a deleted `durationMs` field. `cueHoldMs(cue) === holdMs`
+ * for every value this produces, which is what keeps the ~90 call sites below
+ * unchanged: they were never testing `loop`/`trim` composition, only "this cue
+ * holds for N ms, or forever". The composition itself is graded in its own
+ * `describe` block further down, on cues built by hand.
+ */
+function cue(id: string, holdMs: number | null = null): Cue {
+  return {
+    id,
+    name: `Cue ${id}`,
+    source: { kind: 'video', path: `/media/${id}.mp4` },
+    loop: holdMs === null ? null : 1,
+    trimStartMs: 0,
+    trimEndMs: null,
+    mediaDurationMs: holdMs,
+    rotation: 0,
+  };
 }
 
 function show(...cues: Cue[]): Show {
@@ -97,6 +152,7 @@ function build(s: Show) {
   let clock = 0;
 
   let sourceThrows = false;
+  let playThrows = false;
 
   const engine = new PlayerEngine<FakeSource>({
     show: s,
@@ -107,6 +163,8 @@ function build(s: Show) {
         throw new Error(`no decoder for ${c.id}`);
       }
       const source = new FakeSource(c.id);
+      source.playThrows = playThrows;
+      playThrows = false;
       sources.set(c.id, source);
       created.set(c.id, (created.get(c.id) ?? 0) + 1);
       return source;
@@ -126,6 +184,16 @@ function build(s: Show) {
      */
     failNextSourceOnce: (): void => {
       sourceThrows = true;
+    },
+    /**
+     * Make the next source's `play` throw, once.
+     *
+     * The other half of `failNextSourceOnce`, and the more interesting half:
+     * this one throws *after* the decoder exists, which is the case that can
+     * leak one.
+     */
+    failNextPlayOnce: (): void => {
+      playThrows = true;
     },
     created: (id: string): number => created.get(id) ?? 0,
     source: (id: string): FakeSource => {
@@ -454,6 +522,53 @@ describe('preview has no path to the wire', () => {
     expect(rig.engine.tick().screen.kind).toBe('black');
   });
 
+  it('auditions the stepped-to cue in preview, and leaves the wire alone', () => {
+    const rig = build(show(cue('a'), cue('b'), cue('c')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.engine.setMode('preview');
+    rig.engine.selectNext();
+    rig.source('c').ready = true;
+
+    const tick = rig.engine.tick();
+    expect(tick.screen.kind === 'source' ? tick.screen.source.cueId : null).toBe('c');
+    expect(onWire(tick.wire)).toBe('a');
+  });
+
+  it('banners a decoder that will not construct instead of throwing out of the step', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.setMode('preview');
+    rig.failNextSourceOnce();
+    expect(() => rig.engine.selectNext()).not.toThrow();
+    expect(rig.engine.snapshot().lastError).toContain('no decoder for b');
+    expect(rig.engine.tick().screen.kind).toBe('black');
+  });
+
+  it('disposes a decoder that was built but would not start', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.setMode('preview');
+    rig.failNextPlayOnce();
+    expect(() => rig.engine.selectNext()).not.toThrow();
+
+    // Built, so it exists to be leaked; disposed, so it was not. Both halves:
+    // asserting only `disposed` passes just as well against a decoder that was
+    // never created at all.
+    expect(rig.created('b')).toBe(1);
+    expect(rig.source('b').disposed).toBe(true);
+    expect(rig.engine.snapshot().lastError).toContain('startup of b failed');
+    expect(rig.engine.tick().screen.kind).toBe('black');
+  });
+
+  it('does not audition a stepped-to cue in live mode', () => {
+    const rig = build(show(cue('a'), cue('b'), cue('c')));
+    rig.engine.selectNext();
+    expect(rig.engine.snapshot().standbyCueId).toBe('b');
+    expect(rig.sources.has('b')).toBe(false);
+    expect(rig.engine.tick().screen.kind).toBe('black');
+  });
+
   it('shows black on screen while the previewed cue is still decoding', () => {
     const rig = build(show(cue('a')));
     rig.engine.setMode('preview');
@@ -603,7 +718,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     rig.engine.tick();
     expect(rig.engine.snapshot().cueDurationMs).toBe(null);
 
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 5_000 }, cue('b')));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 5_000 }, cue('b')));
     expect(rig.engine.snapshot().cueDurationMs).toBe(5_000);
     expect(rig.created('a')).toBe(1);
     expect(rig.source('a').disposed).toBe(false);
@@ -615,7 +730,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     rig.source('a').ready = true;
     rig.engine.tick();
 
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 5_000 }, cue('b')));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 5_000 }, cue('b')));
     rig.advance(5_000);
     rig.engine.tick();
     // The edit is only real if the advance actually fires on it.
@@ -666,7 +781,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     // edit during a load-in, and the only sane reading of it is "this cue is
     // over". It must not wait, and it must not wrap around into a negative
     // remaining time.
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 2_000 }, cue('b')));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 2_000 }, cue('b')));
     rig.engine.tick();
     expect(rig.engine.snapshot().pendingCueId).toBe('b');
   });
@@ -704,7 +819,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     // nothing to say why. Restarting on a timer is Loop, it is PR 4, and it is
     // not what a control labelled Duration promises.
     rig.engine.selectCue('a');
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 1_000 }, cue('b')));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 1_000 }, cue('b')));
     rig.advance(1_000);
     rig.engine.tick();
 
@@ -727,7 +842,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     rig.source('a').ready = true;
     rig.engine.tick();
     rig.engine.selectCue('a');
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 1_000 }));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 1_000 }));
     rig.advance(1_000);
 
     // Nothing after it, so the stack has ended. Idle is black and the send
@@ -741,7 +856,7 @@ describe('editing a cue reaches the slot already playing it', () => {
     rig.engine.goTo('a');
     rig.source('a').ready = true;
     rig.engine.tick();
-    rig.engine.setShow(show({ ...cue('a'), durationMs: 1_000 }, cue('b')));
+    rig.engine.setShow(show({ ...cue('a'), loop: 1, mediaDurationMs: 1_000 }, cue('b')));
     rig.advance(1_000);
 
     // `arm` runs on the tick path here, and the tick path is the render loop.
@@ -1005,6 +1120,65 @@ describe('the error banner tracks the failure, not the button press', () => {
   });
 });
 
+/**
+ * The reason is read before the decoder is released, on all three surfaces.
+ *
+ * `reapFailures` records the failure and then tears the slot down, and swapping
+ * those two lines is an edit that looks like tidying. It is not: a released
+ * decoder is entitled to say nothing, so a reason read afterwards is null and
+ * every failure reaches the operator as the cue name and the bare word
+ * "failed" — the exact banner this whole change exists to abolish, restored
+ * silently, with every other test still green.
+ *
+ * Graded through `FakeSource.failureReason`, which returns null once disposed.
+ * That is stricter than the `FrameSource` contract asks and stricter than
+ * `VideoSource` behaves, on purpose: a fixture that keeps its reason across
+ * teardown gives a reordered engine the same string either way, and the test
+ * that claims to grade the ordering cannot fail.
+ */
+describe('a failure keeps its reason across the release that follows it', () => {
+  it('reads the pending source before releasing it', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.engine.goTo('b');
+    rig.source('b').failureReason = 'MEDIA_ERR_SRC_NOT_SUPPORTED (code 4): DEMUXER_ERROR_COULD_NOT_OPEN';
+    rig.source('b').failed = true;
+    rig.engine.tick();
+
+    expect(rig.source('b').disposed).toBe(true);
+    expect(rig.engine.snapshot().lastError).toContain('DEMUXER_ERROR_COULD_NOT_OPEN');
+  });
+
+  it('reads the live source before releasing it', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.goTo('a');
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.source('a').failureReason = 'MEDIA_ERR_DECODE (code 3): decoder initialization failed';
+    rig.source('a').failed = true;
+    rig.engine.tick();
+
+    expect(rig.source('a').disposed).toBe(true);
+    expect(rig.engine.snapshot().lastError).toContain('decoder initialization failed');
+  });
+
+  it('reads the preview source before releasing it', () => {
+    const rig = build(show(cue('a'), cue('b')));
+    rig.engine.setMode('preview');
+    rig.engine.selectCue('a');
+    rig.source('a').failureReason = 'the composited frame could not be read back: SecurityError';
+    rig.source('a').failed = true;
+    rig.engine.tick();
+
+    expect(rig.source('a').disposed).toBe(true);
+    expect(rig.engine.snapshot().lastError).toContain('SecurityError');
+  });
+});
+
 describe('a cue whose media changed is not the cue that is playing', () => {
   it('tears down the live slot rather than keeping the old decoder', () => {
     const rig = build(show(cue('a'), cue('b')));
@@ -1038,5 +1212,123 @@ describe('a cue whose media changed is not the cue that is playing', () => {
     expect(onWire(rig.engine.tick().wire)).toBe('a');
     expect(rig.source('a').disposed).toBe(false);
     expect(rig.created('a')).toBe(1);
+  });
+});
+
+/**
+ * PR 3's model: `interface Cue` replaces `durationMs` with `loop` (null = hold
+ * until GO, N = play N times then advance), `trimStartMs`/`trimEndMs` (the
+ * in/out points) and `mediaDurationMs` (probed once at add time). The cue's
+ * hold — what `advanceOnDuration` compares elapsed time against — is
+ * `loop === null ? ∞ : loop × ((trimEndMs ?? mediaDurationMs) - trimStartMs)`.
+ *
+ * The `cue()` helper above already covers "holds forever" and "holds for N ms"
+ * for the ~90 tests that only need those two shapes. What is graded here is the
+ * composition itself — loop with trim, and the specific silent-failure trap
+ * named in the plan: a failed probe must not read as a duration of zero.
+ */
+describe('the hold is loop × the trimmed clip duration', () => {
+  /** A cue built by hand, not through `cue()`, so every field is explicit. */
+  function timed(id: string, fields: Partial<Cue> = {}): Cue {
+    return {
+      id,
+      name: `Cue ${id}`,
+      source: { kind: 'video', path: `/media/${id}.mp4` },
+      loop: null,
+      trimStartMs: 0,
+      trimEndMs: null,
+      mediaDurationMs: null,
+      rotation: 0,
+      ...fields,
+    };
+  }
+
+  it('never advances on loop: null, however long the clip is known to be', () => {
+    const rig = build(show(timed('a', { loop: null, mediaDurationMs: 100 }), cue('b')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.advance(100_000);
+    for (let i = 0; i < 10; i++) {
+      rig.advance(1_000);
+      expect(onWire(rig.engine.tick().wire)).toBe('a');
+    }
+    expect(rig.sources.has('b')).toBe(false);
+  });
+
+  it('advances at loop x duration and not one tick before', () => {
+    const rig = build(show(timed('a', { loop: 3, mediaDurationMs: 100 }), cue('b')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.advance(299);
+    expect(rig.engine.snapshot().pendingCueId).toBe(null);
+    expect(onWire(rig.engine.tick().wire)).toBe('a');
+
+    rig.advance(1);
+    rig.engine.tick();
+    expect(rig.engine.snapshot().pendingCueId).toBe('b');
+  });
+
+  it('exposes the hold on the snapshot as loop x duration', () => {
+    const rig = build(show(timed('a', { loop: 3, mediaDurationMs: 100 }), cue('b')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().cueDurationMs).toBe(300);
+  });
+
+  /**
+   * The trap named explicitly in `docs/APP-PLAN.md`'s PR 3 section: a failed
+   * probe must not advance instantly at 0. `mediaDurationMs: null` with an
+   * open `trimEndMs` means the clip's length is simply not known, and the only
+   * safe reading of "advance after an unknown length of time" is "do not
+   * advance" — the same as `loop: null`, even though `loop` here is finite.
+   * Silence has to read as unknown, not as zero.
+   */
+  it('does not advance on loop: N when the probe failed, rather than treating the unknown length as zero', () => {
+    const rig = build(show(timed('a', { loop: 3, mediaDurationMs: null }), cue('b')));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    rig.advance(50_000);
+    expect(onWire(rig.engine.tick().wire)).toBe('a');
+    expect(rig.sources.has('b')).toBe(false);
+    expect(rig.engine.snapshot().cueDurationMs).toBe(null);
+  });
+
+  it('uses the trimmed length, not the full media length, in the hold', () => {
+    // 1,000 ms of media, trimmed to the middle 500 ms, looped twice: 1,000 ms
+    // hold — not 2,000, which is what looping the *untrimmed* clip would give.
+    const rig = build(show(
+      timed('a', { loop: 2, mediaDurationMs: 1_000, trimStartMs: 250, trimEndMs: 750 }),
+      cue('b'),
+    ));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+
+    expect(rig.engine.snapshot().cueDurationMs).toBe(1_000);
+    rig.advance(999);
+    expect(onWire(rig.engine.tick().wire)).toBe('a');
+    rig.advance(1);
+    rig.engine.tick();
+    expect(rig.engine.snapshot().pendingCueId).toBe('b');
+  });
+
+  it('falls back to mediaDurationMs for the out-point when trimEndMs is open', () => {
+    // trimEndMs: null means "to the end of the media" — the clip duration is
+    // mediaDurationMs - trimStartMs, not the untrimmed mediaDurationMs.
+    const rig = build(show(
+      timed('a', { loop: 1, mediaDurationMs: 400, trimStartMs: 100, trimEndMs: null }),
+      cue('b'),
+    ));
+    rig.engine.go();
+    rig.source('a').ready = true;
+    rig.engine.tick();
+    expect(rig.engine.snapshot().cueDurationMs).toBe(300);
   });
 });

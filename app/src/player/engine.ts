@@ -41,7 +41,7 @@
  */
 
 import type { Rotation } from '../render/geometry';
-import type { Cue, Show } from './show';
+import { cueHoldMs, type Cue, type Show } from './show';
 
 /**
  * One playable piece of media, as the engine needs to see it.
@@ -60,6 +60,28 @@ export interface FrameSource {
   readonly ready: boolean;
   /** Terminal: the media will never play. A missing file, a codec, a decode error. */
   readonly failed: boolean;
+  /**
+   * Why it failed, in the source's own words. Non-null whenever `failed` is.
+   *
+   * The engine knows a cue's name and which surface it was on, and nothing
+   * else: `failed` is one bit, and one bit is what the banner used to say — the
+   * cue's name and a verb. Whether the decoder could not open the container,
+   * whether the file is missing, whether the frame decoded fine and the
+   * compositor could not read it back are all distinctions only the source
+   * holds, and it is the second of those the operator can act on during a show.
+   */
+  readonly failureReason: string | null;
+  /**
+   * Set while the source is waiting for data, and cleared when it stops
+   * waiting. Not a failure and never latched.
+   *
+   * This is the mid-run gap. `failed` covers a clip that dies, `ready` covers
+   * one that never starts, and between them sat a clip that plays, stops for
+   * four seconds to buffer, and carries on — during which every field the
+   * engine publishes says the cue is fine. The floor holds a frame and nothing
+   * anywhere says why.
+   */
+  readonly stallReason: string | null;
   /** Playback position within the media, in milliseconds. */
   readonly positionMs: number;
   /** The media's own length, once known. Not the cue's duration. */
@@ -113,14 +135,42 @@ export interface EngineSnapshot {
   readonly previewCueId: string | null;
   /** How long the live cue has been live, in milliseconds. */
   readonly elapsedMs: number;
-  /** The live cue's duration, or null when it holds until GO. */
+  /** Live cue hold, or null for loop: null or an unknown clip length. */
   readonly cueDurationMs: number | null;
+  /**
+   * The live source's own playback position, in milliseconds. 0 when nothing
+   * is live.
+   *
+   * This is what the Player's timeline is driven from, not `cueDurationMs` —
+   * that field is the cue's *hold*, which is `null` for every hold-until-GO
+   * cue, so a progress bar built on it sat at 0 for most of the stack. Clip
+   * position moves for a looping hold-until-GO cue exactly as it does for a
+   * timed one, because it is read off the decoder, not off the advance rule.
+   */
+  readonly positionMs: number;
+  /**
+   * The live source's own media length, in milliseconds. `null` until the
+   * decoder reports one, which is not the same `null` as `cueDurationMs`'s —
+   * that one means "hold forever"; this one means "not known yet".
+   */
+  readonly mediaDurationMs: number | null;
   /**
    * Set when a cue could not be played, and cleared when the surface it
    * happened on is working again or gone — not when the operator presses GO.
    * See `ErrorSurface`.
    */
   readonly lastError: string | null;
+  /**
+   * A cue that is playing but waiting for data, right now. Null when nothing is
+   * stalled.
+   *
+   * Separate from `lastError` rather than folded into it, because the two ask
+   * for different things from the operator: an error means that cue is over and
+   * the floor is black, a stall means wait a moment. Reported live off the
+   * source and never latched — it goes away by itself when the clip recovers,
+   * which is the only thing that keeps it worth reading.
+   */
+  readonly stallWarning: string | null;
 }
 
 export interface EngineOptions<S extends FrameSource> {
@@ -174,6 +224,16 @@ interface SurfaceError {
   readonly path: string;
   /** Verb phrase completing `cue "<name>" …`. */
   readonly reason: string;
+  /**
+   * What the source said, appended after an em dash. Null when the failure was
+   * the engine's own — `arm` throwing has no source to ask.
+   *
+   * Held rather than merged into `reason` for the same purpose the split of cue
+   * id from wording serves: `reason` is this engine's account of *where* the
+   * failure was, `detail` is the decoder's account of *what* it was, and they
+   * come from different places at different times.
+   */
+  readonly detail: string | null;
 }
 
 export class PlayerEngine<S extends FrameSource> {
@@ -298,6 +358,14 @@ export class PlayerEngine<S extends FrameSource> {
    * In live mode this arms it as Standby — the cue GO will fire — and does not
    * touch the floor. In preview mode it auditions the cue on screen, which is
    * the whole point of the mode.
+   *
+   * `createSource` is caller-supplied and may throw. The renderer's
+   * `VideoSource` turns its own load failures into `state.fail` rather than
+   * throwing, but the engine cannot assume its factory does, and this is now
+   * reached from the ↑/↓ keys as well as from a click — a `window` keydown
+   * listener is the one caller with nowhere for a thrown value to land. So the
+   * throw becomes the same preview banner a decode failure produces, which is
+   * bad news reaching a reader rather than a `catch {}`.
    */
   selectCue(cueId: string): void {
     const cue = this.cueById(cueId);
@@ -306,7 +374,11 @@ export class PlayerEngine<S extends FrameSource> {
     if (this.mode === 'preview') {
       if (this.preview?.cue.id === cueId) return;
       this.preview = this.release(this.preview);
-      this.preview = this.arm(cue);
+      try {
+        this.preview = this.arm(cue);
+      } catch (error) {
+        this.fail('preview', cue, 'failed to preview', error instanceof Error ? error.message : String(error));
+      }
       return;
     }
     this.standbyCueId = cueId;
@@ -347,17 +419,33 @@ export class PlayerEngine<S extends FrameSource> {
 
   /** Transport: step Standby, without firing. */
   selectNext(): void {
-    const next = this.cueAfter(this.standbyCueId);
-    if (next === null) return;
-    this.standbyCueId = next.id;
-    this.standbyPinned = true;
+    this.step(this.cueAfter(this.standbyCueId));
   }
 
   selectPrevious(): void {
-    const previous = this.cueBefore(this.standbyCueId);
-    if (previous === null) return;
-    this.standbyCueId = previous.id;
+    this.step(this.cueBefore(this.standbyCueId));
+  }
+
+  /**
+   * Move Standby onto `cue`, and in preview audition it too.
+   *
+   * The audition is the whole difference between stepping and clicking. Until
+   * 2026-08-15 the ↑/↓ keys and transport buttons only moved `standbyCueId`,
+   * so in Preview the blue selection walked the stack while the screen kept
+   * showing whatever was last *clicked* — the operator had to click a row to
+   * actually see it. `selectCue` is what arms the preview decoder, so stepping
+   * routes through it rather than growing a second copy of that logic.
+   *
+   * Guarded on mode, not unconditional: in live, arming the preview decoder is
+   * exactly the thing that must not happen, and `selectCue` in live mode would
+   * re-pin Standby to the cue we just set. GO, Space and double-click stay the
+   * only ways to change what is on the wire.
+   */
+  private step(cue: Cue | null): void {
+    if (cue === null) return;
+    this.standbyCueId = cue.id;
     this.standbyPinned = true;
+    if (this.mode === 'preview') this.selectCue(cue.id);
   }
 
   /**
@@ -441,8 +529,15 @@ export class PlayerEngine<S extends FrameSource> {
       pendingCueId: this.pending?.cue.id ?? null,
       previewCueId: this.preview?.cue.id ?? null,
       elapsedMs: this.elapsedMs(),
-      cueDurationMs: this.live?.cue.durationMs ?? null,
+      // `cue.durationMs` no longer exists — #18 replaced it with the
+      // loop/trim model, and `cueHoldMs` derives the hold from that. The
+      // position fields are #17's, and are independent of it: they read the
+      // clip, not the cue.
+      cueDurationMs: this.live === null ? null : cueHoldMs(this.live.cue),
+      positionMs: this.live?.source.positionMs ?? 0,
+      mediaDurationMs: this.live?.source.mediaDurationMs ?? null,
       lastError: this.lastError,
+      stallWarning: this.stallWarning,
     };
   }
 
@@ -455,19 +550,22 @@ export class PlayerEngine<S extends FrameSource> {
   }
 
   private reapFailures(): void {
+    // The source's reason is read *before* `release`, which disposes it. A
+    // disposed decoder is entitled to say nothing, and reading afterwards would
+    // reintroduce the empty banner through the back door.
     if (this.pending?.source.failed === true) {
-      this.fail('live', this.pending.cue, 'failed to play');
+      this.fail('live', this.pending.cue, 'failed to play', this.pending.source.failureReason);
       this.pending = this.release(this.pending);
     }
     if (this.live?.source.failed === true) {
       // The floor goes black rather than to the next cue. An automatic advance
       // here would put unrelated content up at the moment something is already
       // wrong, with nothing on screen to say why.
-      this.fail('live', this.live.cue, 'stopped playing');
+      this.fail('live', this.live.cue, 'stopped playing', this.live.source.failureReason);
       this.clearLive();
     }
     if (this.preview?.source.failed === true) {
-      this.fail('preview', this.preview.cue, 'failed to preview');
+      this.fail('preview', this.preview.cue, 'failed to preview', this.preview.source.failureReason);
       this.preview = this.release(this.preview);
     }
   }
@@ -500,8 +598,8 @@ export class PlayerEngine<S extends FrameSource> {
     return { cue, source: slot.source };
   }
 
-  private fail(surface: ErrorSurface, cue: Cue, reason: string): void {
-    const error: SurfaceError = { cueId: cue.id, path: cue.source.path, reason };
+  private fail(surface: ErrorSurface, cue: Cue, reason: string, detail: string | null): void {
+    const error: SurfaceError = { cueId: cue.id, path: cue.source.path, reason, detail };
     if (surface === 'live') this.liveError = error;
     else this.previewError = error;
   }
@@ -526,7 +624,25 @@ export class PlayerEngine<S extends FrameSource> {
     // Renaming the cue that would not play is an ordinary thing to do with the
     // banner up, and the old name is one the operator can no longer find.
     const cue = this.cueById(error.cueId);
-    return cue === null ? null : `cue ${JSON.stringify(cue.name)} ${error.reason}`;
+    if (cue === null) return null;
+    const sentence = `cue ${JSON.stringify(cue.name)} ${error.reason}`;
+    return error.detail === null ? sentence : `${sentence} — ${error.detail}`;
+  }
+
+  /**
+   * The stalled cue, if one is stalled this instant.
+   *
+   * Live first for the same reason `lastError` prefers it: the floor is the
+   * show. Read straight off the source with no state of its own, so it cannot
+   * outlive the condition it reports — the failure mode a latched version would
+   * have, and the one that makes a warning worth ignoring.
+   */
+  private get stallWarning(): string | null {
+    const live = this.live?.source.stallReason ?? null;
+    if (live !== null) return `cue ${JSON.stringify(this.live?.cue.name ?? '')} ${live}`;
+    const preview = this.preview?.source.stallReason ?? null;
+    if (preview !== null) return `cue ${JSON.stringify(this.preview?.cue.name ?? '')} ${preview}`;
+    return null;
   }
 
   /**
@@ -582,12 +698,12 @@ export class PlayerEngine<S extends FrameSource> {
     const live = this.live;
     if (live === null || this.transportPaused) return;
 
-    const duration = live.cue.durationMs;
-    // A null duration holds until GO with the media looping underneath. An
+    const hold = cueHoldMs(live.cue);
+    // A null hold means loop: null or an unknown clip length. An
     // already-armed cue means the change is in flight, and re-arming it here
     // would restart the decode every frame and guarantee the gap it is meant
     // to prevent.
-    if (duration === null || this.pending !== null || this.elapsedMs() < duration) return;
+    if (hold === null || this.pending !== null || this.elapsedMs() < hold) return;
 
     // Standby is what fires next, and a timed cue is an automatic GO — but not
     // when Standby *is* the cue that is playing. Selecting a cue is how Standby
@@ -615,8 +731,10 @@ export class PlayerEngine<S extends FrameSource> {
     // black plus a banner, like every other failure, rather than a silent stall.
     try {
       this.pending = this.arm(next);
-    } catch {
-      this.fail('live', next, 'could not be started');
+    } catch (error) {
+      // No source exists to ask, so the thrown value is the only account there
+      // is of why the decoder could not be built.
+      this.fail('live', next, 'could not be started', error instanceof Error ? error.message : String(error));
       // Going idle is also what stops this retrying: with no live cue there is
       // no duration left to expire, so the next tick does not try again.
       this.clearLive();
@@ -625,9 +743,28 @@ export class PlayerEngine<S extends FrameSource> {
     this.standbyPinned = false;
   }
 
+  /**
+   * Build a decoder for a cue and start it.
+   *
+   * The `play` is guarded because it happens *after* the decoder exists: a
+   * throw there used to leave a constructed source with no reference to it
+   * anywhere, so nothing could ever dispose it. That is a leaked decoder per
+   * attempt — and the caller that recovers from the throw is the one that makes
+   * it repeatable, since an operator holding ↓ through a stack of unplayable
+   * cues would strand one per keypress.
+   *
+   * Rethrown, not swallowed: whether a cue that cannot start is an error the
+   * operator sees is the caller's decision, and `selectCue` makes it. This
+   * method's only job is to not leak on the way out.
+   */
   private arm(cue: Cue): Slot<S> {
     const source = this.createSource(cue);
-    source.play();
+    try {
+      source.play();
+    } catch (error) {
+      this.release({ cue, source });
+      throw error;
+    }
     return { cue, source };
   }
 

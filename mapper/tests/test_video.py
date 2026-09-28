@@ -5,7 +5,7 @@ decoded the test clips. `video.framebuffers` is the only new code between them,
 so it carries the whole risk of the cutover off Ledset.
 
 Grading it costs nothing. All 60 frames of
-`test-patterns/09-gradient24-8x8_4P-10x5.avi` are byte-identical to each other,
+`tools/oracle/media/09-gradient24-8x8_4P-10x5.avi` are byte-identical to each other,
 and frame 0 is pixel-for-pixel equal to `patterns.gradient24` at that geometry.
 `gradient24` is per-pixel-unique, so this single equality pins the converter
 completely: a vertical flip, a BGR/RGB swap, a stride miscount or an off-by-one
@@ -29,8 +29,12 @@ VIDEOS = ROOT / "test-patterns"
 #: The rig, floor-confirmed at gate 4. Orientation is `identity` permanently.
 RIG = FloorConfig.of("8x8_4P", 10, 5)
 
-#: 80x40, 60 frames, top-down.
-GRADIENT = VIDEOS / "09-gradient24-8x8_4P-10x5.avi"
+#: 80x40, 60 frames, top-down. Lives under tools/oracle/media/, not
+#: test-patterns/ — it is also the gate-2 oracle capture's source clip, and
+#: that is the only copy ever committed. A same-named file under
+#: test-patterns/ is a hand-copy some worktree made locally; it is untracked
+#: and this test must not depend on it existing.
+GRADIENT = ROOT / "tools" / "oracle" / "media" / "09-gradient24-8x8_4P-10x5.avi"
 
 #: 64x40 — the 8x5 `8x8_8P` rig the 2026-08-06 captures were taken on, and so
 #: the wrong asset for `RIG`.

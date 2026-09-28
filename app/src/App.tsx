@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { SenderStatus } from '../electron/sidecar.js'
-import { MappingScreen } from './mapping/MappingScreen.js'
+import { MappingScreen, type NetworkInterface } from './mapping/MappingScreen.js'
 import { applyFloorSelection } from './mapping/floorSelection.js'
 import { PlayScreen } from './PlayScreen.js'
 import { composeFrame } from './player/compose.js'
@@ -41,7 +41,7 @@ export function App() {
   if (engineRef.current === null) {
     engineRef.current = new PlayerEngine({
       show: INITIAL_SHOW,
-      createSource: (cue) => new VideoSource(cue.source.path, cue.rotation),
+      createSource: (cue) => new VideoSource(cue.source.path, cue.rotation, { trimStartMs: cue.trimStartMs, trimEndMs: cue.trimEndMs }),
     })
   }
   const engine = engineRef.current
@@ -53,6 +53,27 @@ export function App() {
   const [status, setStatus] = useState<SenderStatus>('restarting')
   const [snapshot, setSnapshot] = useState<EngineSnapshot>(() => engine.snapshot())
   const [stats, setStats] = useState<RenderStats>({ fps: 0, passMs: 0 })
+
+  /**
+   * The NIC list and the operator's pick, held here rather than in
+   * `MappingScreen`.
+   *
+   * They used to be that component's own `useState`, and the surface switch
+   * below unmounts it, so every trip to the Player and back reset the pick to
+   * `interfaces[0]` — while the sidecar stayed bound to whatever the operator
+   * had actually chosen. The dropdown and the wire disagreed, silently, and
+   * nothing wrote either back to the other. `floor` and `rotation` already live
+   * up here for exactly this reason; the NIC was the one piece of Mapping state
+   * still owned by the component that cannot survive being navigated away from.
+   *
+   * The list is pushed from the main process rather than fetched on mount, so a
+   * cable plugged in while Mapping is on screen shows up without a round trip
+   * through the Player. Same poll that suspends the sidecar when the bound
+   * address goes away — one watcher, three consumers.
+   */
+  const [interfaces, setInterfaces] = useState<readonly NetworkInterface[]>([])
+  const [localIp, setLocalIp] = useState<string>('')
+  const [senderError, setSenderError] = useState<string | null>(null)
 
   const floor = useMemo(
     () => floorGeometry(show.floor.type, show.floor.tileCols, show.floor.tileRows),
@@ -74,6 +95,22 @@ export function App() {
   passRef.current = { rotation, mirrorX: false, mirrorY: false, s: S }
 
   useEffect(() => window.ddf.onStatus(setStatus), [])
+  useEffect(() => window.ddf.onSenderError((payload) => setSenderError(payload?.message ?? null)), [])
+  useEffect(() => window.ddf.onInterfaces(setInterfaces), [])
+
+  // The bound address is the main process's to know — it is what `mapper stream`
+  // was actually launched with. Reading it once at start rather than assuming
+  // `interfaces[0]` is what makes a `DDF_LOCAL_IP` set in the environment, or
+  // restored from settings, show up in the dropdown as the truth instead of
+  // being silently contradicted by it.
+  useEffect(() => {
+    void window.ddf.getLocalIp().then(setLocalIp)
+  }, [])
+
+  const selectInterface = async (address: string): Promise<void> => {
+    await window.ddf.setLocalIp(address)
+    setLocalIp(address)
+  }
 
   /**
    * Buffers follow the floor, in their own effect keyed on the sizes that
@@ -160,7 +197,9 @@ export function App() {
 
       // The floor. Exactly one write per animation frame, on every path —
       // stopping the send is what makes controller 1 revert to the vendor's own
-      // content, so there is no branch here that may skip it.
+      // content when it is in Master/IR mode (in slave mode it would hold its
+      // last frame instead, same as 2 and 3), so there is no branch here that
+      // may skip it either way.
       const wireBytes = tick.wire.kind === 'black'
         ? blackFrameRef.current
         : compose(tick.wire.source, tick.master, wireBufferRef.current)
@@ -305,6 +344,10 @@ export function App() {
           floor={floor}
           rotation={rotation}
           status={status}
+          interfaces={interfaces}
+          localIp={localIp}
+          senderError={senderError}
+          selectInterface={selectInterface}
           changeFloor={changeFloor}
           setRotation={setRotation}
           setSurface={setSurface}
@@ -315,6 +358,7 @@ export function App() {
           showRef={showRef}
           floor={floor}
           status={status}
+          senderError={senderError}
           snapshot={snapshot}
           stats={stats}
           engine={engine}
@@ -326,6 +370,7 @@ export function App() {
           onZoomIn={() => setZoom(zoomIn)}
           onZoomOut={() => setZoom(zoomOut)}
           onZoomFit={() => setZoom(ZOOM_FIT)}
+          onZoomSet={setZoom}
         />
       )}
       {/*
@@ -333,7 +378,8 @@ export function App() {
         `writeFrame` if this ref is null, and this element used to live inside
         Play's JSX. With the app launching on Mapping that would mean nothing
         reaches the sidecar at all until Open Player is clicked, and silence is
-        what makes controller 1 revert to the vendor's own content. `surface`
+        what makes controller 1 revert to the vendor's own content in Master/IR
+        mode (in slave mode it would hold its last frame instead). `surface`
         toggles its visibility in CSS; `PlayScreen` only supplies a container to
         position it into.
 

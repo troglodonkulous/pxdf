@@ -200,8 +200,9 @@ mockup.
 - Changing it **restarts the sidecar**: `stop()` writes black, ends stdin and
   resolves on `exit`, then a new `Sidecar` spawns with the new `--cols`/`--rows`.
   The window between them is a window in which the floor receives nothing, and
-  `CLAUDE.md` says controller 1 reverts to vendor content about five seconds
-  after packets stop. A restart that takes 200 ms is fine; one that hangs on a
+  `CLAUDE.md` says controller 1, in Master/IR mode, reverts to vendor content
+  about five seconds after packets stop (in slave mode it holds its last frame
+  like 2 and 3 instead). A restart that takes 200 ms is fine; one that hangs on a
   Python process that will not exit is a floor showing someone else's content
   mid-show. **That is why the wire gate below exists.**
 - The work canvas, the wire buffer, the preview buffer and `blackFrame` are all
@@ -238,7 +239,8 @@ mockup.
    stop being the sender before the new one starts or two senders interleave
    frames onto one floor. So the gate is that the silence stays under a small
    bound — `wire.mjs` uses 2 s — which is well short of the ~5 s at which
-   controller 1 reverts to the vendor's own content.
+   controller 1, in Master/IR mode, reverts to the vendor's own content (in
+   slave mode it holds its last frame instead, same as 2 and 3).
 
    *Reworded in PR 3, 2026-08-13.* The original said "no gap in the packet
    stream", which read literally is unachievable without either live
@@ -458,8 +460,9 @@ Two rules keep the renderer replaceable, and cost nothing today:
 - **Crash recovery is a reliability pillar** (§9), not autosave. Debounced write
   to a `.recovery` sidecar on every mutation; a sidecar newer than the show file
   offers a restore on launch. Plus Save / Save As / Duplicate / Open / Rename.
-- **Blackout sends black frames; it never stops sending.** Controller 1 reverts
-  to local content ~5 s after packets stop while 2 and 3 hold their last frame.
+- **Blackout sends black frames; it never stops sending.** In Master/IR mode,
+  controller 1 reverts to local content ~5 s after packets stop while 2 and 3
+  hold their last frame; in slave mode controller 1 holds its last frame too.
   The socket opens with the show file and never closes.
 - **Brightness and Master are compositor-side.** `PROTOCOL.md` Q6 is closed:
   nothing in the vendor stack exposes colour or brightness over Ethernet for

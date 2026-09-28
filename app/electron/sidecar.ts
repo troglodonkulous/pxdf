@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { resolvePythonEnv } from './paths.js'
 
 /**
  * What the sender process is doing. Not what the floor is doing.
@@ -40,9 +41,10 @@ export interface SidecarOptions {
   readonly rows: number
   readonly blackFrame: Uint8Array
   readonly onStatus: (status: SenderStatus) => void
+  readonly onError: (message: string | null) => void
 }
 
-const RETRY_DELAYS_MS = [0, 250, 500, 1_000] as const
+const RETRY_DELAYS_MS = [0, 250, 500, 1_000, 2_000, 5_000] as const
 
 /**
  * How long a child must stay up before its spawn counts as a recovery.
@@ -81,7 +83,10 @@ const REAP_GRACE_MS = 2_000
  */
 const SENDING_AFTER_MS = 400
 
+const STDERR_LINE_LIMIT = 10
+
 export class Sidecar {
+  private readonly options: SidecarOptions
   private child: ChildProcess | null = null
   private retryTimer: ReturnType<typeof setTimeout> | null = null
   private stableTimer: ReturnType<typeof setTimeout> | null = null
@@ -91,9 +96,22 @@ export class Sidecar {
   private writable = false
   private started = false
   private stopping = false
+  private suspended = false
   private stopPromise: Promise<void> | null = null
+  /**
+   * The last thing a child itself said about why it died — its stderr, or the
+   * `Error` Node handed us — and nothing else. Held so that a later death which
+   * says nothing at all can quote it *as history* rather than being reported
+   * under it. Cleared wherever the banner is cleared, so it can never outlive
+   * the failure it describes.
+   */
+  private lastReported: string | null = null
 
-  constructor(private readonly options: SidecarOptions) {}
+  constructor(options: SidecarOptions | Omit<SidecarOptions, 'onError'>) {
+    this.options = 'onError' in options
+      ? options
+      : { ...options, onError: () => {} }
+  }
 
   start(): void {
     if (this.started) return
@@ -123,6 +141,42 @@ export class Sidecar {
     // child that is still alive.
     this.stopPromise ??= this.shutDown()
     return this.stopPromise
+  }
+
+  suspend(reason: string): void {
+    if (this.suspended) return
+
+    // Mark suspended before signaling. Test doubles and some process wrappers
+    // emit `exit` synchronously from `kill`; handleDeath must see this state or
+    // it schedules the very respawn suspension exists to prevent.
+    this.suspended = true
+    this.clearTimer('retryTimer')
+    this.clearTimer('stableTimer')
+    this.clearTimer('sendingTimer')
+
+    const child = this.child
+    if (child !== null && child.exitCode === null && child.signalCode === null) {
+      try {
+        child.kill('SIGKILL')
+      } catch {
+        // Already reaped; suspension still owns the resulting stopped state.
+      }
+    }
+
+    this.options.onStatus('stopped')
+    this.options.onError(reason)
+  }
+
+  resume(): void {
+    if (!this.suspended || this.stopping || !this.started) return
+
+    this.suspended = false
+    // A missing NIC is not evidence that the sender itself is unhealthy. Once
+    // the address exists again, retaining the crash ladder's old rung would
+    // leave a recovered floor dark for up to five unnecessary seconds.
+    this.retryIndex = 0
+    this.clearError()
+    this.spawnChild()
   }
 
   private async shutDown(): Promise<void> {
@@ -179,6 +233,58 @@ export class Sidecar {
     })
   }
 
+  /**
+   * Take the banner down, and forget the cause with it.
+   *
+   * The two must move together. A `lastReported` left standing after the banner
+   * is cleared would be quoted into the next silent death's message as though
+   * the old fault were still live — the cry-wolf failure, arriving by a side
+   * door.
+   */
+  private clearError(): void {
+    this.lastReported = null
+    this.options.onError(null)
+  }
+
+  /**
+   * Say why a child died. Always — this publish has no guard on it.
+   *
+   * It used to have one: the message went out only if the child had written to
+   * stderr. That is silent on exactly the deaths that print nothing. A `spawn
+   * python3 ENOENT` (wrong venv, no Python on `PATH`) never creates a process,
+   * so there is not one byte of stderr and the `Error` carrying ENOENT was
+   * dropped into an ignored parameter; a signal kill and any silent nonzero
+   * exit are the same shape. The operator got a pill cycling Stopped →
+   * Restarting forever behind a blank banner, which is a floor that is down
+   * with nothing on screen saying so.
+   *
+   * Precedence is the child's own words first: stderr, then the `Error` Node
+   * raised, then a sentence synthesised from the exit status. The synthesised
+   * case also carries the last thing a child *did* report, explicitly labelled
+   * as prior — a crash loop whose first child explained itself and whose later
+   * children die mute must not lose that explanation, and must not have the
+   * later deaths reported under it either.
+   */
+  private publishDeath(stderr: string, cause: Error | null, code: number | null, signal: string | null): void {
+    const reported = stderr.length > 0 ? stderr : (cause?.message ?? '')
+    if (reported.length > 0) {
+      this.lastReported = reported
+      this.options.onError(reported)
+      return
+    }
+
+    const synthesised = signal !== null
+      ? `sender killed by ${signal}`
+      : code !== null
+        ? `sender exited with code ${code}`
+        : 'sender exited'
+    this.options.onError(
+      this.lastReported === null
+        ? synthesised
+        : `${synthesised}; last reported: ${this.lastReported}`,
+    )
+  }
+
   private clearTimer(which: 'retryTimer' | 'stableTimer' | 'sendingTimer'): void {
     const timer = this[which]
     if (timer !== null) {
@@ -188,7 +294,15 @@ export class Sidecar {
   }
 
   private spawnChild(): void {
-    if (this.stopping || !this.started) return
+    // `this.suspended` here is a backstop, and mutation-checked as one: removing
+    // it alone leaves every test green, because `suspend` clears the pending
+    // retry timer and `handleDeath` returns before scheduling a new one, so
+    // nothing reaches this line while suspended today. Removing all of them
+    // together does go red. It stays because this is the single funnel every
+    // spawn passes through — first launch, ladder respawn, and `main.ts`
+    // replacing the instance — and a future path that reaches it would
+    // otherwise put a sender on a floor the operator has been told is down.
+    if (this.stopping || !this.started || this.suspended) return
 
     // Every path that brings a child up passes through here — first launch, a
     // ladder respawn, and `main.ts` replacing the whole instance for a floor or
@@ -222,17 +336,37 @@ export class Sidecar {
 
     const child = spawn(python, args, {
       cwd: this.options.repoRoot,
-      stdio: ['pipe', 'ignore', 'inherit'],
+      env: resolvePythonEnv(this.options.isPackaged),
+      stdio: ['pipe', 'ignore', 'pipe'],
     })
     this.child = child
     this.writable = false
 
+    let stderrLines: string[] = []
+    let stderrRemainder = ''
+    child.stderr?.setEncoding('utf8')
+    child.stderr?.on('data', (chunk: string) => {
+      // Capturing stderr gives the renderer a useful failure reason, but it
+      // must not take the terminal copy away from developers diagnosing a
+      // machine where the UI itself may be unavailable.
+      process.stderr.write(chunk)
+
+      const lines = `${stderrRemainder}${chunk}`.split(/\r?\n/)
+      stderrRemainder = lines.pop() ?? ''
+      stderrLines.push(...lines)
+      if (stderrLines.length > STDERR_LINE_LIMIT) {
+        stderrLines = stderrLines.slice(-STDERR_LINE_LIMIT)
+      }
+    })
+
     let failed = false
-    const handleDeath = (): void => {
+    const handleDeath = (cause: Error | null, code: number | null, signal: string | null): void => {
       if (failed) return
       failed = true
       this.clearTimer('stableTimer')
       this.clearTimer('sendingTimer')
+
+      const wasCurrent = this.child === child
 
       // Make sure this child is really gone before another is started. The
       // trigger may be a stdin error rather than an exit — a broken pipe on a
@@ -247,19 +381,36 @@ export class Sidecar {
         }
       }
 
-      if (this.child === child) {
+      if (wasCurrent) {
         this.child = null
         this.writable = false
       }
-      if (this.stopping || !this.started) return
+      // A suspended child may finish dying after resume has already installed
+      // its replacement. Its late exit belongs to the detached process, not
+      // the healthy current one, and must not start another sender beside it.
+      if (!wasCurrent || this.stopping || !this.started || this.suspended) return
+
+      const stderr = (stderrRemainder.length > 0 ? [...stderrLines, stderrRemainder] : stderrLines)
+        .slice(-STDERR_LINE_LIMIT)
+        .join('\n')
+        .trimEnd()
+      this.publishDeath(stderr.trim().length > 0 ? stderr : '', cause, code, signal)
 
       this.options.onStatus('stopped')
       this.scheduleRespawn()
     }
 
-    child.on('error', handleDeath)
-    child.once('exit', handleDeath)
-    child.stdin?.on('error', handleDeath)
+    // Wrappers, not a bare `handleDeath` on each of these. `exit` emits
+    // `(code, signal)`, so the moment `handleDeath` takes a cause as its first
+    // parameter a bare reference binds the exit code to it — a number, whose
+    // `.message` is `undefined`. The publish would then fall through to a
+    // synthesised sentence with no code and no signal on the commonest death
+    // there is, while the diff still read like a fix.
+    child.on('error', (cause: Error) => handleDeath(cause, null, null))
+    child.once('exit', (code: number | null, signal: NodeJS.Signals | null) => {
+      handleDeath(null, code, signal)
+    })
+    child.stdin?.on('error', (cause: Error) => handleDeath(cause, null, null))
     child.stdin?.on('drain', () => {
       if (this.child === child && !failed) this.writable = true
     })
@@ -283,11 +434,14 @@ export class Sidecar {
       // missing module, a port already held — respawns at the 0 ms rung
       // forever. Without the reset the ladder is instead a one-way ratchet: a
       // process that crashes once at load-in and recovers leaves it parked at
-      // the 1 s hold, and an unrelated death hours later waits a second rather
-      // than reconnecting at once. The interval is what separates the two.
+      // the 5 s hold, and an unrelated death hours later waits five seconds
+      // rather than reconnecting at once. The interval separates the two.
       this.stableTimer = setTimeout(() => {
         this.stableTimer = null
-        if (this.child === child) this.retryIndex = 0
+        if (this.child === child && !failed) {
+          this.retryIndex = 0
+          this.clearError()
+        }
       }, STABLE_AFTER_MS)
     })
   }
@@ -303,7 +457,7 @@ export class Sidecar {
     const delay = RETRY_DELAYS_MS[Math.min(this.retryIndex, RETRY_DELAYS_MS.length - 1)]
     this.retryIndex += 1
     // `restarting` is published by `spawnChild`, not here. During this delay —
-    // up to a second at the top of the ladder — nothing is coming up yet, and
+    // up to five seconds at the top of the ladder — nothing is coming up yet, and
     // `stopped` is the accurate word for that.
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null

@@ -42,6 +42,17 @@ class FakeChild extends EventEmitter {
     }),
   });
 
+  /**
+   * Present because the supervisor now reads it. Until this PR the child was
+   * spawned with stderr `'inherit'`, so `mapper`'s own account of why it died
+   * went to a terminal the operator is not looking at — the only thing the UI
+   * ever learned was a three-valued status flickering between Stopped and
+   * Restarting. `setEncoding` is here because `sidecar.ts` calls it.
+   */
+  readonly stderr = Object.assign(new EventEmitter(), {
+    setEncoding: vi.fn(),
+  });
+
   ended = false;
 
   kill(signal?: string): boolean {
@@ -65,6 +76,9 @@ class FakeChild extends EventEmitter {
 
 const BLACK = new Uint8Array(9600);
 
+/** Mirrors `STABLE_AFTER_MS` in `sidecar.ts`, which is module-private there. */
+const STABLE_AFTER_MS = 5_000;
+
 function makeSidecar() {
   const children: FakeChild[] = [];
   spawn.mockImplementation(() => {
@@ -74,6 +88,7 @@ function makeSidecar() {
   });
 
   const statuses: SenderStatus[] = [];
+  const errors: (string | null)[] = [];
   const sidecar = new Sidecar({
     isPackaged: false,
     repoRoot: '/repo',
@@ -82,8 +97,9 @@ function makeSidecar() {
     rows: 5,
     blackFrame: BLACK,
     onStatus: (s) => statuses.push(s),
+    onError: (message) => errors.push(message),
   });
-  return { sidecar, children, statuses };
+  return { sidecar, children, statuses, errors };
 }
 
 /**
@@ -236,8 +252,9 @@ describe('respawn', () => {
     expect(children.length).toBe(2);
     children[1].goLive();
 
-    // Not cosmetic: controller 1 reverts to the vendor's own local content
-    // ~5 s after packets stop, so a silent respawn that waits for the next
+    // Not cosmetic: controller 1, in Master/IR mode, reverts to the vendor's
+    // own local content ~5 s after packets stop (in slave mode it would hold
+    // its last frame instead), so a silent respawn that waits for the next
     // rAF tick risks the floor showing someone else's show.
     expect(children[1].writes[0][0]).toBe(7);
   });
@@ -249,11 +266,11 @@ describe('respawn', () => {
     expect(children[0].writes[0]).toEqual(BLACK);
   });
 
-  it('walks the backoff ladder 0, 250, 500, 1000 and then holds', () => {
+  it('walks the backoff ladder 0, 250, 500, 1000, 2000, 5000 and then holds', () => {
     const { sidecar, children } = makeSidecar();
     sidecar.start();
 
-    for (const delay of [0, 250, 500, 1_000, 1_000]) {
+    for (const delay of [0, 250, 500, 1_000, 2_000, 5_000, 5_000]) {
       const before = children.length;
       children[before - 1].die();
       if (delay > 0) {
@@ -275,7 +292,7 @@ describe('respawn', () => {
 
     for (let i = 0; i < 4; i++) {
       children[children.length - 1].die();
-      vi.advanceTimersByTime(1_000);
+      vi.advanceTimersByTime(5_000);
     }
     const climbed = children.length;
 
@@ -295,7 +312,7 @@ describe('respawn', () => {
     const { sidecar, children } = makeSidecar();
     sidecar.start();
 
-    for (const delay of [0, 250, 500, 1_000, 1_000]) {
+    for (const delay of [0, 250, 500, 1_000, 2_000, 5_000, 5_000]) {
       const before = children.length;
       children[before - 1].goLive(); // created...
       children[before - 1].die(); // ...and immediately gone
@@ -327,7 +344,7 @@ describe('respawn', () => {
     sidecar.start();
     for (let i = 0; i < 50; i++) {
       children[children.length - 1].die();
-      vi.advanceTimersByTime(1_000);
+      vi.advanceTimersByTime(5_000);
     }
     // An unattended show has to recover on its own; there is no operator to
     // press a button at 23:40.
@@ -402,6 +419,263 @@ describe('respawn', () => {
     // as well when nothing happened at all, so prove the loop ran.
     expect(children.length).toBeGreaterThan(4);
     expect(statuses.filter((status) => status === 'stopped').length).toBe(4);
+  });
+});
+
+/**
+ * MEASURED 2026-08-13. Pulling the Ethernet with the app open put the sender
+ * into a permanent respawn storm: `mapper stream` cannot bind to an address no
+ * interface holds, so every child died on arrival, and the ladder brought
+ * another one up a second later, forever. Each death was a macOS crash dialog
+ * (see `mapper/tests/test_stream_exit.py` for that half). The operator's only
+ * way out was killing the app from a terminal.
+ *
+ * Widening the ladder would only have slowed the storm down. The fix is that a
+ * process which *cannot* succeed is not started at all: `main.ts` watches the
+ * interface list and suspends the supervisor while the bound address is absent.
+ * That is a policy about the machine's NICs, so it lives in `main.ts` and
+ * arrives here as two calls — `node:os` stays out of this file.
+ */
+describe('suspend and resume', () => {
+  it('brings up no child at all while suspended', () => {
+    const { sidecar, children } = makeSidecar();
+    sidecar.start();
+    expect(children.length).toBe(1);
+
+    sidecar.suspend('10.200.50.78 is gone');
+    children[0].die();
+
+    // Five minutes at the top of the ladder is 60 spawns unsuspended.
+    vi.advanceTimersByTime(300_000);
+    expect(children.length, 'respawned while suspended').toBe(1);
+  });
+
+  it('kills a child that is still running when it suspends', () => {
+    // `sendto` on a socket bound to a departed address does not reliably fail,
+    // so a child can outlive its own interface, holding a socket that will not
+    // work again when the cable comes back. Resume has to build a fresh one.
+    const { sidecar, children } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+    vi.advanceTimersByTime(500);
+
+    sidecar.suspend('10.200.50.78 is gone');
+    expect(children[0].killed).toBe(true);
+    vi.advanceTimersByTime(300_000);
+    expect(children.length).toBe(1);
+  });
+
+  it('says stopped while suspended, and gives the reason', () => {
+    const { sidecar, statuses, errors } = makeSidecar();
+    sidecar.start();
+    statuses.length = 0;
+    errors.length = 0;
+
+    sidecar.suspend('10.200.50.78 is gone');
+
+    expect(statuses).toContain('stopped');
+    expect(statuses, 'claimed something was coming up').not.toContain('restarting');
+    expect(errors.at(-1)).toContain('10.200.50.78');
+  });
+
+  it('comes back on its own when the interface returns', () => {
+    const { sidecar, children, errors } = makeSidecar();
+    sidecar.start();
+    sidecar.suspend('10.200.50.78 is gone');
+    children[0].die();
+    vi.advanceTimersByTime(300_000);
+
+    sidecar.resume();
+
+    // At once, not on the rung the storm had climbed to. There is no operator
+    // at 23:40 and the floor is dark until this happens.
+    expect(children.length).toBe(2);
+    expect(errors.at(-1), 'left an error banner up over a working sender').toBe(null);
+  });
+
+  it('is idempotent in both directions', () => {
+    // `main.ts` polls, so it calls these on a timer with whatever the current
+    // answer is rather than on an edge. A second `resume` must not spawn a
+    // second sender onto one broadcast address.
+    const { sidecar, children } = makeSidecar();
+    sidecar.start();
+
+    sidecar.suspend('gone');
+    sidecar.suspend('gone');
+    children[0].die();
+    vi.advanceTimersByTime(10_000);
+    expect(children.length).toBe(1);
+
+    sidecar.resume();
+    sidecar.resume();
+    sidecar.resume();
+    expect(children.length).toBe(2);
+  });
+
+  it('does not resurrect a sidecar that was stopped for good', async () => {
+    const { sidecar, children } = makeSidecar();
+    sidecar.start();
+    const stopped = sidecar.stop();
+    children[0].emit('exit', 0, null);
+    await stopped;
+
+    sidecar.resume();
+    vi.advanceTimersByTime(10_000);
+    expect(children.length, 'resume outranked stop').toBe(1);
+  });
+});
+
+/**
+ * The child's own account of why it died, which until now went nowhere.
+ *
+ * `stdio` stderr was `'inherit'`, so `mapper`'s message landed on the Electron
+ * main process's console. Every postmortem in `docs/POSTMORTEMS.md` is a
+ * contradiction that had no path to a reader; this was one waiting to happen,
+ * and the Ethernet incident is where it happened.
+ */
+describe('the reason a child died', () => {
+  it('reports what the child said on stderr', () => {
+    const { sidecar, children, errors } = makeSidecar();
+    sidecar.start();
+    const child = children[0];
+    child.goLive();
+
+    child.stderr.emit('data', 'floor NIC 10.200.50.78 unusable: [Errno 49] Cannot assign requested address\n');
+    child.die();
+
+    expect(errors.at(-1)).toContain('Errno 49');
+  });
+
+  it('keeps the last lines, not the first', () => {
+    // A traceback or a run of warnings must not push the line that names the
+    // fault out of the message the operator reads.
+    const { sidecar, children, errors } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+
+    for (let i = 0; i < 40; i++) children[0].stderr.emit('data', `noise ${i}\n`);
+    children[0].stderr.emit('data', 'floor NIC 10.200.50.78 unusable\n');
+    children[0].die();
+
+    expect(errors.at(-1)).toContain('10.200.50.78');
+    expect(errors.at(-1)).not.toContain('noise 0');
+  });
+
+  it('reports a child that never started and said nothing', () => {
+    // `spawn python3 ENOENT` — a wrong venv, or no Python on `PATH` at all.
+    // No process is created, so there is not one byte of stderr to gate on,
+    // and the `Error` carrying ENOENT arrived in a parameter the handler did
+    // not take. The whole account of the failure was therefore dropped, and
+    // the operator watched the pill cycle Stopped → Restarting forever with a
+    // blank banner over it. This is the commonest way a machine that has never
+    // run the app fails, and it was the one death that said least.
+    const { sidecar, children, errors } = makeSidecar();
+    sidecar.start();
+
+    children[0].emit('error', new Error('spawn python3 ENOENT'));
+
+    expect(errors.at(-1)).toContain('ENOENT');
+  });
+
+  it('reports a child that exited silently', () => {
+    // The other half of the same hole: a nonzero exit that prints nothing —
+    // a signal kill, or an exit path that returns before it can write. Exit
+    // code 3 is not the case that matters here; `mapper/cli.py:515` prints
+    // before `_exit_now(EXIT_NETWORK_GONE)`, so on that path stderr already
+    // has the message. It is the silent ones this covers.
+    const { sidecar, children, errors } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+
+    children[0].die(); // exit(1, null), nothing on stderr
+
+    expect(errors.at(-1)).toContain('code 1');
+  });
+
+  it('reports a clean exit too, because the supervisor respawns from it', () => {
+    // Exit 0 is not a success here. `mapper stream` is meant to run until its
+    // stdin closes, so a child that returns 0 on its own has stopped sending
+    // for a reason nobody wrote down — and the supervisor treats it exactly
+    // like any other death: status `stopped`, then another child up the
+    // ladder. Grading the operator-visible consequence rather than the exit
+    // code: the floor went dark and something is looping, so the banner has to
+    // say so. A publish that special-cased 0 as "fine" would be the one death
+    // in the set that respawns behind a blank banner.
+    const { sidecar, children, errors, statuses } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+
+    children[0].exitCode = 0;
+    children[0].emit('exit', 0, null);
+
+    expect(errors.at(-1)).toContain('code 0');
+    // The positive control for the claim in the comment above: if this death
+    // were terminal, the message would be describing something that is over
+    // and the check would be arguing for noise. It is not — the ladder brings
+    // another child up, and the banner is the only account of why.
+    expect(statuses.at(-1)).toBe('stopped');
+    vi.advanceTimersByTime(0);
+    expect(children.length).toBe(2);
+  });
+
+  it('attributes a silent death to itself, keeping the earlier cause as history', () => {
+    // Stale attribution. Child N dies with stderr; child N+1 dies mute. Left
+    // to stand alone, N's message now describes a death that did not happen
+    // that way — while erasing it would throw away the only explanation the
+    // crash loop ever produced. The message has to do both: name this death,
+    // and quote the earlier one as prior.
+    const { sidecar, children, errors } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+    children[0].stderr.emit('data', 'floor NIC 10.200.50.78 unusable\n');
+    children[0].die();
+
+    vi.advanceTimersByTime(0);
+    children[1].goLive();
+    children[1].die(); // says nothing of its own
+
+    expect(errors.at(-1)).toContain('code 1');
+    expect(errors.at(-1)).toContain('10.200.50.78');
+  });
+
+  it('clears the error once a replacement has stayed up', () => {
+    // A banner that outlives its cause is the cry-wolf failure in `CLAUDE.md`:
+    // one channel left permanently red trains the operator to ignore it, and
+    // the true one after that is ignored too.
+    const { sidecar, children, errors } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+    children[0].stderr.emit('data', 'something went wrong\n');
+    children[0].die();
+    expect(errors.at(-1)).toContain('something went wrong');
+
+    vi.advanceTimersByTime(0);
+    children[1].goLive();
+    vi.advanceTimersByTime(STABLE_AFTER_MS);
+
+    expect(errors.at(-1), 'error outlived the failure it described').toBe(null);
+  });
+
+  it('does not clear the error on a child that dies before it is stable', () => {
+    // The mutation that the fix above invites: clearing on `spawn` rather than
+    // on survival wipes the banner on every rung of a crash loop, so a floor
+    // that never comes up reads as one with nothing wrong.
+    const { sidecar, children, errors } = makeSidecar();
+    sidecar.start();
+    children[0].goLive();
+    children[0].stderr.emit('data', 'something went wrong\n');
+    children[0].die();
+
+    vi.advanceTimersByTime(0);
+    children[1].goLive();
+    vi.advanceTimersByTime(STABLE_AFTER_MS - 1);
+    children[1].die();
+
+    // Asserted positively on purpose. `not.toBe(null)` is satisfied by
+    // `undefined`, so the first version of this passed against an
+    // implementation that had never published an error at all — a check that
+    // could not fail, guarding the fix most likely to break it.
+    expect(errors.at(-1)).toContain('something went wrong');
   });
 });
 

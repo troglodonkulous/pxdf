@@ -125,8 +125,9 @@ attaches to the centre of a socket**, and a floor edge attaches at its
 Controllers are numbered from a counter that is reset before each redraw, so
 they are numbered left to right starting at 1. Ours must do the same: the
 diagram's `Controller 1` has to be the operator's leftmost box, because
-`CLAUDE.md` records that controller 1 is the Master/IR unit and the one that
-reverts to vendor content when packets stop.
+`CLAUDE.md` records that controller 1 is the Master/IR unit — the one that, in
+that mode, reverts to vendor content when packets stop (it can also run in
+slave mode, in which case it holds its last frame instead, same as 2 and 3).
 
 **How many edges Ledset draws depends on the type, and for `_4P` it is wrong.**
 `GetEdgeList()` (`LedSet.decompiled.cs:1692-1703`) branches on the floor-type
