@@ -109,7 +109,12 @@ own 30 Hz clock  verified·untouched  reader thread
 Python owning the clock (D-03 — **challenged 2026-09-28** by the render-rate
 cadence measurement; see `docs/DECISIONS.md`) is the README's double-buffering requirement for free: a
 renderer hitch re-sends the previous frame instead of producing a gap, and the
-wire keeps its measured ±0.4 ms pacing whatever Chromium is doing.
+wire keeps its measured ±0.4 ms pacing whatever Chromium is doing. (That figure
+is from `docs/RUNSHEET-10x5-4P.md` §11. On the dev Mac, over loopback,
+`tools/probe_stream_cadence.py` measured the stock sender's wire-interval sd at
+2.2–4.8 ms; one `time.sleep` of a tick's length separately measured 7–15 ms
+late there, the leading explanation but not isolated from stdin-reader timing; see
+the stream-cadence entry in `captures/measurements/README.md`.)
 
 **The render loop writes exactly one frame per composed frame, on every path,
 and composition is not allowed to throw.** Since 2026-09-28 it composes no
@@ -895,7 +900,11 @@ Named so they do not creep back in.
 - **Content cadence on the app path is off-pattern even at 30.** A separate risk
   from the one above, found 2026-09-28: 35–46 % of wire frames repeat or skip
   with the renderer uncapped (`captures/measurements/README.md`, render-rate).
-  Cause not diagnosed. D-03 in `docs/DECISIONS.md` carries it.
+  D-03 in `docs/DECISIONS.md` carries it. Partly attributed 2026-09-28
+  (`captures/measurements/README.md`, stream-cadence): `mapper stream` alone,
+  fed a steady 30 fps, reproduces it at the same magnitude, and does not when
+  `sender.run()` sleeps in 1 ms slices. The video-to-renderer handoff is not
+  yet measured.
 - **The app must run unattended for hours.** Nothing here is soak-tested. PR 6's
   drills are the minimum, not proof.
 

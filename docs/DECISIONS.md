@@ -102,6 +102,14 @@ not diagnosed**; two unsynchronised ~30 Hz clocks is the leading hypothesis, and
 the video-to-renderer handoff is not yet ruled out. What is established is
 that the rule graded packet pacing, an internal symptom, while the operator
 sees content cadence. Unresolved; attribution and any pacing change follow D-02.
+Challenged by: `captures/measurements/README.md`, stream-cadence-2026-09-28.
+`mapper stream` alone, fed a steady 30 fps with no Chromium, goes 29–50 %
+off-pattern when the write lands in the last ~7 ms before its tick, and is
+clean at other phases. The same code with `sender.run()`'s single
+`time.sleep` replaced by 1 ms slices is 0.0 % at every phase. So how the send
+clock sleeps is sufficient to cause the judder, with its late wakes (7–15 ms
+on macOS) the leading mechanism, not yet isolated from stdin-reader timing; the video-to-renderer handoff is still unmeasured. Any change to how
+`stream` sleeps or paces is step 6 of the plan, under D-02.
 
 ### D-04 — Do not port the mapper to TypeScript or Swift (a preference)
 Protects: D-01's graded encoder from a rewrite's regressions.
