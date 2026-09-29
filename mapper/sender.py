@@ -205,6 +205,14 @@ def on_arrival(
       schedule -- the measured cost of a send is 1.8 ms p50 at 10 x 5 and
       4.1 ms p50 / 10.7 ms max at 10 x 12 -- and a later one restarts the
       schedule from itself. No two sends are ever closer than half a tick.
+
+      That one half-tick gap after a stall is a choice, made by the owner
+      2026-09-29 over a strict "no gap under 1/fps": strict is the ratchet
+      above, so this mode would lose its comparison by construction. Across
+      simulated random stalls with writers at 30-120 Hz the worst rate is 38
+      fps over 2 gaps, 31.4 over 10 and 30.4 over 30 -- never sustained above
+      `fps`. The default `clock` is looser still: after a stall its overdue
+      ticks go back to back.
     * **Maximum silence.** With nothing new, the newest frame goes again
       `max_silence` after the last send (see `MAX_SILENCE`).
 
