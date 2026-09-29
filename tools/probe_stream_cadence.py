@@ -134,6 +134,12 @@ No table is printed, the reasons are, and the exit is 2.
     the last frame at least twice in that pause and never go quiet for more
     than 1.25 s (`arrival` declares a 1 s repeat). Controller 1 reverts to its own content ~5 s
     after packets stop; a sender that goes silent fails here, not at a show.
+    **Changed after seeing data, 2026-09-29:** the first full sweep refused
+    on one run whose pause opened with the previous frame. Reproduced 7 of
+    50 times: the sender read the slot before the last write ended, and the
+    send landed after it. One such frame is excused -- the pause's first,
+    `last - 1`, and read before the slot held `last` by the sender's own
+    `--emit-timing` record. Any other frame, or two, still refuses.
 10. **Two instruments agree**: the sender's own `--emit-timing` record of
     what it sent, restricted to the steady window, is the same sequence of
     frames the tap decoded off the wire. A disagreement means one of them is
@@ -436,6 +442,8 @@ class Run:
     read_to_sent_ms: list[float] = field(default_factory=list)
     compared: bool = False
     pause_frames: int = 0
+    #: Control 9 excused one send already in flight when the pause opened.
+    pause_in_flight: bool = False
     pause_max_gap: float = float("nan")
 
     @property
@@ -561,16 +569,33 @@ def run_once(config, frames, tap, geometry, cols, rows, sender_kind, writer_hz, 
     if ref is not None:
         analyse(run, kind, wire, writes, parse_timing(out), ref)
         if pause_start is not None:
-            check_pause(run, wire, writes[-1].k, pause_start, pause_end)
+            check_pause(run, wire, parse_timing(out), writes[-1].k, pause_start, pause_end)
     return run
 
 
-def check_pause(run: Run, wire: list[WireFrame], last_k: int, pause_start: float, pause_end: float) -> None:
+def check_pause(run: Run, wire: list[WireFrame], timing: list[Timing], last_k: int,
+                pause_start: float, pause_end: float) -> None:
     """Control 9: the wire stays live, on the last frame, while the writer is silent."""
     # The last frame's own first send may land just after its write ended;
     # that is still the frame, not a repeat, so it anchors the gaps too.
     during = [f for f in wire if pause_start < f.t < pause_end]
     wrong = [f.index for f in during if f.index != last_k]
+    # One send can already be in flight when the pause opens: the sender read
+    # the slot while the last write was still arriving, and the frame's first
+    # packet lands after it ended (build_frame takes a few ms at 10x12). That
+    # send carries last_k - 1 and is correct -- it was the newest frame the
+    # slot held. Excused only as the pause's first frame, only once, and only
+    # when the sender's own record says it read that frame before the reader
+    # put last_k in the slot. MEASURED 2026-09-29 after it refused a full
+    # sweep: 7 of 50 runs at 10x12 24 Hz, every one read 0.9-3.2 ms before
+    # the write ended (captures/measurements/README.md, stream-pacing entry).
+    if wrong and during[0].index == last_k - 1 and wrong == [last_k - 1]:
+        adopted = next((t.wrote for t in timing if t.seq == last_k and t.wrote is not None), None)
+        prior = [t for t in timing if t.seq == last_k - 1]
+        first_send = min(prior, key=lambda t: abs(t.sent - during[0].t), default=None)
+        if adopted is not None and first_send is not None and first_send.read < adopted:
+            run.pause_in_flight = True
+            wrong = []
     points = [pause_start] + [f.t for f in during] + [pause_end]
     run.pause_frames = len(during)
     run.pause_max_gap = max(b - a for a, b in zip(points, points[1:]))
@@ -805,6 +830,7 @@ def main(argv: list[str] | None = None) -> int:
                     runs.append(run)
                     print(f"  {geometry} {kind:>7} 24 Hz control      rep {rep + 1}: "
                           f"{pct(run.repeat_pct)} repeats, {run.pause_frames} frames in the pause"
+                          + (", first already in flight" if run.pause_in_flight else "")
                           + (" REFUSED" if run.problems else ""), flush=True)
                 if "arrival" in senders:
                     run = run_valid(reruns, *common, "arrival", INJECTED_HZ, None, args.window,
