@@ -52,9 +52,10 @@ Off-pattern steps (anything but +1) as a share of steady steps, per rep:
   0.0 % in all 60 of its runs. MEASURED separately, same Mac: one ~33 ms
   `time.sleep` wakes 7–15 ms late (p50 6.7, max 15.5), because macOS grants
   timer leeway in proportion to the interval; 1 ms slices land p99 0.56 ms
-  late. The late wake smears the tick — the wire-interval sd above — and a
-  write near the adoption boundary is taken on this tick or the next at
-  random.
+  late. The inferred mechanism, not measured end to end: the late wake
+  smears the tick — the wire-interval sd above — so a write near the
+  adoption boundary is taken on this tick or the next at random. See the
+  first bullet under "What this does not establish".
 - **This is the shape the capped app runs had.** Run to run, the same phase
   reads 0 % or 45 % (10×12 at 26.67 and 30.00): the boundary itself moves
   between runs. A renderer on the display clock drifts slowly through every

@@ -112,7 +112,8 @@ renderer hitch re-sends the previous frame instead of producing a gap, and the
 wire keeps its measured ±0.4 ms pacing whatever Chromium is doing. (That figure
 is from `docs/RUNSHEET-10x5-4P.md` §11. On the dev Mac, over loopback,
 `tools/probe_stream_cadence.py` measured the stock sender's wire-interval sd at
-2.2–4.8 ms, because one `time.sleep` per tick wakes 7–15 ms late there; see
+2.2–4.8 ms; one `time.sleep` of a tick's length separately measured 7–15 ms
+late there, the leading explanation but not isolated from stdin-reader timing; see
 the stream-cadence entry in `captures/measurements/README.md`.)
 
 **The render loop writes exactly one frame per composed frame, on every path,
