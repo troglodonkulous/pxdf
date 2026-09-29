@@ -390,6 +390,37 @@ class ArrivalPacingTest(PacedTest):
                 span = times[i + window] - times[i]
                 self.assertGreaterEqual(span, window / 30 - 1e-9, f"{window} sends in {span:.4f} s")
 
+    def test_a_stalled_send_does_not_burst_to_catch_up(self):
+        """After a multi-tick stall the schedule is in the past; it must not be chased.
+
+        Found by the stop-time review of the schedule-anchored ceiling: with
+        only `allowed + 1/fps`, a 200 ms stall leaves six ceilings already open,
+        and a 60 Hz writer then gets a frame out every 16.7 ms until the
+        schedule catches up with the clock -- 60 fps on the wire from a 30 fps
+        ceiling. No two sends may be closer than half a tick, and no run of
+        sends may beat the ceiling by more than that half tick.
+        """
+        sendto = self.sock.sendto
+        stalls = {12}
+
+        def stalling(datagram, destination):
+            if len(self.sock.sent) in stalls:
+                self.clock.now += 0.2
+            return sendto(datagram, destination)
+
+        self.sock.sendto = stalling
+        arrivals = [(k / 60, numbered(k % 250 + 1)) for k in range(1, 180)]
+        sends = self.arrival_run(arrivals, until=2.9)
+        times = [t for t, _ in sends]
+        interval = 1 / 30
+        self.assertTrue(any(b - a > 0.2 for a, b in zip(times, times[1:])), "the stall never happened")
+        for i in range(len(times)):
+            for j in range(i + 1, len(times)):
+                self.assertGreaterEqual(
+                    times[j] - times[i], (j - i) * interval - interval / 2 - 1e-9,
+                    f"sends {i}..{j} span {times[j] - times[i]:.4f} s",
+                )
+
     def test_silence_repeats_the_newest_frame_every_max_silence(self):
         sends = self.arrival_run([(0.125, numbered(1))], until=3.125)
         self.assertEqual([t for t, _ in sends], [0.0, 0.125, 1.125, 2.125, 3.125])

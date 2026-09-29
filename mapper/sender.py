@@ -195,6 +195,16 @@ def on_arrival(
       then a frame was skipped and it began again -- a 2 Hz judder, the defect
       this mode exists to remove. Anchored to the schedule, one gap can be
       short by the previous send's lateness; the lateness cannot accumulate.
+
+      But a schedule left in the past must not be chased. After a multi-tick
+      stall every ceiling up to "now" is already open, and a writer faster
+      than `fps` would get frames out back to back until the schedule caught
+      up (found by review; `test_a_stalled_send_does_not_burst_to_catch_up`).
+      So the ceiling is also never earlier than half a tick after the last
+      actual send: a late send of up to half a tick is absorbed by the
+      schedule -- the measured cost of a send is 1.8 ms p50 at 10 x 5 and
+      4.1 ms p50 / 10.7 ms max at 10 x 12 -- and a later one restarts the
+      schedule from itself. No two sends are ever closer than half a tick.
     * **Maximum silence.** With nothing new, the newest frame goes again
       `max_silence` after the last send (see `MAX_SILENCE`).
 
@@ -213,7 +223,10 @@ def on_arrival(
 
     def pace(n: int, start: float, sent: float) -> None:
         nonlocal allowed
-        ceiling = (start if allowed is None else allowed) + interval
+        ceiling = max(
+            (start if allowed is None else allowed) + interval,
+            sent + interval / 2,
+        )
         sleep_until(ceiling)
         if wait_for_new(0):
             # Already waiting when the ceiling opened: the ceiling released it.
