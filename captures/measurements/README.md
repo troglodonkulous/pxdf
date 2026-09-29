@@ -46,7 +46,8 @@ Off-pattern steps (anything but +1) as a share of steady steps, per rep:
   35–46 % — in 10 of the 12 runs whose write lands in the last ~7 ms before
   the tick, and is clean in 46 of the other 48. The errors come as paired +0/+2 steps: a frame shown
   twice, then its successor skipped.
-- **The sender's own wake-up jitter is sufficient to cause it.** The only
+- **How the sender sleeps is sufficient to cause it; late wakes are the
+  leading mechanism.** The only
   difference between the arms is how `sender.run()` sleeps, and sliced is
   0.0 % in all 60 of its runs. MEASURED separately, same Mac: one ~33 ms
   `time.sleep` wakes 7–15 ms late (p50 6.7, max 15.5), because macOS grants
@@ -69,6 +70,16 @@ Off-pattern steps (anything but +1) as a share of steady steps, per rep:
   sweep's 3.33 ms phase step; it does not remove it. A writer on another
   clock still crosses a narrower band, less often. Whether that is enough, or
   the sender must be paced from the writer, is step 6's question under D-02.
+- **That the late wake is the only mechanism.** The arms differ only in how
+  `sender.run()` sleeps, so the sleep is what matters; that it acts through
+  wake jitter rather than, say, when the stdin reader thread gets to drain
+  the pipe is inferred, not measured. The sweep does not record how long
+  each pipe write blocked or when the reader adopted each frame. What bounds
+  it: write-end to first wire arrival never exceeded 40.4 ms (about one
+  period plus the send), so no frame sat unread for a whole tick; and in the
+  control 7 diagnostic, at two of these configs, no pipe write took over
+  0.15 ms. A per-frame adoption timestamp inside `stream` would settle it,
+  and needs a `mapper/` change (D-02).
 - Loopback, one Mac, a Python writer on the sender's own clock. The phase
   numbers are specific to this machine's send path; the sufficiency is not.
 
