@@ -91,7 +91,7 @@ The full entries — what each protects, its evidence, and what reopens it — a
 
 - **D-01** — The wire encoding and the byte output of `play`/`send` are frozen. Reopen if: a controller renders this encoding wrongly, or a new tile type needs a layout it cannot express.
 - **D-02** — `mapper stream` may change for the app: opt-in, default unchanged, graded by the digests plus a cadence instrument, and the default only after a floor capture. Reopen if: a boundary problem proves unfixable inside `stream` alone.
-- **D-03** — Python owns the send clock. Reopen if: content cadence on the wire is off-pattern. **Reopened 2026-09-28** — cause not yet diagnosed; see the entry.
+- **D-03** — Python owns the send clock. Reopen if: content cadence on the wire is off-pattern. **Reopened 2026-09-28** — the sender's own wake-up jitter is shown sufficient to cause the judder; the video-to-renderer handoff is not yet measured. See the entry.
 - **D-04** — Do not port the mapper (a preference). Reopen if: the sidecar boundary blocks a fix that D-02 cannot deliver, or packaging Python becomes a recurring show risk.
 - **D-05** — `mapper/` uses the Python standard library only. Reopen if: a needed capability has no reasonable stdlib route.
 - **D-06** — `tools/Send-FloorTest.ps1` is never modified; invoke it with `-PortsPerController 4`. Reopen if: the protocol changes.

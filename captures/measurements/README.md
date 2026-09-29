@@ -10,6 +10,107 @@ can re-run it and compare rather than trust the transcript.
 
 ---
 
+## `stream-cadence-2026-09-28` — `mapper stream` alone, fed a steady 30 fps, by phase
+
+`tools/probe_stream_cadence.py`. The first arm of attributing the app-path
+judder below (D-03, reopened): Chromium removed entirely. A Python writer feeds
+`mapper stream` numbered frames at 30 fps on the sender's own `perf_counter`
+clock, so it holds one fixed phase against the sender's tick for a whole run;
+a loopback tap reads every wire frame's number back. The probe fits the tick
+grid from the sender's black lead-in, then sweeps the writer's phase across
+the period: 10 phases × 3 reps × 2 geometries × 2 senders, 10 s each, plus a
+24 fps control arm per rep. Exit 0, no run re-run.
+
+Two senders, alternated at every phase. **stock** is `mapper stream` exactly as
+the app runs it. **sliced** is the same code with one substitution made at
+runtime, not in `mapper/`: `sender.run()`'s single `time.sleep` per tick
+becomes 1 ms slices.
+
+Off-pattern steps (anything but +1) as a share of steady steps, per rep:
+
+| phase (ms) | 10×10 stock | 10×12 stock | 10×10 sliced | 10×12 sliced |
+|---|---|---|---|---|
+| 0.00–23.33 (8 phases) | 0 % in 23 of 24 runs; 10.3 % once (3.33) | 0 % in 23 of 24; 1.5 % once (23.33) | 0 % in all 24 | 0 % in all 24 |
+| 26.67 | 49.8, 45.9, 43.9 % | 0.0, 45.2, 34.7 % | 0, 0, 0 % | 0, 0, 0 % |
+| 30.00 | 28.8, 38.6, 34.2 % | 6.6, 41.3, 46.5 % | 0, 0, 0 % | 0, 0, 0 % |
+| step histogram, 30 runs | +0: 343, +1: 7449, +2: 339 | +0: 239, +1: 7654, +2: 238 | +1: 8130 | +1: 8130 |
+| wire interval sd | 2.23–4.78 ms | 2.24–4.35 ms | 0.26–0.67 ms | 0.49–1.11 ms |
+
+24 fps control: 20.1 % repeats, mean step 0.799, in all twelve runs.
+
+### What the numbers say
+
+- **Handoff 2 alone is sufficient to cause the judder, at the app path's
+  magnitude.** With no Chromium, no video and a writer that holds its phase to
+  under 1 ms, stock `stream` goes 29–50 % off-pattern — the app path measured
+  35–46 % — in 10 of the 12 runs whose write lands in the last ~7 ms before
+  the tick, and is clean in 46 of the other 48. The errors come as paired +0/+2 steps: a frame shown
+  twice, then its successor skipped.
+- **The sender's own wake-up jitter is sufficient to cause it.** The only
+  difference between the arms is how `sender.run()` sleeps, and sliced is
+  0.0 % in all 60 of its runs. MEASURED separately, same Mac: one ~33 ms
+  `time.sleep` wakes 7–15 ms late (p50 6.7, max 15.5), because macOS grants
+  timer leeway in proportion to the interval; 1 ms slices land p99 0.56 ms
+  late. The late wake smears the tick — the wire-interval sd above — and a
+  write near the adoption boundary is taken on this tick or the next at
+  random.
+- **This is the shape the capped app runs had.** Run to run, the same phase
+  reads 0 % or 45 % (10×12 at 26.67 and 30.00): the boundary itself moves
+  between runs. A renderer on the display clock drifts slowly through every
+  phase, so an app run's cadence depends on how long it spends in the bad
+  band — the bimodal spread under `render-rate-2026-09-28-capped-10x10`.
+
+### What this does not establish
+
+- **That handoff 1 (video to renderer) is clean.** This shows handoff 2 is
+  sufficient, not that it is the only cause on the app path. That half of
+  plan step 5 is not measured.
+- **That slicing is the fix.** Sliced narrows the boundary to below this
+  sweep's 3.33 ms phase step; it does not remove it. A writer on another
+  clock still crosses a narrower band, less often. Whether that is enough, or
+  the sender must be paced from the writer, is step 6's question under D-02.
+- Loopback, one Mac, a Python writer on the sender's own clock. The phase
+  numbers are specific to this machine's send path; the sufficiency is not.
+
+### Positive controls, and one that was changed after seeing data
+
+Controls 0–7 are in the probe's docstring; any failure refuses (exit 2, no
+table). Each was broken on purpose, 10×10, one phase, 4 s windows, and every
+mutation refused with exit 2:
+
+| mutation | caught by |
+|---|---|
+| decoder reads `k // 2` (control 0 disarmed) | control 5, mean step 0.494 of 1.000 |
+| decoder stuck on one index (control 0 disarmed) | control 3, no wire frames in the window |
+| decoder byte-swaps k | control 0 |
+| decoder checks only the marker | control 0, flipped byte still decoded |
+| repeat detector drops repeats | control 6 (0.0 %), also controls 4 and 5 |
+| writer uses one plain `time.sleep` | control 7, p99 ~5 ms |
+| sender dies at start-up (exit 3) | controls 2 and 1, with its stderr |
+| sender killed mid-run | control 1, "write of frame 25 failed: Broken pipe" |
+
+Two earlier full sweeps refused, and both are why the probe reads as it does:
+
+- **Control 3 was wrong.** It required the exact frames at each end of the
+  steady window to reach the wire; a sender that skips frames — the thing
+  under test — skipped them, and four stock runs refused. The window now runs
+  from the first frame at or after one bound to the last at or before the
+  other.
+- **Control 7 was changed after seeing data.** Each sweep refused on one or
+  two of ~130 runs with writer jitter p99 3.4–7.6 ms, on the idle Mac. A
+  diagnostic, 32 runs of 10 s: the writer loop alone and with the tap thread
+  showed p99 0.31–0.34 ms and no write over 2 ms; inside the full probe, 2 of
+  ~4,800 writes were late (3.5, 3.9 ms), each entirely in the wake from
+  `time.sleep`, with the write before it taking under 0.2 ms. Not pipe
+  backpressure, not the GIL: rare OS wake bursts. A run refused by control 7
+  and nothing else is now re-run once, printed with the refusal it replaced,
+  and discarded; a second failure refuses the sweep. Mutation-checked: a
+  writer always late still refuses; one late on its first run only is re-run
+  and passes; control 7 with any other failure is not re-run. The 2 ms bound
+  did not move. This sweep needed no re-run.
+
+---
+
 ## `render-rate-2026-09-28-capped-10x10` — the same probe, renderer capped to the send rate
 
 The "after" half of the comparison below. `src/render/framePacing.ts` gates the
