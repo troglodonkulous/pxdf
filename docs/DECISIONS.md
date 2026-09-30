@@ -86,6 +86,11 @@ behaviour as the default. It is graded by the digests (bytes) and by a cadence
 instrument with a positive control (`app/test/e2e/probe-render-rate.mjs`, or a
 successor). It becomes the default only after a floor capture. Digests certify
 bytes, not timing, so they are necessary and never sufficient here.
+Status 2026-09-29: the first such change exists — `mapper stream --pacing
+{clock,arrival}`, default `clock`, graded by both digests (unchanged) and by
+`tools/probe_stream_cadence.py` and `probe-render-rate.mjs` with positive
+controls (`captures/measurements/README.md`, stream-pacing-2026-09-29). The
+floor capture that would make `arrival` the default has not happened.
 
 ### D-03 — Python owns the send clock (reopened)
 Protects: steady packet pacing. `sender.run()` sends from a one-slot
@@ -110,6 +115,20 @@ clean at other phases. The same code with `sender.run()`'s single
 clock sleeps is sufficient to cause the judder, with its late wakes (7–15 ms
 on macOS) the leading mechanism, not yet isolated from stdin-reader timing; the video-to-renderer handoff is still unmeasured. Any change to how
 `stream` sleeps or paces is step 6 of the plan, under D-02.
+Challenged by: `captures/measurements/README.md`, stream-pacing-2026-09-29
+and render-rate-pacing-2026-09-29-10x10. The mechanism is now measured: of
+the stock repeats the sender's own timing classifies, 969 were a write still
+arriving when the sender woke and 124 reader lag. `mapper stream --pacing
+arrival` — send each new frame as it lands, no faster than `--fps`, repeat
+after 1 s of silence — is 0 % off-pattern at every phase alone, and on the app
+path cuts 30-on-30 cadence errors from 9.4–21.2 % to 7.3–9.6 %, without the
+run-to-run bimodality; the residue is inferred to be the video-to-renderer
+handoff, since `arrival` forwards each renderer write once. Under `arrival`
+the renderer owns the clock and Python keeps only a ceiling and a liveness
+repeat. It is opt-in (`DDF_STREAM_PACING=arrival`); `clock` stays the default
+until a floor capture (D-02). A second candidate, the same tick slept to in
+1 ms slices (`precise`), was built, graded and removed: still bimodal on the
+app path (2.1–9.8 %).
 
 ### D-04 — Do not port the mapper to TypeScript or Swift (a preference)
 Protects: D-01's graded encoder from a rewrite's regressions.
