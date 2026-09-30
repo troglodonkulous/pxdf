@@ -216,7 +216,7 @@ describe('the command line it builds', () => {
     });
 
     it('never turns on --emit-timing, which would log a line per frame', () => {
-      vi.stubEnv('DDF_STREAM_PACING', 'precise');
+      vi.stubEnv('DDF_STREAM_PACING', 'arrival');
       const { sidecar } = makeSidecar();
       sidecar.start();
       expect(spawn.mock.calls[0][1]).not.toContain('--emit-timing');

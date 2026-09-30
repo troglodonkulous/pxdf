@@ -24,7 +24,7 @@ from unittest import mock
 
 from mapper.floors import FloorConfig
 from mapper.patterns import white
-from mapper.sender import frame_numbers, on_arrival, precise_clock, run, sleep_until
+from mapper.sender import frame_numbers, on_arrival, run, sleep_until
 
 #: One tile, one controller, one packet per frame. Keeps a sent-packet count
 #: equal to a sent-frame count, so the assertions below say what they mean.
@@ -264,32 +264,6 @@ class SleepUntilTest(unittest.TestCase):
         self.assertGreater(len(clock.sleeps), 30)
         self.assertLessEqual(max(clock.sleeps), 0.001)
         self.assertGreaterEqual(clock.now, 1000.0 + 1 / 30)
-
-
-class PrecisePacingTest(PacedTest):
-    def test_holds_the_metronome_grid_in_millisecond_slices(self):
-        sends = self.run_paced(lambda: numbered(1), precise_clock(30), until=0.5)
-        for n, (t, _) in enumerate(sends):
-            self.assertAlmostEqual(t, n / 30, places=9, msg=f"tick {n}")
-        self.assertLessEqual(max(self.clock.sleeps), 0.001)
-
-    def test_a_slow_send_does_not_drift_the_grid(self):
-        """Ticks are counted from the start, not from each send.
-
-        Pacing from the send would add the send's own cost to every interval:
-        at 2 ms a frame, 30 fps becomes ~28, and the grid walks through every
-        writer phase in turn.
-        """
-        sendto = self.sock.sendto
-
-        def slow(datagram, destination):
-            self.clock.now += 0.002
-            return sendto(datagram, destination)
-
-        self.sock.sendto = slow
-        sends = self.run_paced(lambda: numbered(1), precise_clock(30), until=1.0)
-        for n, (t, _) in enumerate(sends):
-            self.assertAlmostEqual(t, n / 30 + 0.002, places=9, msg=f"tick {n}")
 
 
 class ArrivalPacingTest(PacedTest):

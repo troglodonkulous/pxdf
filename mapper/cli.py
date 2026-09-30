@@ -32,7 +32,7 @@ from .frame import send_buffer_sources
 from .orientation import Orientation
 from .patterns import PATTERNS, tile
 from .plan import build_plan, format_plan
-from .sender import DEFAULT_FPS, MAX_ADOPTED_FPS, dry_run, on_arrival, precise_clock, run
+from .sender import DEFAULT_FPS, MAX_ADOPTED_FPS, dry_run, on_arrival, run
 from .verify import format_diffs, verify_capture
 from .video import framebuffers
 
@@ -508,7 +508,6 @@ def cmd_stream(args) -> int:
     # says otherwise (D-02).
     pace = {
         "clock": None,
-        "precise": precise_clock(args.fps),
         "arrival": on_arrival(args.fps, latest.wait_for_new),
     }[args.pacing]
 
@@ -680,10 +679,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     stream.add_argument(
         "--pacing",
-        choices=("clock", "precise", "arrival"),
+        choices=("clock", "arrival"),
         default="clock",
         help="when frames go. clock (default): one sleep per tick, as always. "
-        "precise: the same ticks, slept to in 1 ms slices. arrival: on each new "
+        "arrival: on each new "
         "frame, no faster than --fps, repeated after 1 s of silence. "
         "Experimental; see docs/DECISIONS.md D-02/D-03",
     )

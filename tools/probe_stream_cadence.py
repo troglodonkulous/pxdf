@@ -7,8 +7,11 @@
     python3 tools/probe_stream_cadence.py --geometry 10x10 --repeats 1 --phases 4
     python3 tools/probe_stream_cadence.py --sender stock,sliced --phases 10   # the 2026-09-28 sweep
 
-A full default run is 20 phases x 3 senders x 3 repeats x 2 geometries plus
-controls -- about 80 minutes. Run nothing else on the machine meanwhile.
+A full default run is 20 phases x 2 senders x 3 repeats x 2 geometries plus
+controls -- about 55 minutes. Run nothing else on the machine meanwhile.
+`--fail-fast` stops at the first run that stays refused (after any control 7
+re-run) and exits 2 with it, rather than finishing a sweep that cannot print a
+table; each run's line ends in ` REFUSED` either way, as it happens.
 
 ## The question
 
@@ -46,10 +49,12 @@ map shows -- which is the shape a bimodal run-to-run spread would have.
 
 `stock` is `mapper stream` as the app runs it (`--pacing clock`). `sliced` is
 the runtime prototype of 2026-09-28, kept so that sweep stays re-runnable.
-`precise` and `arrival` are the two candidate fixes, built into `mapper/`:
-`precise` keeps the tick grid and wakes on it in 1 ms slices, and should be
-clean except in a band narrower than the old 3.33 ms phase step -- hence 20
-phases by default, 1.67 ms apart. `arrival` sends each frame as it lands,
+`arrival` is the fix, built into `mapper/` (`--pacing arrival`). A second
+candidate, `precise` -- the tick grid slept to in 1 ms slices -- was built,
+swept here and removed on 2026-09-29: clean on this probe, but still bimodal
+run to run on the app path (captures/measurements/README.md, stream-pacing
+entry). The sweep that graded it is re-runnable from commit dfa3af4. Its
+narrow band is why the phase step is 1.67 ms (20 phases). `arrival` sends each frame as it lands,
 so it has no tick grid and phase should not matter at all: its phase column
 is measured against its own lead-in, and a result that varies with it would
 itself be the finding. It sends black once at start and again every second
@@ -217,8 +222,8 @@ class Sender:
 #: `sliced` is `stock` with one substitution made at runtime, not in `mapper/`:
 #: `sender.run()`'s single `time.sleep` per tick becomes the 1 ms slices of
 #: `sleep_until` below. It was the 2026-09-28 evidence that the sender's own
-#: wake-up jitter is sufficient to cause the judder; `precise` is the same idea
-#: built into `mapper/`.
+#: wake-up jitter is sufficient to cause the judder. `--pacing precise` was the
+#: same idea built into `mapper/`, removed 2026-09-29 in favour of `arrival`.
 SLICED_SENDER = """
 import sys, time, types
 import mapper.sender as sender
@@ -235,7 +240,6 @@ sys.exit(main(sys.argv[1:]))
 SENDERS = {
     "stock": Sender(("-m", "mapper"), (), False),
     "sliced": Sender(("-c", SLICED_SENDER), (), False),
-    "precise": Sender(("-m", "mapper"), ("--pacing", "precise"), False),
     "arrival": Sender(("-m", "mapper"), ("--pacing", "arrival"), True),
 }
 
@@ -466,9 +470,9 @@ def sleep_until(target: float) -> None:
     `time.sleep` of ~33 ms wakes 7-15 ms late (p50 6.7, max 15.5), because
     macOS grants timer leeway in proportion to the interval requested. In 1 ms
     slices the same loop lands p99 0.56 ms late. A single long sleep cannot
-    hold a phase, so the writer uses this. `mapper/sender.py` has the same
-    loop for `--pacing precise`; it is kept separate here so the writer never
-    depends on the thing under test.
+    hold a phase, so the writer uses this. `mapper.sender.sleep_until` is the
+    same loop (the `arrival` ceiling uses it); it is kept separate here so the
+    writer never depends on the thing under test.
     """
     while True:
         remaining = target - time.perf_counter()
@@ -783,7 +787,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repeats", type=int, default=3, help="sweeps per geometry")
     parser.add_argument("--window", type=float, default=10.0, help="seconds written per run")
     parser.add_argument("--seed", type=int, default=None, help="shuffle phase order with this seed")
-    parser.add_argument("--sender", default="stock,precise,arrival",
+    parser.add_argument("--fail-fast", action="store_true",
+                        help="stop at the first refused run and exit 2, instead of finishing the sweep")
+    parser.add_argument("--sender", default="stock,arrival",
                         help=f"comma-separated, of {', '.join(SENDERS)}")
     args = parser.parse_args(argv)
     senders = args.sender.split(",")
@@ -791,7 +797,7 @@ def main(argv: list[str] | None = None) -> int:
     if unknown:
         parser.error(f"unknown sender(s): {', '.join(unknown)}")
     if all(SENDERS[k].follows_writer for k in senders):
-        parser.error("control 6 (the repeat detector) needs a metronome sender: add stock, sliced or precise")
+        parser.error("control 6 (the repeat detector) needs a metronome sender: add stock or sliced")
 
     sys.setswitchinterval(1e-4)
     print(f"command: {' '.join([Path(sys.argv[0]).name] + (argv if argv is not None else sys.argv[1:]))}")
@@ -800,6 +806,18 @@ def main(argv: list[str] | None = None) -> int:
     refusals: list[str] = []
     reruns: list[str] = []
     runs: list[Run] = []
+
+    class StopSweep(Exception):
+        pass
+
+    def keep(run: Run) -> Run:
+        runs.append(run)
+        return run
+
+    def stop_if_refused(run: Run) -> None:
+        if args.fail_fast and run.problems:
+            raise StopSweep
+
     tap = Tap()
     try:
         for geometry in args.geometry.split(","):
@@ -820,25 +838,27 @@ def main(argv: list[str] | None = None) -> int:
                 # state lands on every arm rather than on whichever ran last.
                 for phase in order:
                     for kind in senders:
-                        run = run_valid(reruns, *common, kind, SENDER_FPS, phase, args.window)
-                        runs.append(run)
+                        run = keep(run_valid(reruns, *common, kind, SENDER_FPS, phase, args.window))
                         print(f"  {geometry} {kind:>7} 30 Hz phase {phase * 1e3:5.2f} ms  rep {rep + 1}: "
                               f"{pct(run.error_pct)} off-pattern, wire p99 {run.wire_p99_ms:5.1f} ms"
                               + (" REFUSED" if run.problems else ""), flush=True)
+                        stop_if_refused(run)
                 for kind in senders:
-                    run = run_valid(reruns, *common, kind, 24.0, None, args.window, pause=PAUSE)
-                    runs.append(run)
+                    run = keep(run_valid(reruns, *common, kind, 24.0, None, args.window, pause=PAUSE))
                     print(f"  {geometry} {kind:>7} 24 Hz control      rep {rep + 1}: "
                           f"{pct(run.repeat_pct)} repeats, {run.pause_frames} frames in the pause"
                           + (", first already in flight" if run.pause_in_flight else "")
                           + (" REFUSED" if run.problems else ""), flush=True)
+                    stop_if_refused(run)
                 if "arrival" in senders:
-                    run = run_valid(reruns, *common, "arrival", INJECTED_HZ, None, args.window,
-                                    jitter=INJECTED_JITTER, seed=rep)
-                    runs.append(run)
+                    run = keep(run_valid(reruns, *common, "arrival", INJECTED_HZ, None, args.window,
+                                         jitter=INJECTED_JITTER, seed=rep))
                     print(f"  {geometry} arrival {INJECTED_HZ:g} Hz +-{INJECTED_JITTER * 1e3:g} ms jitter control "
                           f"rep {rep + 1}: wire p50 {run.wire_p50_ms:.1f} p99 {run.wire_p99_ms:.1f} ms"
                           + (" REFUSED" if run.problems else ""), flush=True)
+                    stop_if_refused(run)
+    except StopSweep:
+        print("\n--fail-fast: stopped at the first refused run; the sweep is incomplete")
     finally:
         tap.close()
 

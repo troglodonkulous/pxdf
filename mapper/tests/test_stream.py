@@ -120,7 +120,7 @@ class FakeSocket:
 
 #: Every `--pacing` mode. Each live-path test below runs under all of them: a
 #: mode that changes *when* frames go must not change *which* bytes go.
-PACINGS = ("clock", "precise", "arrival")
+PACINGS = ("clock", "arrival")
 
 SHOP = ["--type", "8x8_4P", "--cols", "10", "--rows", "5"]
 
@@ -212,7 +212,7 @@ class PacingOptionTest(unittest.TestCase):
         # Their bytes are frozen (D-01), and so is their timing: nobody gets to
         # pace a hardware-graded path by accident.
         for argv in (
-            ["send", *SHOP, "--pattern", "gradient24", "--pacing", "precise"],
+            ["send", *SHOP, "--pattern", "gradient24", "--pacing", "arrival"],
             ["play", "clip.avi", *SHOP, "--pacing", "arrival"],
         ):
             with self.subTest(command=argv[0]):
@@ -229,7 +229,7 @@ class PacingOptionTest(unittest.TestCase):
             seen["pace"] = kwargs.get("pace")
             return real_run(*args, **kwargs)
 
-        for pacing, expect_pace in (("clock", False), ("precise", True), ("arrival", True)):
+        for pacing, expect_pace in (("clock", False), ("arrival", True)):
             with self.subTest(pacing=pacing):
                 with patch("mapper.cli.run", side_effect=spy):
                     live_stream(["--pacing", pacing], b"")

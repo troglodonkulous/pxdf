@@ -152,22 +152,6 @@ def sleep_until(deadline: float) -> None:
         time.sleep(min(remaining, 0.001))
 
 
-def precise_clock(fps: int) -> Pace:
-    """`run`'s own metronome grid, slept to in 1 ms slices rather than one sleep.
-
-    Candidate (a) for the stream judder: the same tick schedule as the default,
-    `start + (n + 1) / fps`, woken on time. It narrows the band of writer
-    phases that collide with a tick; it cannot remove it, because a writer and
-    a metronome on different clocks still drift through whatever band is left.
-    """
-    interval = 1.0 / fps
-
-    def pace(n: int, start: float, sent: float) -> None:
-        sleep_until(start + (n + 1) * interval)
-
-    return pace
-
-
 def on_arrival(
     fps: int,
     wait_for_new: Callable[[float], bool],
@@ -175,8 +159,10 @@ def on_arrival(
 ) -> Pace:
     """Send when a new frame arrives, no faster than `fps`, never silent for long.
 
-    Candidate (b) for the stream judder: there is no tick for a write to
-    collide with, so no phase relation to drift through. The costs are the
+    The fix for the stream judder, chosen 2026-09-29 over a tick slept to in
+    1 ms slices, which was still bimodal on the app path
+    (captures/measurements/README.md, render-rate-pacing): there is no tick
+    for a write to collide with, so no phase relation to drift through. The costs are the
     writer's own jitter, which now reaches the wire, and a hard dependence on
     the ceiling and the repeat being right:
 

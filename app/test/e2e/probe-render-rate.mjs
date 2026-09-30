@@ -86,7 +86,8 @@
  *
  * ## Pacing modes (docs/APP-PLAN.md, cadence step 6)
  *
- *     PACINGS=clock,precise,arrival SOURCES=60,30,24 REPEATS=1   # the defaults
+ *     PACINGS=clock,arrival SOURCES=60,30,24 REPEATS=1   # the defaults
+ *     FAIL_FAST=1 …   # stop after the first arm that fails a control, exit 2
  *
  * Each arm is one pacing mode × one source rate, launched with
  * `DDF_STREAM_PACING` set to the mode (`clock` launches with it *unset*, which
@@ -95,7 +96,10 @@
  * every mode alike rather than on whichever ran last. The capped renderer's
  * 30-on-30 result was bimodal across runs (0.23-36 %), so one run per mode
  * decides nothing; set `REPEATS`. Graded per arm: cadence errors, and the
- * wire-interval p50/p99/max through the tap control 7 vouches for.
+ * wire-interval p50/p99/max through the tap control 7 vouches for. Each arm's
+ * controls print as soon as it finishes, so a refusal is visible then, not
+ * at the end. A third mode, `precise`, was graded here and removed on
+ * 2026-09-29 (captures/measurements/README.md); re-run it from commit dfa3af4.
  *
  * ## Control 5 was changed after seeing data, and why that is not a loosened gate
  *
@@ -131,7 +135,7 @@
  * ## One cost, stated
  *
  * Each arm launches Electron, which rotates `~/Library/Logs/Electron/ddf.log`.
- * Nine arms per repeat, nine rotations: **copy that log first** if it holds
+ * Six arms per repeat, six rotations: **copy that log first** if it holds
  * anything you care about, and do not run this beside `wire.mjs` or another
  * probe. The probe reads each arm's log before launching the next.
  */
@@ -176,7 +180,7 @@ const SOURCE_ARMS = [
   { fps: 24, allowed: [0, 1], expectedMean: 0.8 },
 ]
 /** `mapper stream --pacing`'s choices. `clock` is its default and what ships. */
-const PACING_MODES = ['clock', 'precise', 'arrival']
+const PACING_MODES = ['clock', 'arrival']
 
 const listEnv = (name, fallback) => (process.env[name] ?? fallback).split(',').map((s) => s.trim()).filter((s) => s.length > 0)
 const PACINGS = listEnv('PACINGS', PACING_MODES.join(','))
@@ -959,9 +963,18 @@ try {
     for (const arm of ARMS) {
       const clip = clips.get(arm.fps)
       console.log(`\n· ${arm.tag} arm: launching…`)
+      const linesBefore = controlLines.length
+      const refusalsBefore = refusals.length
       const { problems, frames, beats, pacings } = await runArm(arm, clip, layout, workspace, tap)
       refusals.push(...problems)
-      if (problems.some((p) => p.includes('did not run'))) continue
+      if (problems.some((p) => p.includes('did not run'))) {
+        for (const problem of problems) console.log(`  REFUSED — ${problem}`)
+        if (process.env.FAIL_FAST === '1') {
+          console.log('  FAIL_FAST=1: stopping after this arm')
+          break
+        }
+        continue
+      }
 
       const result = analyse(arm, clip, frames)
       result.heartbeat = beats.length === 0 ? null : foldHeartbeats(beats)
@@ -1014,6 +1027,14 @@ try {
           refusals.push(`${tag} arm: ${result.repeats} of ${result.steady} steady steps are repeats (${(share * 100).toFixed(1)} %), ` +
             'want >= 15 % — 24-in-30 must repeat at least one step in five, so the repeat detector is blind and no cadence result ' +
             `from this run means anything. Steps: ${steps}`)
+        }
+      }
+      for (const line of controlLines.slice(linesBefore)) console.log(`  ${line}`)
+      if (refusals.length > refusalsBefore) {
+        console.log(`  REFUSED — ${refusals.length - refusalsBefore} reason(s); the run cannot print a table`)
+        if (process.env.FAIL_FAST === '1') {
+          console.log('  FAIL_FAST=1: stopping after this arm')
+          break
         }
       }
     }
