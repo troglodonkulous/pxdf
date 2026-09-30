@@ -125,7 +125,11 @@ interval returns before composing and writes nothing. That is not a gap: the
 sidecar's `LatestFrame` re-sends the last frame on its own clock. What the rule
 forbids is a path *after* the gate that composes and does not write. Measured in
 `captures/measurements/README.md`: the cap halves compose load and turns the
-wire's cadence judder from constant to intermittent, not zero. Learned the expensive way in PR 2:
+wire's cadence judder from constant to intermittent, not zero. The renderer's
+share of that judder — one video frame composed twice, the next never — went
+with a change in `VideoSource`, not here: its frame callback stays armed for
+the element's life (render-rate-video-frames-2026-09-29). Gating this loop on
+new video frames was tried and measured no better. Learned the expensive way in PR 2:
 `getImageData` raised `SecurityError` on a tainted work canvas, and because the
 throw happened *in the middle* of the loop body, everything downstream of it was
 skipped — the `writeFrame` that feeds the floor, the preview paint, and the
@@ -909,9 +913,14 @@ Named so they do not creep back in.
   sends on the renderer's writes rather than its own tick; 30-on-30 errors
   fell to 7.3–9.6 %, steady across runs (stream-pacing and
   render-rate-pacing entries). Opt-in: `clock` stays the default until a floor
-  capture judges it by eye (D-02). The ~8 % left is inferred to be the
-  video-to-renderer handoff — composing on `requestAnimationFrame` rather than
-  on new video frames — and is the next cadence fix. Under `arrival` a
+  capture judges it by eye (D-02). The ~8 % left (not steady after all:
+  0.82–8.23 % over more runs) was the video-to-renderer handoff, measured at
+  the renderer by `probe-render-rate.mjs`'s trace and fixed 2026-09-29 by
+  keeping `VideoSource`'s `requestVideoFrameCallback` armed for the element's
+  life: `arrival` 30-on-30 now 0.00–0.59 %, the remainder renderer stalls
+  (render-rate-video-frames entry). That fix rests on observed Chromium
+  behaviour for detached elements, not a documented one; re-run the probe on
+  an Electron upgrade. Under `arrival` a
   renderer stall reaches the wire as a gap (113 and 172 ms seen) rather than a
   repeated frame; the floor session should look for it.
 - **The app must run unattended for hours.** Nothing here is soak-tested. PR 6's

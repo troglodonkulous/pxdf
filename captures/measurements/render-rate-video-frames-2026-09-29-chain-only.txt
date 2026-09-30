@@ -1,0 +1,323 @@
+$ cd app && TRACE_RVFC=0 PACINGS=arrival SOURCES=60,30,24 REPEATS=3 FAIL_FAST=1 node test/e2e/probe-render-rate.mjs  # exit 0  (probe at ee94d21; dist/ built from 5379db1 with App.tsx's frame mark forced to `frame: null` — the rVFC chain kept, composing on the time gate only)
+probe-render-rate · 8x8_4P 10x10 = 80x80 px · window 60 s per arm · clips 20 s, 160x160, h264 yuv420p · sender 30 fps · heartbeat 10 s · renderer trace without an rVFC chain · pacings arrival × sources 60,30,24 × 3 repeat(s) = 9 arms
+
+· arrival 60 fps #1 arm: launching…
+  1b  arrival 60 fps #1: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 60 fps #1: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 60 fps #1: 1770/1770 wire frames decode (100.00 %)  ok
+  3   arrival 60 fps #1: wire 29.52 fps, want <= 31  ok
+  4   arrival 60 fps #1: mean step 2.030 over 1679 steady steps, want 2.033 ±2 %  ok
+  8   arrival 60 fps #1: trace 29.86 composes/s against the heartbeat's 29.88, want ±5 %  ok
+  9   arrival 60 fps #1: 1792/1792 traced composes decode (100.00 %)  ok
+  10  arrival 60 fps #1: 1770/1770 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+
+· arrival 30 fps #1 arm: launching…
+  1b  arrival 30 fps #1: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 30 fps #1: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 30 fps #1: 1795/1795 wire frames decode (100.00 %)  ok
+  3   arrival 30 fps #1: wire 29.93 fps, want <= 31  ok
+  4   arrival 30 fps #1: mean step 1.002 over 1700 steady steps, want 1.002 ±2 %  ok
+  8   arrival 30 fps #1: trace 29.95 composes/s against the heartbeat's 30.08, want ±5 %  ok
+  9   arrival 30 fps #1: 1797/1797 traced composes decode (100.00 %)  ok
+  10  arrival 30 fps #1: 1795/1795 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+
+· arrival 24 fps #1 arm: launching…
+  1b  arrival 24 fps #1: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 24 fps #1: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 24 fps #1: 1779/1779 wire frames decode (100.00 %)  ok
+  3   arrival 24 fps #1: wire 29.66 fps, want <= 31  ok
+  4   arrival 24 fps #1: mean step 0.809 over 1684 steady steps, want 0.809 ±2 %  ok
+  5   arrival 24 fps #1: 330/1684 steady steps are repeats (19.6 %), want >= 15 %  ok
+  8   arrival 24 fps #1: trace 29.93 composes/s against the heartbeat's 29.92, want ±5 %  ok
+  9   arrival 24 fps #1: 1797/1797 traced composes decode (100.00 %)  ok
+  10  arrival 24 fps #1: 1779/1779 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+
+· arrival 60 fps #2 arm: launching…
+  1b  arrival 60 fps #2: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 60 fps #2: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 60 fps #2: 1799/1799 wire frames decode (100.00 %)  ok
+  3   arrival 60 fps #2: wire 30.00 fps, want <= 31  ok
+  4   arrival 60 fps #2: mean step 1.999 over 1705 steady steps, want 2.000 ±2 %  ok
+  8   arrival 60 fps #2: trace 30.00 composes/s against the heartbeat's 29.92, want ±5 %  ok
+  9   arrival 60 fps #2: 1800/1800 traced composes decode (100.00 %)  ok
+  10  arrival 60 fps #2: 1799/1799 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+
+· arrival 30 fps #2 arm: launching…
+  1b  arrival 30 fps #2: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 30 fps #2: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 30 fps #2: 1798/1798 wire frames decode (100.00 %)  ok
+  3   arrival 30 fps #2: wire 29.97 fps, want <= 31  ok
+  4   arrival 30 fps #2: mean step 1.001 over 1703 steady steps, want 1.001 ±2 %  ok
+  8   arrival 30 fps #2: trace 30.00 composes/s against the heartbeat's 30.08, want ±5 %  ok
+  9   arrival 30 fps #2: 1800/1800 traced composes decode (100.00 %)  ok
+  10  arrival 30 fps #2: 1798/1798 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+
+· arrival 24 fps #2 arm: launching…
+  1b  arrival 24 fps #2: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 24 fps #2: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 24 fps #2: 1797/1797 wire frames decode (100.00 %)  ok
+  3   arrival 24 fps #2: wire 29.97 fps, want <= 31  ok
+  4   arrival 24 fps #2: mean step 0.801 over 1702 steady steps, want 0.801 ±2 %  ok
+  5   arrival 24 fps #2: 340/1702 steady steps are repeats (20.0 %), want >= 15 %  ok
+  8   arrival 24 fps #2: trace 29.99 composes/s against the heartbeat's 29.92, want ±5 %  ok
+  9   arrival 24 fps #2: 1800/1800 traced composes decode (100.00 %)  ok
+  10  arrival 24 fps #2: 1797/1797 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+
+· arrival 60 fps #3 arm: launching…
+  1b  arrival 60 fps #3: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 60 fps #3: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 60 fps #3: 1783/1783 wire frames decode (100.00 %)  ok
+  3   arrival 60 fps #3: wire 29.74 fps, want <= 31  ok
+  4   arrival 60 fps #3: mean step 2.018 over 1689 steady steps, want 2.017 ±2 %  ok
+  8   arrival 60 fps #3: trace 29.81 composes/s against the heartbeat's 29.72, want ±5 %  ok
+  9   arrival 60 fps #3: 1789/1789 traced composes decode (100.00 %)  ok
+  10  arrival 60 fps #3: 1783/1783 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+
+· arrival 30 fps #3 arm: launching…
+  1b  arrival 30 fps #3: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 30 fps #3: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 30 fps #3: 1799/1799 wire frames decode (100.00 %)  ok
+  3   arrival 30 fps #3: wire 30.00 fps, want <= 31  ok
+  4   arrival 30 fps #3: mean step 1.000 over 1705 steady steps, want 1.000 ±2 %  ok
+  8   arrival 30 fps #3: trace 30.00 composes/s against the heartbeat's 30.08, want ±5 %  ok
+  9   arrival 30 fps #3: 1800/1800 traced composes decode (100.00 %)  ok
+  10  arrival 30 fps #3: 1799/1799 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+
+· arrival 24 fps #3 arm: launching…
+  1b  arrival 24 fps #3: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 24 fps #3: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 24 fps #3: 1799/1799 wire frames decode (100.00 %)  ok
+  3   arrival 24 fps #3: wire 30.00 fps, want <= 31  ok
+  4   arrival 24 fps #3: mean step 0.799 over 1705 steady steps, want 0.800 ±2 %  ok
+  5   arrival 24 fps #3: 342/1705 steady steps are repeats (20.1 %), want >= 15 %  ok
+  8   arrival 24 fps #3: trace 30.00 composes/s against the heartbeat's 30.08, want ±5 %  ok
+  9   arrival 24 fps #3: 1800/1800 traced composes decode (100.00 %)  ok
+  10  arrival 24 fps #3: 1799/1799 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+
+positive controls
+  0b  mapper build_frame of index 1234 decodes here as 1234  ok
+  0a  60 fps fixture: 1200 frames, each decodes to its own index  ok
+  0a  30 fps fixture: 600 frames, each decodes to its own index  ok
+  0a  24 fps fixture: 480 frames, each decodes to its own index  ok
+  7   injected schedule through the tap: 120/120 frames, 100.0 % of intervals within 2 ms of the sender's (worst 0.28 ms), p99 - p50 10.51 ms  ok
+  1b  arrival 60 fps #1: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 60 fps #1: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 60 fps #1: 1770/1770 wire frames decode (100.00 %)  ok
+  3   arrival 60 fps #1: wire 29.52 fps, want <= 31  ok
+  4   arrival 60 fps #1: mean step 2.030 over 1679 steady steps, want 2.033 ±2 %  ok
+  8   arrival 60 fps #1: trace 29.86 composes/s against the heartbeat's 29.88, want ±5 %  ok
+  9   arrival 60 fps #1: 1792/1792 traced composes decode (100.00 %)  ok
+  10  arrival 60 fps #1: 1770/1770 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+  1b  arrival 30 fps #1: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 30 fps #1: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 30 fps #1: 1795/1795 wire frames decode (100.00 %)  ok
+  3   arrival 30 fps #1: wire 29.93 fps, want <= 31  ok
+  4   arrival 30 fps #1: mean step 1.002 over 1700 steady steps, want 1.002 ±2 %  ok
+  8   arrival 30 fps #1: trace 29.95 composes/s against the heartbeat's 30.08, want ±5 %  ok
+  9   arrival 30 fps #1: 1797/1797 traced composes decode (100.00 %)  ok
+  10  arrival 30 fps #1: 1795/1795 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+  1b  arrival 24 fps #1: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 24 fps #1: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 24 fps #1: 1779/1779 wire frames decode (100.00 %)  ok
+  3   arrival 24 fps #1: wire 29.66 fps, want <= 31  ok
+  4   arrival 24 fps #1: mean step 0.809 over 1684 steady steps, want 0.809 ±2 %  ok
+  5   arrival 24 fps #1: 330/1684 steady steps are repeats (19.6 %), want >= 15 %  ok
+  8   arrival 24 fps #1: trace 29.93 composes/s against the heartbeat's 29.92, want ±5 %  ok
+  9   arrival 24 fps #1: 1797/1797 traced composes decode (100.00 %)  ok
+  10  arrival 24 fps #1: 1779/1779 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+  1b  arrival 60 fps #2: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 60 fps #2: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 60 fps #2: 1799/1799 wire frames decode (100.00 %)  ok
+  3   arrival 60 fps #2: wire 30.00 fps, want <= 31  ok
+  4   arrival 60 fps #2: mean step 1.999 over 1705 steady steps, want 2.000 ±2 %  ok
+  8   arrival 60 fps #2: trace 30.00 composes/s against the heartbeat's 29.92, want ±5 %  ok
+  9   arrival 60 fps #2: 1800/1800 traced composes decode (100.00 %)  ok
+  10  arrival 60 fps #2: 1799/1799 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+  1b  arrival 30 fps #2: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 30 fps #2: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 30 fps #2: 1798/1798 wire frames decode (100.00 %)  ok
+  3   arrival 30 fps #2: wire 29.97 fps, want <= 31  ok
+  4   arrival 30 fps #2: mean step 1.001 over 1703 steady steps, want 1.001 ±2 %  ok
+  8   arrival 30 fps #2: trace 30.00 composes/s against the heartbeat's 30.08, want ±5 %  ok
+  9   arrival 30 fps #2: 1800/1800 traced composes decode (100.00 %)  ok
+  10  arrival 30 fps #2: 1798/1798 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+  1b  arrival 24 fps #2: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 24 fps #2: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 24 fps #2: 1797/1797 wire frames decode (100.00 %)  ok
+  3   arrival 24 fps #2: wire 29.97 fps, want <= 31  ok
+  4   arrival 24 fps #2: mean step 0.801 over 1702 steady steps, want 0.801 ±2 %  ok
+  5   arrival 24 fps #2: 340/1702 steady steps are repeats (20.0 %), want >= 15 %  ok
+  8   arrival 24 fps #2: trace 29.99 composes/s against the heartbeat's 29.92, want ±5 %  ok
+  9   arrival 24 fps #2: 1800/1800 traced composes decode (100.00 %)  ok
+  10  arrival 24 fps #2: 1797/1797 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+  1b  arrival 60 fps #3: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 60 fps #3: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 60 fps #3: 1783/1783 wire frames decode (100.00 %)  ok
+  3   arrival 60 fps #3: wire 29.74 fps, want <= 31  ok
+  4   arrival 60 fps #3: mean step 2.018 over 1689 steady steps, want 2.017 ±2 %  ok
+  8   arrival 60 fps #3: trace 29.81 composes/s against the heartbeat's 29.72, want ±5 %  ok
+  9   arrival 60 fps #3: 1789/1789 traced composes decode (100.00 %)  ok
+  10  arrival 60 fps #3: 1783/1783 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+  1b  arrival 30 fps #3: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 30 fps #3: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 30 fps #3: 1799/1799 wire frames decode (100.00 %)  ok
+  3   arrival 30 fps #3: wire 30.00 fps, want <= 31  ok
+  4   arrival 30 fps #3: mean step 1.000 over 1705 steady steps, want 1.000 ±2 %  ok
+  8   arrival 30 fps #3: trace 30.00 composes/s against the heartbeat's 30.08, want ±5 %  ok
+  9   arrival 30 fps #3: 1800/1800 traced composes decode (100.00 %)  ok
+  10  arrival 30 fps #3: 1799/1799 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+  1b  arrival 24 fps #3: sender says pacing ["arrival","arrival"]  ok
+  1   arrival 24 fps #3: 5 heartbeat(s) in window, floor=["8x8_4P 10x10"]  ok
+  2   arrival 24 fps #3: 1799/1799 wire frames decode (100.00 %)  ok
+  3   arrival 24 fps #3: wire 30.00 fps, want <= 31  ok
+  4   arrival 24 fps #3: mean step 0.799 over 1705 steady steps, want 0.800 ±2 %  ok
+  5   arrival 24 fps #3: 342/1705 steady steps are repeats (20.1 %), want >= 15 %  ok
+  8   arrival 24 fps #3: trace 30.00 composes/s against the heartbeat's 30.08, want ±5 %  ok
+  9   arrival 24 fps #3: 1800/1800 traced composes decode (100.00 %)  ok
+  10  arrival 24 fps #3: 1799/1799 wire indices were composed in the trace (100.00 %), want >= 98 %  ok
+  6   page exceptions and surviving Electron processes: none
+
+per arm
+
+arrival 60 fps #1: pacing arrival, 60 fps source (expected step 2, mean 2)
+  wire         1770 frames in 59.93 s = 29.52 fps · 0 incomplete · 1770 decoded
+  interval ms  mean 33.88  sd 3.08  min 27.00  p1 31.92  p50 33.36  p99 48.07  max 87.88
+  steps        1:1  2:1647  3:10  4:21   (1679 steady, mean 2.030)
+  cadence err  32 of 1679 steady steps (1.91 %) outside {2}
+  loop seam    2:83  wrap+2:1  6:1  4:1  1:1  wrap+3:2  0:1   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 29.88 · writes/s 29.88 · draw 10.62/86.00 · readback 1.72/2.70 · pass 1.84/5.40 ms avg/max · live
+  floor        8x8_4P 10x10
+  trace        1792 composes of video #1 · compose interval ms p50 33.40 p99 45.20 max 100.80 · rAF interval ms p50 16.70 p99 33.60 max 100.90
+  rend. steps  1:1  2:1687  3:10  4:2   (1700 steady, mean 2.008) · cadence err 13 (0.76 %)
+  rend. errors step 3, 0 presented between: 10 · step 4, 0 presented between: 2 · step 1, 0 presented between: 1
+  drawn vs rVFC -   (the frame drawn, against the newest one rVFC had reported)
+  rVFC         0 callbacks = 0.00/s · interval ms - · mediaTime step (frames) -
+
+arrival 30 fps #1: pacing arrival, 30 fps source (expected step 1, mean 1)
+  wire         1795 frames in 59.94 s = 29.93 fps · 0 incomplete · 1795 decoded
+  interval ms  mean 33.41  sd 1.69  min 28.74  p1 32.03  p50 33.34  p99 34.87  max 82.88
+  steps        1:1696  2:4   (1700 steady, mean 1.002)
+  cadence err  4 of 1700 steady steps (0.24 %) outside {1}
+  loop seam    1:87  0:3  wrap+2:1  wrap+1:2  2:1   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 30.08 · writes/s 30.04 · draw 8.83/42.00 · readback 1.71/2.60 · pass 1.82/2.40 ms avg/max · live
+  floor        8x8_4P 10x10
+  trace        1797 composes of video #1 · compose interval ms p50 33.30 p99 35.00 max 79.30 · rAF interval ms p50 16.70 p99 17.80 max 83.40
+  rend. steps  1:1699  2:3   (1702 steady, mean 1.002) · cadence err 3 (0.18 %)
+  rend. errors step 2, 0 presented between: 3
+  drawn vs rVFC -   (the frame drawn, against the newest one rVFC had reported)
+  rVFC         0 callbacks = 0.00/s · interval ms - · mediaTime step (frames) -
+
+arrival 24 fps #1: pacing arrival, 24 fps source (expected step 0 or 1, mean 0.8)
+  wire         1779 frames in 59.95 s = 29.66 fps · 0 incomplete · 1779 decoded
+  interval ms  mean 33.72  sd 3.60  min 24.57  p1 31.91  p50 33.35  p99 42.95  max 151.12
+  steps        0:330  1:1346  2:7  3:1   (1684 steady, mean 0.809)
+  cadence err  8 of 1684 steady steps (0.48 %) outside {0,1}
+  repeat gap   3:1  4:5  5:307  6:1  7:3  8:1  9:8   (steps between consecutive repeats; 5 is the ideal 24-in-30 pulldown)
+  loop seam    1:71  0:20  wrap+1:2  wrap+2:1   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 29.92 · writes/s 30.00 · draw 9.76/44.00 · readback 1.74/2.90 · pass 1.84/6.60 ms avg/max · live
+  floor        8x8_4P 10x10
+  trace        1797 composes of video #1 · compose interval ms p50 33.30 p99 41.60 max 94.20 · rAF interval ms p50 16.70 p99 33.30 max 84.30
+  rend. steps  0:339  1:1362  2:1   (1702 steady, mean 0.801) · cadence err 1 (0.06 %)
+  rend. errors step 2, 0 presented between: 1
+  drawn vs rVFC -   (the frame drawn, against the newest one rVFC had reported)
+  rVFC         0 callbacks = 0.00/s · interval ms - · mediaTime step (frames) -
+
+arrival 60 fps #2: pacing arrival, 60 fps source (expected step 2, mean 2)
+  wire         1799 frames in 59.94 s = 30.00 fps · 0 incomplete · 1799 decoded
+  interval ms  mean 33.34  sd 0.57  min 22.24  p1 32.19  p50 33.35  p99 34.42  max 41.36
+  steps        1:1  2:1704   (1705 steady, mean 1.999)
+  cadence err  1 of 1705 steady steps (0.06 %) outside {2}
+  loop seam    2:89  wrap+3:1  1:1  wrap+2:2   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 29.92 · writes/s 30.02 · draw 8.25/33.20 · readback 1.70/2.30 · pass 1.81/2.50 ms avg/max · live
+  floor        8x8_4P 10x10
+  trace        1800 composes of video #1 · compose interval ms p50 33.30 p99 34.80 max 37.80 · rAF interval ms p50 16.70 p99 17.70 max 33.70
+  rend. steps  1:1  2:1705   (1706 steady, mean 1.999) · cadence err 1 (0.06 %)
+  rend. errors step 1, 0 presented between: 1
+  drawn vs rVFC -   (the frame drawn, against the newest one rVFC had reported)
+  rVFC         0 callbacks = 0.00/s · interval ms - · mediaTime step (frames) -
+
+arrival 30 fps #2: pacing arrival, 30 fps source (expected step 1, mean 1)
+  wire         1798 frames in 59.95 s = 29.97 fps · 0 incomplete · 1798 decoded
+  interval ms  mean 33.36  sd 0.73  min 30.55  p1 31.84  p50 33.34  p99 35.19  max 44.87
+  steps        1:1702  2:1   (1703 steady, mean 1.001)
+  cadence err  1 of 1703 steady steps (0.06 %) outside {1}
+  loop seam    1:88  0:3  wrap+2:2  wrap+1:1   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 30.08 · writes/s 30.02 · draw 8.43/37.20 · readback 1.70/2.90 · pass 1.83/2.90 ms avg/max · live
+  floor        8x8_4P 10x10
+  trace        1800 composes of video #1 · compose interval ms p50 33.30 p99 35.00 max 41.50 · rAF interval ms p50 16.70 p99 17.70 max 34.30
+  rend. steps  1:1705   (1705 steady, mean 1.000) · cadence err 0 (0.00 %)
+  rend. errors (none)
+  drawn vs rVFC -   (the frame drawn, against the newest one rVFC had reported)
+  rVFC         0 callbacks = 0.00/s · interval ms - · mediaTime step (frames) -
+
+arrival 24 fps #2: pacing arrival, 24 fps source (expected step 0 or 1, mean 0.8)
+  wire         1797 frames in 59.93 s = 29.97 fps · 0 incomplete · 1797 decoded
+  interval ms  mean 33.37  sd 0.81  min 25.04  p1 32.03  p50 33.33  p99 35.06  max 48.55
+  steps        0:340  1:1361  2:1   (1702 steady, mean 0.801)
+  cadence err  1 of 1702 steady steps (0.06 %) outside {0,1}
+  repeat gap   4:1  5:334  9:1   (steps between consecutive repeats; 5 is the ideal 24-in-30 pulldown)
+  loop seam    1:70  0:21  wrap+2:2  wrap+1:1   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 29.92 · writes/s 30.02 · draw 8.26/41.40 · readback 1.72/2.60 · pass 1.83/6.70 ms avg/max · live
+  floor        8x8_4P 10x10
+  trace        1800 composes of video #1 · compose interval ms p50 33.30 p99 34.90 max 46.20 · rAF interval ms p50 16.70 p99 17.70 max 34.20
+  rend. steps  0:341  1:1364   (1705 steady, mean 0.800) · cadence err 0 (0.00 %)
+  rend. errors (none)
+  drawn vs rVFC -   (the frame drawn, against the newest one rVFC had reported)
+  rVFC         0 callbacks = 0.00/s · interval ms - · mediaTime step (frames) -
+
+arrival 60 fps #3: pacing arrival, 60 fps source (expected step 2, mean 2)
+  wire         1783 frames in 59.92 s = 29.74 fps · 0 incomplete · 1783 decoded
+  interval ms  mean 33.62  sd 4.51  min 19.08  p1 31.73  p50 33.34  p99 35.96  max 128.66
+  steps        2:1678  3:3  4:3  5:1  6:2  7:2   (1689 steady, mean 2.018)
+  cadence err  11 of 1689 steady steps (0.65 %) outside {2}
+  loop seam    2:87  1:3  wrap+3:3   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 29.72 · writes/s 29.80 · draw 7.77/79.00 · readback 1.73/16.60 · pass 1.84/27.50 ms avg/max · live
+  floor        8x8_4P 10x10
+  trace        1789 composes of video #1 · compose interval ms p50 33.30 p99 36.60 max 116.80 · rAF interval ms p50 16.70 p99 18.60 max 122.30
+  rend. steps  2:1687  3:3  4:1  5:1  6:1  7:2   (1695 steady, mean 2.013) · cadence err 8 (0.47 %)
+  rend. errors step 3, 0 presented between: 3 · step 7, 0 presented between: 2 · step 4, 0 presented between: 1 · step 6, 0 presented between: 1 · step 5, 0 presented between: 1
+  drawn vs rVFC -   (the frame drawn, against the newest one rVFC had reported)
+  rVFC         0 callbacks = 0.00/s · interval ms - · mediaTime step (frames) -
+
+arrival 30 fps #3: pacing arrival, 30 fps source (expected step 1, mean 1)
+  wire         1799 frames in 59.94 s = 30.00 fps · 0 incomplete · 1799 decoded
+  interval ms  mean 33.33  sd 0.75  min 31.08  p1 31.61  p50 33.35  p99 34.99  max 35.51
+  steps        1:1705   (1705 steady, mean 1.000)
+  cadence err  0 of 1705 steady steps (0.00 %) outside {1}
+  loop seam    1:87  0:3  wrap+2:3   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 30.08 · writes/s 30.04 · draw 6.16/17.20 · readback 1.70/2.10 · pass 1.78/2.30 ms avg/max · live
+  floor        8x8_4P 10x10
+  trace        1800 composes of video #1 · compose interval ms p50 33.40 p99 36.60 max 37.60 · rAF interval ms p50 16.70 p99 18.60 max 18.90
+  rend. steps  1:1706   (1706 steady, mean 1.000) · cadence err 0 (0.00 %)
+  rend. errors (none)
+  drawn vs rVFC -   (the frame drawn, against the newest one rVFC had reported)
+  rVFC         0 callbacks = 0.00/s · interval ms - · mediaTime step (frames) -
+
+arrival 24 fps #3: pacing arrival, 24 fps source (expected step 0 or 1, mean 0.8)
+  wire         1799 frames in 59.94 s = 30.00 fps · 0 incomplete · 1799 decoded
+  interval ms  mean 33.34  sd 0.73  min 29.82  p1 31.64  p50 33.34  p99 35.00  max 36.54
+  steps        0:342  1:1363   (1705 steady, mean 0.799)
+  cadence err  0 of 1705 steady steps (0.00 %) outside {0,1}
+  repeat gap   5:338   (steps between consecutive repeats; 5 is the ideal 24-in-30 pulldown)
+  loop seam    1:71  0:19  wrap+2:1  wrap+1:2   · 0 step(s) touching an undecoded frame
+  renderer     5 heartbeat(s) · composes/s 30.08 · writes/s 30.02 · draw 6.30/18.30 · readback 1.71/2.10 · pass 1.79/4.40 ms avg/max · live
+  floor        8x8_4P 10x10
+  trace        1800 composes of video #1 · compose interval ms p50 33.40 p99 36.60 max 37.20 · rAF interval ms p50 16.70 p99 18.60 max 18.80
+  rend. steps  0:342  1:1364   (1706 steady, mean 0.800) · cadence err 0 (0.00 %)
+  rend. errors (none)
+  drawn vs rVFC -   (the frame drawn, against the newest one rVFC had reported)
+  rVFC         0 callbacks = 0.00/s · interval ms - · mediaTime step (frames) -
+
+summary
+pacing    src fps  rep  wire fps  interval p50/p99/max ms    sd  step 0 / 1 / 2 / other   cadence err   renderer err   rVFC/s  composes/s  draw avg/max  readback avg/max  pass avg/max
+arrival        60    1     29.52        33.36/48.07/87.88   3.08        0 / 1 / 1647 / 31    32 (1.91 %)    13 (0.76 %)     0.00        29.88    10.62/86.00          1.72/2.70      1.84/5.40
+arrival        30    1     29.93        33.34/34.87/82.88   1.69         0 / 1696 / 4 / 0     4 (0.24 %)     3 (0.18 %)     0.00        30.08     8.83/42.00          1.71/2.60      1.82/2.40
+arrival        24    1     29.66       33.35/42.95/151.12   3.60       330 / 1346 / 7 / 1     8 (0.48 %)     1 (0.06 %)     0.00        29.92     9.76/44.00          1.74/2.90      1.84/6.60
+arrival        60    2     30.00        33.35/34.42/41.36   0.57         0 / 1 / 1704 / 0     1 (0.06 %)     1 (0.06 %)     0.00        29.92     8.25/33.20          1.70/2.30      1.81/2.50
+arrival        30    2     29.97        33.34/35.19/44.87   0.73         0 / 1702 / 1 / 0     1 (0.06 %)     0 (0.00 %)     0.00        30.08     8.43/37.20          1.70/2.90      1.83/2.90
+arrival        24    2     29.97        33.33/35.06/48.55   0.81       340 / 1361 / 1 / 0     1 (0.06 %)     0 (0.00 %)     0.00        29.92     8.26/41.40          1.72/2.60      1.83/6.70
+arrival        60    3     29.74       33.34/35.96/128.66   4.51        0 / 0 / 1678 / 11    11 (0.65 %)     8 (0.47 %)     0.00        29.72     7.77/79.00         1.73/16.60     1.84/27.50
+arrival        30    3     30.00        33.35/34.99/35.51   0.75         0 / 1705 / 0 / 0     0 (0.00 %)     0 (0.00 %)     0.00        30.08     6.16/17.20          1.70/2.10      1.78/2.30
+arrival        24    3     30.00        33.34/35.00/36.54   0.73       342 / 1363 / 0 / 0     0 (0.00 %)     0 (0.00 %)     0.00        30.08     6.30/18.30          1.71/2.10      1.79/4.40
+
+Measurement complete. Every positive control passed; the numbers above are a baseline, not a verdict.

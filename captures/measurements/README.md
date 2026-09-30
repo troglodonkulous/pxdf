@@ -10,6 +10,92 @@ can re-run it and compare rather than trust the transcript.
 
 ---
 
+## `render-rate-video-frames-2026-09-29` — the video-to-renderer handoff, measured at the renderer, and fixed
+
+`app/test/e2e/probe-render-rate.mjs` with its new renderer trace (ee94d21):
+it records, per compose, the source index the renderer actually drew, read
+out of the pixels `composeFrame` downsamples and writes. Controls 8–10 hold it
+to the heartbeat's compose rate (±5 %), ≥ 99 % decoding, and ≥ 98 % of the
+wire's indices appearing among the traced composes; every run below passed
+all of them and every older control. Six files, each with its command, exit
+code and the build it graded on line 1:
+
+| file | build | arms |
+|---|---|---|
+| `render-rate-trace-2026-09-29-rvfc-off.txt` | main 69e92be | arrival 30 × 3, trace without its rVFC chain |
+| `render-rate-trace-2026-09-29-rvfc-on.txt` | main 69e92be | the same, trace with its rVFC chain |
+| `render-rate-video-frames-2026-09-29-before.txt` | main 69e92be | clock, arrival × 60/30/24 × 3 |
+| `render-rate-video-frames-2026-09-29-after.txt` | 5379db1 (chain + gate) | clock, arrival × 60/30/24 × 3 |
+| `render-rate-video-frames-2026-09-29-chain-only.txt` | 5379db1, gate disabled | arrival × 60/30/24 × 3 |
+| `render-rate-video-frames-2026-09-29-final.txt` | ea1bdbf (what the PR ships) | clock, arrival × 60/30/24 × 3 |
+
+All with `TRACE_RVFC=0` except the one file named for it, for the reason in
+the first bullet below.
+
+Cadence errors, wire (renderer), per run, `arrival`:
+
+| source | before (main) | chain + gate (5379db1) | chain only (5379db1, gate off) | final (ea1bdbf) |
+|---|---|---|---|---|
+| 60 fps | 16.92 (15.76), 14.07 (13.38), 22.60 (22.44) % | 2.70 (1.12), 0.00 (0.00), 0.29 (0.00) % | 1.91 (0.76), 0.06 (0.06), 0.65 (0.47) % | 0.00, 0.00, 0.00 % (all 0.00) |
+| 30 fps | 4.59 (3.58), 2.53 (2.29), 2.83 (2.70) % | 1.07 (0.53), 0.41 (0.06), 0.00 (0.00) % | 0.24 (0.18), 0.06 (0.00), 0.00 (0.00) % | 0.00 (0.00), 0.00 (0.00), 0.59 (0.47) % |
+| 24 fps | 2.87 (1.73), 1.85 (1.30), 1.37 (0.88) % | 0.22 (0.15), 0.00, 0.00 % | 0.48 (0.06), 0.06 (0.00), 0.00 (0.00) % | 0.00, 0.00, 0.18 (0.18) % |
+
+`clock` (ships by default), wire (renderer): before 30-on-30 46.21 (18.10),
+37.48 (10.80), 13.96 (5.29) %; final 15.95 (0.00), 46.48 (0.00), 0.00
+(0.00) %. The renderer is clean under `clock` too; the wire is still the
+sender's own metronome judder (stream-cadence-2026-09-28), which `arrival`
+exists to remove.
+
+Wire interval at `arrival` 30-on-30, final, p99 / max: 35.01/44.34,
+35.02/38.08, 35.66/230.96 ms.
+
+### What the numbers say
+
+- **The residue is at the renderer, now measured rather than inferred.** On
+  main, under `arrival`, the renderer's own compose errors track the wire's
+  run for run (30-on-30: 3.58/2.29/2.70 % at the renderer against
+  4.59/2.53/2.83 % on the wire), and they are the paired shape — a `0` step
+  and a `+2` — of one video frame composed twice and its successor never.
+- **Keeping a `requestVideoFrameCallback` registered on the (detached) video
+  element removes it.** Found by accident: the trace's own rVFC chain took
+  the *shipped* renderer from 0.82–8.23 % renderer errors to 0.00–0.41 %,
+  back to back, same build (the `rvfc-off` / `rvfc-on` pair). The instrument
+  was perturbing the thing it measured, which is why `TRACE_RVFC=0` exists
+  and why every baseline above uses it. `VideoSource` used to stop its chain
+  once the source was ready; it now keeps it for the source's life
+  (ea1bdbf), and that is the whole fix.
+- **Composing *on* the callback bought nothing on top.** The candidate the
+  plan named — gate the render loop on rVFC's `presentedFrames` (5379db1) —
+  measured no better than the chain alone at 30 fps, and sent a 24 fps clip
+  at 24 Hz with 33/50 ms wire intervals (p99 67–72 ms against ~35 ms). Dropped
+  in the same PR (ea1bdbf). The trace also showed why gating on it is
+  fragile: `drawImage` drew a frame *newer* than rVFC's latest report on
+  44–58 % of composes (`drawn vs rVFC`, `rvfc-on` file).
+- **What is left is stalls, not phase.** Final 30-on-30 run 3's ten errors
+  are all skips (+2, +3, +7), no repeats, in a run whose rAF interval max was
+  100 ms and compose pass max 27.8 ms: a renderer that stopped for ~100 ms
+  loses frames and `arrival` forwards the gap. The paired repeat/skip
+  signature is absent from every final `arrival` run.
+- **Mechanism: observed, not understood.** Presumably a registered callback
+  makes Chromium advance a detached element's frame on the rendering clock
+  instead of its own; nothing here checks that. It is one Electron's
+  behaviour, so re-run this probe on an Electron upgrade.
+
+### What this does not establish
+
+- **Load was not constant.** Mean `draw` per compose ran ~12–13 ms in the
+  before sweep's first repeat (a `top` process was at ~100 % CPU as it started), 8–10 ms in
+  its later repeats and the chain-only sweep, and 5.4–8.1 ms in the final one.
+  The effect survives the comparable-load pairs (before repeats 2–3 at 8–10 ms:
+  2.53/2.83 %; chain-only at 6–9 ms: 0.24/0.06/0.00 %; and the `rvfc-off` /
+  `rvfc-on` pair, run back to back), but the final sweep's clean zeros are
+  also its lightest-loaded.
+- Anything on hardware, and anything about the default: `clock` still ships
+  (D-02), and its wire is still bimodal (0.00–46.48 % final).
+- Three runs per cell.
+
+---
+
 ## `render-rate-pacing-2026-09-29-10x10` — the app path, per `mapper stream --pacing` mode
 
 `app/test/e2e/probe-render-rate.mjs` at commit 8a59b1f (plus the per-arm
@@ -43,6 +129,11 @@ arrival 35.08/112.97, 34.55/40.33, 36.04/44.41 ms.
   renderer had: it still has a tick, the renderer is on the display clock, and
   a run's result depends on where the two sat. `arrival` reads 7.34–9.62 %
   every time, and is best or tied in all six 60 and 24 fps runs.
+- *Corrected 2026-09-29 by render-rate-video-frames-2026-09-29, above:* the
+  "steady" claim did not survive more runs — the same build read 2.53–4.59 %
+  (3 runs) and 0.82–8.23 % (3 more) that evening, so `arrival` on the
+  shipped renderer is still run-dependent. The inference in the next bullet
+  was then measured at the renderer and holds; the fix is recorded there.
 - **The ~8 % left under `arrival` is upstream of the pipe — inferred.**
   `arrival` sends each renderer write once (wire 29.85–29.99 fps against ~30
   writes/s), so its wire is the renderer's output; its 30-on-30 errors are
