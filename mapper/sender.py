@@ -32,6 +32,19 @@ DEFAULT_FPS = 30
 #: automatic path, it does not overrule the operator.
 MAX_ADOPTED_FPS = 30
 
+#: The longest `on_arrival` pacing goes without sending. A HYPOTHESIS, not a
+#: measurement: nothing yet picks the value. It exists because controller 1 in
+#: Master/IR mode reverts to the vendor's local content ~5 s after packets
+#: stop, so a writer that goes quiet must not take the wire quiet with it. It
+#: is well under that timeout and nowhere near one tick -- a max silence of
+#: ~33 ms would be the metronome again, phase relation and all.
+MAX_SILENCE = 1.0
+
+#: What `run` calls between frames in place of its own sleep:
+#: `pace(n, start, sent)`, with frame n's ordinal, the loop's start and the
+#: moment frame n finished going out, all on `time.perf_counter`.
+Pace = Callable[[int, float, float], None]
+
 
 def open_socket(local_ip: str | None = None) -> socket.socket:
     """A broadcast UDP socket, set up the way the vendor's `screenSend.dll` does."""
@@ -85,11 +98,18 @@ def run(
     local_ip: str | None = None,
     on_frame: Callable[[int, float], None] | None = None,
     total_frames: int | None = None,
+    pace: Pace | None = None,
 ) -> int:
     """Send `frame_source(n)` at `fps`, for a duration, a frame count, or forever.
 
     Frames are built ahead of the send and the loop is gapless — no blank frames
     at a loop boundary, which is the vendor defect this replaces.
+
+    `pace`, when given, decides when the next frame goes, in place of the one
+    `time.sleep` per tick below. Only `mapper stream` passes one, and only when
+    asked (docs/DECISIONS.md D-02); `play` and `send` never do, so their timing
+    is the loop below, unchanged. No pace changes a byte: it only moves when
+    `frame_source` is next asked.
 
     `KeyboardInterrupt` is caught rather than propagated: the infinite mode has
     no other exit, and a traceback in place of a packet count is a poor way to
@@ -103,8 +123,12 @@ def run(
         for n in frame_numbers(duration, fps, total_frames):
             datagrams = build_frame(config, frame_source(n), orientation, eof=eof)
             sent += send_frame(sock, datagrams, address, port)
+            sent_at = time.perf_counter()
             if on_frame:
-                on_frame(n, time.perf_counter() - start)
+                on_frame(n, sent_at - start)
+            if pace is not None:
+                pace(n, start, sent_at)
+                continue
             remaining = start + (n + 1) * interval - time.perf_counter()
             if remaining > 0:
                 time.sleep(remaining)
@@ -113,6 +137,101 @@ def run(
     finally:
         sock.close()
     return sent
+
+
+def sleep_until(deadline: float) -> None:
+    """Sleep to `deadline` on `perf_counter`, in slices of at most 1 ms.
+
+    MEASURED 2026-09-28 on the dev Mac: one `time.sleep` of ~33 ms wakes 7-15 ms
+    late (p50 6.7, max 15.5), because macOS grants timer leeway in proportion
+    to the interval requested; in 1 ms slices the same loop lands p99 0.56 ms
+    late (`tools/probe_stream_cadence.py`, whose writer uses the same loop).
+    Never returns before `deadline`.
+    """
+    while (remaining := deadline - time.perf_counter()) > 0:
+        time.sleep(min(remaining, 0.001))
+
+
+def on_arrival(
+    fps: int,
+    wait_for_new: Callable[[float], bool],
+    max_silence: float = MAX_SILENCE,
+) -> Pace:
+    """Send when a new frame arrives, no faster than `fps`, never silent for long.
+
+    The fix for the stream judder, chosen 2026-09-29 over a tick slept to in
+    1 ms slices, which was still bimodal on the app path
+    (captures/measurements/README.md, render-rate-pacing): there is no tick
+    for a write to collide with, so no phase relation to drift through. The costs are the
+    writer's own jitter, which now reaches the wire, and a hard dependence on
+    the ceiling and the repeat being right:
+
+    * **Ceiling.** The next send is allowed exactly `1/fps` after the
+      previous one was *allowed* -- not after it actually went out -- so no
+      `fps + 1` sends ever fit in `fps` intervals. No early tolerance: the
+      renderer's 4 ms pacing tolerance (`framePacing.ts`) is the renderer's,
+      and the sender borrowing it would sustain more than `fps`. A frame that
+      arrives inside the ceiling is not queued: the send that follows reads
+      whatever is newest by then.
+
+      Why "allowed", MEASURED 2026-09-29 on the first loopback smoke: counted
+      from the actual send, a 30 Hz writer has zero slack against a 30 fps
+      ceiling, so each send's own ~2 ms (build, send, wake overshoot) carried
+      into every later ceiling. Lateness climbed 2 -> 35 ms over ~15 frames,
+      then a frame was skipped and it began again -- a 2 Hz judder, the defect
+      this mode exists to remove. Anchored to the schedule, one gap can be
+      short by the previous send's lateness; the lateness cannot accumulate.
+
+      But a schedule left in the past must not be chased. After a multi-tick
+      stall every ceiling up to "now" is already open, and a writer faster
+      than `fps` would get frames out back to back until the schedule caught
+      up (found by review; `test_a_stalled_send_does_not_burst_to_catch_up`).
+      So the ceiling is also never earlier than half a tick after the last
+      actual send: a late send of up to half a tick is absorbed by the
+      schedule -- the measured cost of a send is 1.8 ms p50 at 10 x 5 and
+      4.1 ms p50 / 10.7 ms max at 10 x 12 -- and a later one restarts the
+      schedule from itself. No two sends are ever closer than half a tick.
+
+      That one half-tick gap after a stall is a choice, made by the owner
+      2026-09-29 over a strict "no gap under 1/fps": strict is the ratchet
+      above, so this mode would lose its comparison by construction. Across
+      simulated random stalls with writers at 30-120 Hz the worst rate is 38
+      fps over 2 gaps, 31.4 over 10 and 30.4 over 30 -- never sustained above
+      `fps`. The default `clock` is looser still: after a stall its overdue
+      ticks go back to back.
+    * **Maximum silence.** With nothing new, the newest frame goes again
+      `max_silence` after the last send (see `MAX_SILENCE`).
+
+    `wait_for_new(timeout)` blocks until a frame not yet handed out arrives,
+    the input ends, or `timeout` passes. It needs no atomic hand-off with the
+    deadline: whichever wakes it, `run` then asks the slot for the newest frame,
+    so an arrival that lands just after the timeout is still the one sent, and
+    reading it is what marks it sent.
+
+    The first frame -- the slot's opening black -- goes before any pace is
+    consulted, so a stream with no input yet still holds the floor dark at once.
+    """
+    interval = 1.0 / fps
+    #: When the ceiling let the last send go. Frame 0 was allowed at the start.
+    allowed: float | None = None
+
+    def pace(n: int, start: float, sent: float) -> None:
+        nonlocal allowed
+        ceiling = max(
+            (start if allowed is None else allowed) + interval,
+            sent + interval / 2,
+        )
+        sleep_until(ceiling)
+        if wait_for_new(0):
+            # Already waiting when the ceiling opened: the ceiling released it.
+            allowed = ceiling
+        else:
+            # The writer is the late one; this send is allowed when it wakes
+            # us, or when the silence runs out.
+            wait_for_new(sent + max_silence - time.perf_counter())
+            allowed = max(ceiling, time.perf_counter())
+
+    return pace
 
 
 def dry_run(

@@ -20,6 +20,7 @@ import hashlib
 import os
 import sys
 import threading
+import time
 import traceback
 from pathlib import Path
 
@@ -31,7 +32,7 @@ from .frame import send_buffer_sources
 from .orientation import Orientation
 from .patterns import PATTERNS, tile
 from .plan import build_plan, format_plan
-from .sender import DEFAULT_FPS, MAX_ADOPTED_FPS, dry_run, run
+from .sender import DEFAULT_FPS, MAX_ADOPTED_FPS, dry_run, on_arrival, run
 from .verify import format_diffs, verify_capture
 from .video import framebuffers
 
@@ -347,30 +348,63 @@ class LatestFrame:
     controller 1 would time out ~5 s after packets stop and revert to the
     vendor's local content, which looks exactly like a working floor showing
     the wrong show.
+
+    Under `--pacing arrival` the sender also *waits* here, on `wait_for_new`,
+    which is why the lock is a condition. A frame counts as handed out when the
+    sender reads it, and the sender reads a frame only to send it at once.
+
+    Each write is stamped on `perf_counter`, and `adopted` says which write the
+    last `read` handed out and when it was written. That is what
+    `--emit-timing` reports; the stamp costs one clock read per frame whether
+    or not anyone asks.
     """
 
     def __init__(self, frame_bytes: int) -> None:
-        self._lock = threading.Lock()
+        self._lock = threading.Condition()
         self._size = frame_bytes
         self._frame = bytes(frame_bytes)
         self._written = 0
+        self._written_at: float | None = None
         self._handed_out = 0
         self._eof = False
+        #: (write number, when written, when read) of the frame the last `read`
+        #: returned. Write number 0 is the opening black, never written.
+        self.adopted: tuple[int, float | None, float | None] = (0, None, None)
 
     def write(self, frame: bytes) -> None:
+        written_at = time.perf_counter()
         with self._lock:
             self._frame = frame
             self._written += 1
+            self._written_at = written_at
+            self._lock.notify_all()
 
     def read(self) -> bytes:
         """Hand the newest frame to the sender, recording that we did."""
         with self._lock:
+            # Stamped under the lock, so a write can never appear to land
+            # after the read that handed it out.
             self._handed_out = self._written
+            self.adopted = (self._written, self._written_at, time.perf_counter())
             return self._frame
+
+    def wait_for_new(self, timeout: float) -> bool:
+        """Block until a frame not yet handed out arrives, the input ends, or `timeout`.
+
+        True if there is a new frame to send. End of input wakes the wait too,
+        so a sender with nothing left to send is not parked for a whole
+        maximum silence before it notices it is done.
+        """
+        with self._lock:
+            return self._lock.wait_for(
+                lambda: self._written > self._handed_out or self._eof,
+                timeout=max(timeout, 0.0),
+            ) and self._written > self._handed_out
 
     def close(self) -> None:
         with self._lock:
             self._eof = True
+            self._lock.notify_all()
 
     def drained(self) -> bool:
         """True once the input has ended and its last frame has been sent."""
@@ -464,9 +498,18 @@ def cmd_stream(args) -> int:
     reader.start()
 
     print(
-        f"sending to {args.address}:{args.port} at {args.fps} fps until stdin ends"
+        f"sending to {args.address}:{args.port} at {args.fps} fps, pacing {args.pacing}, "
+        "until stdin ends"
         + (f" from {args.local_ip}" if args.local_ip else "")
     )
+
+    # `clock` passes no pace, so `run` keeps its own one-sleep-per-tick loop:
+    # today's sender, timing for timing, and the default until a floor capture
+    # says otherwise (D-02).
+    pace = {
+        "clock": None,
+        "arrival": on_arrival(args.fps, latest.wait_for_new),
+    }[args.pacing]
 
     sent_frame: dict[str, bytes] = {}
 
@@ -476,6 +519,15 @@ def cmd_stream(args) -> int:
         return framebuffer
 
     def on_frame(n: int, elapsed: float) -> None:
+        if args.emit_timing:
+            # Stamped before anything below spends time: `sent` is when the
+            # frame finished going out, `read` when the sender woke and took
+            # it, `wrote` when the reader thread put it in the slot.
+            sent_at = time.perf_counter()
+            seq, written_at, read_at = latest.adopted
+            wrote = "-" if written_at is None else f"{written_at:.6f}"
+            print(f"timing {n} read {read_at:.6f} sent {sent_at:.6f} "
+                  f"seq {seq} wrote {wrote}", flush=True)
         if args.emit_digest:
             digest = _frame_digest(config, sent_frame["latest"], orientation, eof=not args.no_eof)
             print(f"frame {n} sha256: {digest}", flush=True)
@@ -484,11 +536,10 @@ def cmd_stream(args) -> int:
         # the final frame, which on a floor that holds its last picture is the
         # frame the audience is left looking at.
         #
-        # It is raised rather than returned because `run` is the graded send
-        # loop and is not edited for the app (docs/DECISIONS.md D-01): it has
-        # no stop predicate, and
-        # KeyboardInterrupt is its documented exit from the endless mode — it
-        # catches it, closes the socket and returns the packet count.
+        # It is raised rather than returned because `run` has no stop
+        # predicate, and KeyboardInterrupt is its documented exit from the
+        # endless mode — it catches it, closes the socket and returns the
+        # packet count.
         if latest.drained():
             raise KeyboardInterrupt
 
@@ -509,6 +560,7 @@ def cmd_stream(args) -> int:
             port=args.port,
             local_ip=args.local_ip,
             on_frame=on_frame,
+            pace=pace,
         )
     except OSError as exc:
         where = args.local_ip or f"{args.address}:{args.port}"
@@ -624,6 +676,21 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="print a sha256 per frame sent, so a live stream can be graded "
         "against the `send` digests in the verification bar",
+    )
+    stream.add_argument(
+        "--pacing",
+        choices=("clock", "arrival"),
+        default="clock",
+        help="when frames go. clock (default): one sleep per tick, as always. "
+        "arrival: on each new "
+        "frame, no faster than --fps, repeated after 1 s of silence. "
+        "Experimental; see docs/DECISIONS.md D-02/D-03",
+    )
+    stream.add_argument(
+        "--emit-timing",
+        action="store_true",
+        help="print, per frame sent, when it was written into the slot, read by "
+        "the sender and sent (perf_counter seconds). A measurement aid",
     )
     stream.add_argument("--dry-run", action="store_true", help="digest each frame, send nothing")
     stream.set_defaults(func=cmd_stream)

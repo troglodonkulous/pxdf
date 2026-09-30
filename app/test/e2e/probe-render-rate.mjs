@@ -50,19 +50,56 @@
  *  1.  Every heartbeat inside the window reads `floor=8x8_4P 10x10`, and there
  *      is at least one. (The geometry was actually driven.)
  *  2.  >= 99 % of wire frames decode to a valid index.
- *  3.  Wire rate within 29-31 fps.
+ *  3.  Wire rate within 29-31 fps. Under `--pacing arrival`, at most 31: it
+ *      sends what the renderer writes, so a write it never sent is a skip — a
+ *      result — and only its ceiling is a control (as in the stream probe).
  *  4.  **Time axis**, every arm: the mean step over the steady steps is within
  *      ±2 % of `source_fps / 30`. That is how far the source advances per wire
  *      frame whatever the cadence, so a decoder reading the wrong bits, a lost
- *      run of frames or a fixed index cannot satisfy it.
+ *      run of frames or a fixed index cannot satisfy it. Under `arrival` the
+ *      divisor is the arm's measured wire rate, for the reason in 3.
  *  5.  **Repeat detector**, 24 fps arm: >= 15 % of steady steps are repeats.
  *      24-in-30 has to repeat at least one step in five — with a mean of 0.8
  *      and no backward steps, repeats are >= 20 % by arithmetic — so a
  *      detector reading ~0 there is blind, and a clean 30 fps result from it
  *      would mean nothing.
  *  6.  The page raised no uncaught exception, and no Electron survived.
+ *  1b. **The sender under test is the one named.** `mapper stream` states its
+ *      own pacing in its opening line (`sending to … pacing <mode>, …`), which
+ *      the sidecar logs. Every such line in the arm's log must name the arm's
+ *      mode, and there must be at least one. The argv is not enough: it says
+ *      what was asked for, and an inherited `DDF_STREAM_PACING` or a `mapper`
+ *      that ignored the flag would grade one sender under another's name.
+ *  7.  **The interval grade can see unevenness, and does not invent it.** Before
+ *      any launch, a Python sender puts `mapper`'s own packetisation of a known
+ *      frame on the tap at a known schedule — 30 even ticks, 60 alternating
+ *      23.3 / 43.3 ms, 30 even — stamping each frame's last `sendto` with
+ *      `perf_counter`. Every frame must arrive, >= 95 % of the tap's intervals
+ *      must agree with the sender's to within 2 ms, and the tap's intervals must
+ *      show the injected spread (p99 - p50 >= 8 ms, the stream probe's control 8
+ *      bound). On macOS both clocks are `mach_absolute_time`, so intervals
+ *      compare across processes without an offset. This is the instrument the
+ *      interval p50/p99/max below is read through; if it smooths, delays or
+ *      bunches packets, no pacing mode's intervals mean anything.
  *
  * A valid run exits 0 whatever the cadence numbers are.
+ *
+ * ## Pacing modes (docs/APP-PLAN.md, cadence step 6)
+ *
+ *     PACINGS=clock,arrival SOURCES=60,30,24 REPEATS=1   # the defaults
+ *     FAIL_FAST=1 …   # stop after the first arm that fails a control, exit 2
+ *
+ * Each arm is one pacing mode × one source rate, launched with
+ * `DDF_STREAM_PACING` set to the mode (`clock` launches with it *unset*, which
+ * is what ships). Arms run interleaved — every mode at one source rate, then
+ * the next source, then the next repeat — so drift in machine load lands on
+ * every mode alike rather than on whichever ran last. The capped renderer's
+ * 30-on-30 result was bimodal across runs (0.23-36 %), so one run per mode
+ * decides nothing; set `REPEATS`. Graded per arm: cadence errors, and the
+ * wire-interval p50/p99/max through the tap control 7 vouches for. Each arm's
+ * controls print as soon as it finishes, so a refusal is visible then, not
+ * at the end. A third mode, `precise`, was graded here and removed on
+ * 2026-09-29 (captures/measurements/README.md); re-run it from commit dfa3af4.
  *
  * ## Control 5 was changed after seeing data, and why that is not a loosened gate
  *
@@ -98,8 +135,9 @@
  * ## One cost, stated
  *
  * Each arm launches Electron, which rotates `~/Library/Logs/Electron/ddf.log`.
- * Three arms, three rotations: **copy that log first** if it holds anything you
- * care about, and do not run this beside `wire.mjs` or another probe.
+ * Six arms per repeat, six rotations: **copy that log first** if it holds
+ * anything you care about, and do not run this beside `wire.mjs` or another
+ * probe. The probe reads each arm's log before launching the next.
  */
 
 import { spawn, execFileSync } from 'node:child_process'
@@ -135,12 +173,42 @@ const SETTLE_MS = 3_000
 const SEAM_SECONDS = 0.5
 const SENDER_FPS = 30
 
-/** Each arm's source rate, the steps it should show, and the mean step. */
-const ARMS = [
+/** Each source rate, the steps it should show, and the mean step. */
+const SOURCE_ARMS = [
   { fps: 60, allowed: [2], expectedMean: 2 },
   { fps: 30, allowed: [1], expectedMean: 1 },
   { fps: 24, allowed: [0, 1], expectedMean: 0.8 },
 ]
+/** `mapper stream --pacing`'s choices. `clock` is its default and what ships. */
+const PACING_MODES = ['clock', 'arrival']
+
+const listEnv = (name, fallback) => (process.env[name] ?? fallback).split(',').map((s) => s.trim()).filter((s) => s.length > 0)
+const PACINGS = listEnv('PACINGS', PACING_MODES.join(','))
+const SOURCES = listEnv('SOURCES', SOURCE_ARMS.map((a) => a.fps).join(',')).map(Number)
+const REPEATS = Number(process.env.REPEATS ?? '1')
+
+/** Interleaved: every pacing at one source, then the next source, then the next repeat. */
+const ARMS = []
+for (let repeat = 1; repeat <= REPEATS; repeat++) {
+  for (const fps of SOURCES) {
+    for (const pacing of PACINGS) {
+      const source = SOURCE_ARMS.find((a) => a.fps === fps)
+      ARMS.push({ ...source, pacing, repeat, tag: `${pacing} ${String(fps).padStart(2)} fps #${repeat}` })
+    }
+  }
+}
+
+/** Control 7's schedule, in seconds between frames: even, uneven by ±10 ms, even. */
+const TICK = 1 / SENDER_FPS
+const INJECTED_GAPS = [
+  ...Array(30).fill(TICK),
+  ...Array.from({ length: 60 }, (_, i) => TICK + (i % 2 === 0 ? -0.010 : 0.010)),
+  ...Array(30).fill(TICK),
+]
+const TAP_AGREE_MS = 2
+const TAP_AGREE_SHARE = 0.95
+/** The stream probe's control 8 bound, for the same quantity. */
+const INJECTED_SPREAD_MIN_MS = 8
 
 // ------------------------------------------------------------- the code tiles
 
@@ -380,6 +448,86 @@ class WireTap {
   }
 }
 
+/**
+ * Control 7: a known schedule, sent by Python, read back through `tap`.
+ *
+ * The sender runs as a child process with Node's event loop free — a
+ * synchronous spawn would park the loop, the packets would queue in the socket
+ * buffer, and every one would be stamped in a burst when it returned.
+ */
+async function checkIntervalTap(tap, layout, knownIndex) {
+  const grey = drawPattern(knownIndex, TILE)
+  const rgb = Buffer.alloc(grey.length * 3)
+  for (let i = 0; i < grey.length; i++) rgb.fill(grey[i], i * 3, i * 3 + 3)
+  const script = `
+import json, socket, sys, time
+from mapper.floors import FloorConfig
+from mapper.frame import build_frame
+from mapper.sender import sleep_until
+c = FloorConfig.of(${JSON.stringify(FLOOR.type)}, ${FLOOR.cols}, ${FLOOR.rows})
+packets = build_frame(c, sys.stdin.buffer.read())
+gaps = json.loads(sys.argv[1])
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+stamps = []
+at = time.perf_counter() + 0.2
+for gap in [0.0] + gaps:
+    at += gap
+    sleep_until(at)
+    for p in packets:
+        s.sendto(p, ("127.0.0.1", ${SIDECAR_PORT}))
+    stamps.append(time.perf_counter())
+print(json.dumps(stamps))
+`
+  tap.reset()
+  const stamps = await new Promise((done, fail) => {
+    const child = spawn(PYTHON, ['-c', script, JSON.stringify(INJECTED_GAPS)], { cwd: REPO_ROOT, stdio: ['pipe', 'pipe', 'pipe'] })
+    let out = ''
+    let err = ''
+    child.stdout.on('data', (chunk) => { out += chunk })
+    child.stderr.on('data', (chunk) => { err += chunk })
+    child.on('error', fail)
+    child.on('close', (code) => (code === 0 ? done(JSON.parse(out)) : fail(new Error(`control 7 sender exited ${code}: ${err.trim()}`))))
+    child.stdin.end(rgb)
+  })
+  await sleep(200)
+  const frames = assembleFrames(tap.packets, tap.times, layout)
+  tap.reset()
+
+  // `assembleFrames` drops everything up to the first end-of-frame, so the
+  // first frame sent is never counted: tap frame k is sent frame k + 1.
+  const sent = stamps.slice(1)
+  const problems = []
+  if (frames.length !== sent.length || frames.some((f) => f.index !== knownIndex)) {
+    problems.push(`${frames.length} frames reached the tap (want ${sent.length}), ` +
+      `${frames.filter((f) => f.index !== knownIndex).length} not decoding as ${knownIndex}`)
+    return { problems, line: 'frames lost or undecoded' }
+  }
+  const tapGaps = []
+  const disagreements = []
+  for (let i = 1; i < frames.length; i++) {
+    const measured = frames[i].t - frames[i - 1].t
+    tapGaps.push(measured)
+    disagreements.push(Math.abs(measured - (sent[i] - sent[i - 1]) * 1_000))
+  }
+  const agree = disagreements.filter((d) => d <= TAP_AGREE_MS).length / disagreements.length
+  const sorted = [...tapGaps].sort((a, b) => a - b)
+  const spread = quantile(sorted, 0.99) - quantile(sorted, 0.5)
+  const worst = Math.max(...disagreements)
+  if (agree < TAP_AGREE_SHARE) {
+    problems.push(`only ${(agree * 100).toFixed(1)} % of tap intervals are within ${TAP_AGREE_MS} ms of the sender's ` +
+      `(need ${TAP_AGREE_SHARE * 100} %; worst ${worst.toFixed(2)} ms) — the tap does not read wire intervals as sent`)
+  }
+  if (spread < INJECTED_SPREAD_MIN_MS) {
+    problems.push(`±10 ms of injected unevenness read as tap p99 - p50 = ${spread.toFixed(2)} ms, ` +
+      `needs >= ${INJECTED_SPREAD_MIN_MS} — the interval grade cannot see unevenness`)
+  }
+  return {
+    problems,
+    line: `${frames.length}/${sent.length} frames, ${(agree * 100).toFixed(1)} % of intervals within ${TAP_AGREE_MS} ms ` +
+      `of the sender's (worst ${worst.toFixed(2)} ms), p99 - p50 ${spread.toFixed(2)} ms`,
+  }
+}
+
 // ------------------------------------------------------ DevTools protocol
 
 async function attachToPage() {
@@ -488,6 +636,17 @@ function parseHeartbeats(text) {
   return beats
 }
 
+/**
+ * Control 1b: the pacing `mapper stream` says it runs, from each of its opening
+ * lines in the log — one per spawn, and the geometry change respawns it. `null`
+ * for a line that names none, which is a `mapper` that predates `--pacing`.
+ */
+function parseSenderPacings(text) {
+  return text.split('\n')
+    .filter((line) => line.includes('stdout: sending to '))
+    .map((line) => /, pacing (\S+?),/.exec(line)?.[1] ?? null)
+}
+
 /** Weighted means and overall maxima across a set of heartbeats. */
 function foldHeartbeats(beats) {
   const seconds = beats.reduce((n, b) => n + b.seconds, 0)
@@ -577,7 +736,10 @@ function analyse(arm, clip, frames) {
     incomplete,
     span,
     fps: span > 0 ? (frames.length - 1) / span : 0,
-    interval: { mean, sd, min: sorted[0], p1: quantile(sorted, 0.01), p99: quantile(sorted, 0.99), max: sorted[sorted.length - 1] },
+    interval: {
+      mean, sd, min: sorted[0], p1: quantile(sorted, 0.01), p50: quantile(sorted, 0.5),
+      p99: quantile(sorted, 0.99), max: sorted[sorted.length - 1],
+    },
     steady,
     histogram,
     repeats: histogram.get(0) ?? 0,
@@ -619,10 +781,15 @@ async function runArm(arm, clip, layout, workspace, tap) {
       // (`show.ts`); set explicitly rather than inherited from the shell.
       DDF_CUE_SEED: JSON.stringify({ [clip.path]: { loop: null, trimStartMs: 0, trimEndMs: null } }),
     }
+    // `clock` is `mapper`'s default and what ships, so it runs with the
+    // variable absent — never inherited from the shell. Control 1b checks the
+    // sender agrees.
+    delete env.DDF_STREAM_PACING
+    if (arm.pacing !== 'clock') env.DDF_STREAM_PACING = arm.pacing
     electron = spawn(
       resolve(APP_DIR, 'node_modules', '.bin', 'electron'),
       [resolve(APP_DIR, 'dist', 'main.js'), `--remote-debugging-port=${DEBUG_PORT}`,
-        `--user-data-dir=${join(workspace, `profile-${arm.fps}`)}`],
+        `--user-data-dir=${join(workspace, `profile-${arm.pacing}-${arm.fps}-${arm.repeat}`)}`],
       { cwd: APP_DIR, env, stdio: 'ignore', detached: true },
     )
     launched = true
@@ -703,7 +870,7 @@ async function runArm(arm, clip, layout, workspace, tap) {
     await sleep(1_500)
     exceptions = [...page.exceptions.values()]
   } catch (error) {
-    problems.push(`${arm.fps} fps arm did not run: ${String(error)}`)
+    problems.push(`${arm.tag} arm did not run: ${String(error)}`)
   } finally {
     page?.close()
     if (electron !== null && electron.exitCode === null && electron.signalCode === null) {
@@ -718,22 +885,24 @@ async function runArm(arm, clip, layout, workspace, tap) {
       } catch {
         alive = false
       }
-      if (alive) problems.push(`Electron process group ${electron.pid} survived the ${arm.fps} fps arm — kill it before re-running`)
+      if (alive) problems.push(`Electron process group ${electron.pid} survived the ${arm.tag} arm — kill it before re-running`)
     }
   }
   if (exceptions.length > 0) {
-    problems.push(`the page raised uncaught exceptions during the ${arm.fps} fps arm: ` +
+    problems.push(`the page raised uncaught exceptions during the ${arm.tag} arm: ` +
       exceptions.map((e) => `x${e.count} ${e.text}`).join('; '))
   }
 
   // The heartbeats that cover only the window: each covers the
   // HEARTBEAT_SECONDS before its own timestamp. Read after the child is gone.
   let beats = []
+  let pacings = []
   if (launched && windowStart !== null) {
-    const all = existsSync(LOG_PATH) ? parseHeartbeats(readFileSync(LOG_PATH, 'utf8')) : []
-    beats = all.filter((b) => b.at - HEARTBEAT_SECONDS * 1_000 >= windowStart - 500 && b.at <= windowEnd + 500)
+    const text = existsSync(LOG_PATH) ? readFileSync(LOG_PATH, 'utf8') : ''
+    beats = parseHeartbeats(text).filter((b) => b.at - HEARTBEAT_SECONDS * 1_000 >= windowStart - 500 && b.at <= windowEnd + 500)
+    pacings = parseSenderPacings(text)
   }
-  return { problems, frames, beats }
+  return { problems, frames, beats, pacings }
 }
 
 // --------------------------------------------------------------------- main
@@ -749,10 +918,17 @@ try {
   if (!(WINDOW_SECONDS >= HEARTBEAT_SECONDS * 2)) {
     throw new Error(`WINDOW_SECONDS=${WINDOW_SECONDS} is too short to hold a whole ${HEARTBEAT_SECONDS} s heartbeat reliably`)
   }
+  const unknownPacing = PACINGS.filter((p) => !PACING_MODES.includes(p))
+  const unknownSource = SOURCES.filter((fps) => !SOURCE_ARMS.some((a) => a.fps === fps))
+  if (unknownPacing.length > 0 || unknownSource.length > 0 || !(REPEATS >= 1) || ARMS.length === 0) {
+    throw new Error(`nothing valid to run: PACINGS=${PACINGS} (known ${PACING_MODES}), SOURCES=${SOURCES} ` +
+      `(known ${SOURCE_ARMS.map((a) => a.fps)}), REPEATS=${REPEATS}`)
+  }
 
   console.log(`probe-render-rate · ${FLOOR.type} ${FLOOR.cols}x${FLOOR.rows} = ${WIDTH_PX}x${HEIGHT_PX} px · ` +
     `window ${WINDOW_SECONDS} s per arm · clips ${CLIP_SECONDS} s, ${SRC_PX}x${SRC_PX}, h264 yuv420p · ` +
-    `sender ${SENDER_FPS} fps · heartbeat ${HEARTBEAT_SECONDS} s`)
+    `sender ${SENDER_FPS} fps · heartbeat ${HEARTBEAT_SECONDS} s · ` +
+    `pacings ${PACINGS.join(',')} × sources ${SOURCES.join(',')} × ${REPEATS} repeat(s) = ${ARMS.length} arms`)
 
   // 0b. The wire decoder, against mapper's own packetiser.
   const KNOWN = 1234
@@ -767,29 +943,51 @@ try {
 
   // 0a. The fixtures.
   const clips = new Map()
-  for (const arm of ARMS) {
-    const clip = makeClip(workspace, arm.fps)
+  for (const fps of SOURCES) {
+    const clip = makeClip(workspace, fps)
     const fault = checkClip(clip)
-    controlLines.push(`0a  ${arm.fps} fps fixture: ${clip.frames} frames, each decodes to its own index  ${fault === null ? 'ok' : 'FAILED'}`)
+    controlLines.push(`0a  ${fps} fps fixture: ${clip.frames} frames, each decodes to its own index  ${fault === null ? 'ok' : 'FAILED'}`)
     if (fault !== null) refusals.push(fault)
-    clips.set(arm.fps, clip)
+    clips.set(fps, clip)
   }
 
   if (refusals.length === 0) {
     await tap.listen()
+    // 7. The tap reads intervals as sent, before anything is graded through it.
+    const tapCheck = await checkIntervalTap(tap, layout, KNOWN)
+    controlLines.push(`7   injected schedule through the tap: ${tapCheck.line}  ${tapCheck.problems.length === 0 ? 'ok' : 'FAILED'}`)
+    refusals.push(...tapCheck.problems.map((p) => `control 7: ${p}`))
+  }
+
+  if (refusals.length === 0) {
     for (const arm of ARMS) {
       const clip = clips.get(arm.fps)
-      console.log(`\n· ${arm.fps} fps arm: launching…`)
-      const { problems, frames, beats } = await runArm(arm, clip, layout, workspace, tap)
+      console.log(`\n· ${arm.tag} arm: launching…`)
+      const linesBefore = controlLines.length
+      const refusalsBefore = refusals.length
+      const { problems, frames, beats, pacings } = await runArm(arm, clip, layout, workspace, tap)
       refusals.push(...problems)
-      if (problems.some((p) => p.includes('did not run'))) continue
+      if (problems.some((p) => p.includes('did not run'))) {
+        for (const problem of problems) console.log(`  REFUSED — ${problem}`)
+        if (process.env.FAIL_FAST === '1') {
+          console.log('  FAIL_FAST=1: stopping after this arm')
+          break
+        }
+        continue
+      }
 
       const result = analyse(arm, clip, frames)
       result.heartbeat = beats.length === 0 ? null : foldHeartbeats(beats)
       result.beats = beats
       results.push(result)
 
-      const tag = `${String(arm.fps).padStart(2)} fps`
+      const tag = arm.tag
+      const senderOk = pacings.length > 0 && pacings.every((p) => p === arm.pacing)
+      controlLines.push(`1b  ${tag}: sender says pacing ${JSON.stringify(pacings)}  ${senderOk ? 'ok' : 'FAILED'}`)
+      if (!senderOk) {
+        refusals.push(`${tag} arm: mapper stream's own opening lines name pacing ${JSON.stringify(pacings)}, want only "${arm.pacing}" — ` +
+          'this arm graded a different sender from the one it is labelled with')
+      }
       const floorOk = beats.length > 0 && beats.every((b) => b.floor === `${FLOOR.type} ${FLOOR.cols}x${FLOOR.rows}`)
       controlLines.push(`1   ${tag}: ${beats.length} heartbeat(s) in window, floor=${JSON.stringify(result.heartbeat?.floors ?? [])}  ${floorOk ? 'ok' : 'FAILED'}`)
       if (!floorOk) {
@@ -800,13 +998,19 @@ try {
       const decodeOk = result.frames > 0 && decodedShare >= 0.99
       controlLines.push(`2   ${tag}: ${result.decoded}/${result.frames} wire frames decode (${(decodedShare * 100).toFixed(2)} %)  ${decodeOk ? 'ok' : 'FAILED'}`)
       if (!decodeOk) refusals.push(`${tag} arm: only ${result.decoded} of ${result.frames} wire frames decode a valid index (need >= 99 %)`)
-      const rateOk = result.fps >= 29 && result.fps <= 31
-      controlLines.push(`3   ${tag}: wire ${result.fps.toFixed(2)} fps  ${rateOk ? 'ok' : 'FAILED'}`)
-      if (!rateOk) refusals.push(`${tag} arm: wire rate ${result.fps.toFixed(2)} fps, outside 29-31`)
+      // `arrival` sends what the renderer writes, so a write it never sent is a
+      // skip — a result, graded as a cadence error — and only its ceiling is a
+      // control. The metronome modes send 30 a second whatever arrives.
+      const followsWriter = arm.pacing === 'arrival'
+      const rateOk = result.fps <= 31 && (followsWriter || result.fps >= 29)
+      controlLines.push(`3   ${tag}: wire ${result.fps.toFixed(2)} fps, want ${followsWriter ? '<= 31' : '29-31'}  ${rateOk ? 'ok' : 'FAILED'}`)
+      if (!rateOk) refusals.push(`${tag} arm: wire rate ${result.fps.toFixed(2)} fps, want ${followsWriter ? '<= 31' : '29-31'}`)
       // 4. The time axis, every arm. See the header for why this and not a
       //    ceiling on repeats.
       const steps = [...result.histogram.entries()].sort((a, b) => a[0] - b[0]).map(([k, n]) => `${k}:${n}`).join(' ')
-      const wantMean = arm.fps / SENDER_FPS
+      // The source advances `fps` a second of wall time whatever the wire rate,
+      // so a sender that follows the writer is held to its own measured rate.
+      const wantMean = arm.fps / (followsWriter ? result.fps : SENDER_FPS)
       const meanOk = result.steady >= 100 && Math.abs(result.meanStep - wantMean) <= 0.02 * wantMean
       controlLines.push(`4   ${tag}: mean step ${Number.isNaN(result.meanStep) ? '-' : result.meanStep.toFixed(3)} over ${result.steady} steady steps, ` +
         `want ${wantMean.toFixed(3)} ±2 %  ${meanOk ? 'ok' : 'FAILED'}`)
@@ -818,11 +1022,19 @@ try {
       if (arm.fps === 24) {
         const share = result.steady === 0 ? 0 : result.repeats / result.steady
         const blindOk = result.steady >= 100 && share >= 0.15
-        controlLines.push(`5   24 fps: ${result.repeats}/${result.steady} steady steps are repeats (${(share * 100).toFixed(1)} %), want >= 15 %  ${blindOk ? 'ok' : 'FAILED'}`)
+        controlLines.push(`5   ${tag}: ${result.repeats}/${result.steady} steady steps are repeats (${(share * 100).toFixed(1)} %), want >= 15 %  ${blindOk ? 'ok' : 'FAILED'}`)
         if (!blindOk) {
-          refusals.push(`24 fps arm: ${result.repeats} of ${result.steady} steady steps are repeats (${(share * 100).toFixed(1)} %), ` +
+          refusals.push(`${tag} arm: ${result.repeats} of ${result.steady} steady steps are repeats (${(share * 100).toFixed(1)} %), ` +
             'want >= 15 % — 24-in-30 must repeat at least one step in five, so the repeat detector is blind and no cadence result ' +
             `from this run means anything. Steps: ${steps}`)
+        }
+      }
+      for (const line of controlLines.slice(linesBefore)) console.log(`  ${line}`)
+      if (refusals.length > refusalsBefore) {
+        console.log(`  REFUSED — ${refusals.length - refusalsBefore} reason(s); the run cannot print a table`)
+        if (process.env.FAIL_FAST === '1') {
+          console.log('  FAIL_FAST=1: stopping after this arm')
+          break
         }
       }
     }
@@ -850,10 +1062,10 @@ console.log('\nper arm')
 for (const r of results) {
   const hb = r.heartbeat
   const steps = [...r.histogram.entries()].sort((a, b) => a[0] - b[0]).map(([s, n]) => `${s}:${n}`).join('  ')
-  console.log(`\n${r.arm.fps} fps source (expected step ${r.arm.allowed.join(' or ')}, mean ${r.arm.expectedMean})`)
+  console.log(`\n${r.arm.tag}: pacing ${r.arm.pacing}, ${r.arm.fps} fps source (expected step ${r.arm.allowed.join(' or ')}, mean ${r.arm.expectedMean})`)
   console.log(`  wire         ${r.frames} frames in ${r.span.toFixed(2)} s = ${r.fps.toFixed(2)} fps · ${r.incomplete} incomplete · ${r.decoded} decoded`)
   console.log(`  interval ms  mean ${f2(r.interval.mean)}  sd ${f2(r.interval.sd)}  min ${f2(r.interval.min)}  ` +
-    `p1 ${f2(r.interval.p1)}  p99 ${f2(r.interval.p99)}  max ${f2(r.interval.max)}`)
+    `p1 ${f2(r.interval.p1)}  p50 ${f2(r.interval.p50)}  p99 ${f2(r.interval.p99)}  max ${f2(r.interval.max)}`)
   console.log(`  steps        ${steps}   (${r.steady} steady, mean ${r.meanStep.toFixed(3)})`)
   console.log(`  cadence err  ${r.errors} of ${r.steady} steady steps (${(r.errors / r.steady * 100).toFixed(2)} %) outside {${r.arm.allowed.join(',')}}`)
   if (r.arm.fps === 24) {
@@ -868,15 +1080,18 @@ for (const r of results) {
 }
 
 console.log('\nsummary')
-console.log('src fps  wire fps  interval mean/sd/max ms  step 0 / 1 / 2 / other   cadence err   composes/s  draw avg/max  readback avg/max  pass avg/max')
+console.log('pacing    src fps  rep  wire fps  interval p50/p99/max ms    sd  step 0 / 1 / 2 / other   cadence err   composes/s  draw avg/max  readback avg/max  pass avg/max')
 for (const r of results) {
   const hb = r.heartbeat
   const h = (s) => r.histogram.get(s) ?? 0
   const other = r.steady - h(0) - h(1) - h(2)
   console.log([
+    r.arm.pacing.padEnd(8),
     String(r.arm.fps).padStart(7),
+    String(r.arm.repeat).padStart(3),
     r.fps.toFixed(2).padStart(8),
-    `${f2(r.interval.mean)}/${f2(r.interval.sd)}/${f2(r.interval.max)}`.padStart(23),
+    `${f2(r.interval.p50)}/${f2(r.interval.p99)}/${f2(r.interval.max)}`.padStart(23),
+    f2(r.interval.sd).padStart(5),
     `${h(0)} / ${h(1)} / ${h(2)} / ${other}`.padStart(23),
     `${r.errors} (${(r.errors / r.steady * 100).toFixed(2)} %)`.padStart(13),
     f2(hb.composesPerSecond).padStart(11),

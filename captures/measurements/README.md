@@ -10,6 +10,135 @@ can re-run it and compare rather than trust the transcript.
 
 ---
 
+## `render-rate-pacing-2026-09-29-10x10` — the app path, per `mapper stream --pacing` mode
+
+`app/test/e2e/probe-render-rate.mjs` at commit 8a59b1f (plus the per-arm
+printing added later), `REPEATS=3`: modes `clock`, `precise`, `arrival` × 60,
+30 and 24 fps sources × 3 repeats = 27 arms of 60 s, interleaved so machine
+load lands on every mode alike. Renderer capped at 30 (as shipped). Exit 0,
+every positive control passed, including the two new ones: 1b (each arm's
+`mapper stream` names the arm's own pacing in its opening line — the argv is
+not taken on trust) and 7 (a Python sender puts a known ±10 ms schedule on
+the tap before any launch: 120/120 frames, 100 % of intervals within 2 ms of
+the sender's, worst 0.33 ms, spread 10.71 ms). A WebKit process was at ~55 %
+CPU when the run started; interleaving spreads it, it does not remove it.
+
+Cadence errors — steps off each arm's ideal pattern, per run:
+
+| source | clock (ships) | precise | arrival |
+|---|---|---|---|
+| 60 fps | 35.62, 24.30, 14.91 % | 18.40, 25.73, 13.60 % | 12.98, 18.11, 8.51 % |
+| 30 fps | 21.21, 9.44, 20.43 % | 2.05, 6.93, 9.81 % | 9.43, 9.62, 7.34 % |
+| 24 fps | 0.29, 2.40, 4.52 % | 3.76, 2.05, 4.99 % | 0.65, 0.65, 0.47 % |
+
+Wire interval at 30-on-30, p99 / max per run: clock 40.53/80.25,
+37.49/40.83, 41.88/59.64; precise 35.20/56.51, 35.46/57.08, 35.56/47.92;
+arrival 35.08/112.97, 34.55/40.33, 36.04/44.41 ms.
+
+### What the numbers say
+
+- **Both candidates beat `clock`; neither reaches 0 %.**
+- **`arrival` loses the run-to-run bimodality; `precise` keeps it.** At
+  30-on-30 `precise` reads anywhere from 2.05 to 9.81 %, the shape the capped
+  renderer had: it still has a tick, the renderer is on the display clock, and
+  a run's result depends on where the two sat. `arrival` reads 7.34–9.62 %
+  every time, and is best or tied in all six 60 and 24 fps runs.
+- **The ~8 % left under `arrival` is upstream of the pipe — inferred.**
+  `arrival` sends each renderer write once (wire 29.85–29.99 fps against ~30
+  writes/s), so its wire is the renderer's output; its 30-on-30 errors are
+  paired repeats and skips (78/80, 82/82, 62/63), a video frame composed twice
+  and its successor never. In the stream probe, with no renderer, `arrival`
+  is 0 %. That is handoff 1 (video to renderer), plan step 6's other half. Not
+  measured at the renderer itself.
+- **`arrival`'s longest gaps are longer**: 112.97 and 172.17 ms maxima, in
+  runs whose renderer draw max was 49.8 and 165.3 ms. It forwards a renderer
+  stall as a wire gap where `clock` fills it with a repeat. Still far under
+  controller 1's ~5 s timeout, and `arrival` repeats after 1 s regardless.
+
+### Decision (user, 2026-09-29)
+
+Keep `arrival`, remove `precise`, in the same PR. `clock` stays the default
+until a floor capture (D-02). `precise` can be re-run from commit dfa3af4.
+
+### What this does not establish
+
+- Anything on hardware. Loopback, one Mac, off-floor; the default changes only
+  after a floor capture, by eye on a smooth pan (plan step 8).
+- That handoff 1 is the whole residue — see the inferred bullet above.
+- Three runs per cell. The spread claim is about three samples.
+
+---
+
+## `stream-pacing-2026-09-29` — `clock`, `precise` and `arrival`, `mapper stream` alone, by phase
+
+`tools/probe_stream_cadence.py` at commit dfa3af4, defaults: 20 phases
+(1.67 ms apart) × 3 senders × 3 repeats × 2 geometries, 10 s windows, plus the
+24 Hz repeat/pause control and (for `arrival`) the 20 Hz ±12 ms jitter
+control per repeat. Exit 0. Eight runs re-run after control 7 alone refused
+(writer late 3–43 ms, listed in the file); control 10 compared sender and tap
+on 384/384 runs.
+
+Off-pattern steps at the 30 Hz writer, every non-zero run:
+
+- **stock (`clock`)**: 10x10 14.0–62.2 % in 11 of the 12 runs at 26.67–31.67 ms
+  (one 0 %), plus 0.7 % and 2.9 % once each; 10x12 17.0–54.6 % at
+  28.33–31.67 ms, and in rep 2 from 23.33 ms, plus three runs under 7 %.
+- **precise**: one run, 1.5 % (10x10, 16.67 ms). 10x12: none.
+- **arrival**: one run, 0.4 % (10x12, 16.67 ms) — a single +2 step.
+
+| | 10x10 stock | 10x10 precise | 10x10 arrival | 10x12 stock | 10x12 precise | 10x12 arrival |
+|---|---|---|---|---|---|---|
+| steps, all 30 Hz runs | +0 578, +1 15104, +2 572, +3 2 | +0 3, +1 16256, +4 1 | +1 16260 | +0 515, +1 15233, +2 513 | +1 16260 | +1 16258, +2 1 |
+| wire p99, per run (ms) | 37.52–46.02 | 33.92–37.08 | 33.70–36.53 | 37.08–46.27 | 33.64–35.68 | 33.75–47.57 |
+| wire max, per run (ms) | 38.07–97.14 | 34.08–118.89 | 33.88–52.41 | 37.39–64.49 | 33.85–37.68 | 33.94–66.72 |
+| write end → wire, p50 / p99 (ms) | 20.01 / 36.88 | 19.94 / 36.33 | **3.72 / 9.07** | 19.71 / 36.88 | 20.18 / 36.74 | **4.06 / 23.53** |
+| repeats: write in progress at wake / reader lag | 506 / 72 | 3 / 0 | 0 / 0 | 463 / 52 | 0 / 0 | 0 / 0 |
+
+Controls: 24 Hz — metronomes 20.1 % repeats, mean step 0.799, 74–76 frames in
+the 2.5 s pause; `arrival` 0.0 % repeats, 3 frames in the pause, longest
+silence 1.01 s. Jitter control: wire p99 − p50 17.4, 20.1, 20.3 ms (≥ 8).
+
+### What the numbers say
+
+- **The stock repeat mechanism is now measured, not inferred.** Of the stock
+  repeats the sender's own `--emit-timing` record could classify, 969 were a
+  write still arriving when the sender woke and 124 reader lag. This settles
+  step 5's open question in favour of the wake.
+- **Both candidates remove it on this instrument.** `precise` narrows the band
+  below the 1.67 ms phase step; `arrival` has no phase relation at all (its
+  phase column jumps from −4 to +29 ms against its own lead-in and the error
+  rate does not move).
+- **`arrival` is ~16 ms fresher**: write end to wire p50 3.7–4.1 ms against
+  ~20 ms for both metronomes.
+- The stream probe cannot pick between them: its writer is on the sender's own
+  clock. The app-path entry above does.
+
+### The sweep before it refused, and why that was the instrument
+
+`stream-pacing-2026-09-29-refused.txt`, commit 92d7c08, exit 2: one run of
+384, 10x12 stock 24 Hz, control 9 "pause carried [240], not the last frame
+241" — one of 76 pause frames. Reproduced 7 of 50 times at 10x12 24 Hz,
+stock and precise, with the sender's stamps kept: each time the sender read
+the slot 0.9–3.2 ms *before* the last write ended (240 was the newest it
+had), and its first packet landed after, inside the pause window, because
+`build_frame` takes a few ms at 10x12. Control 9 judged by arrival time. It
+now excuses one such in-flight frame — first, `last − 1`, and read before the
+slot held `last` by the sender's own record — and every other stale frame
+still refuses (dfa3af4, checked with synthetic records). The sweep above never
+used the excuse.
+
+Seen there, inferred: the reader adopted that last write 1.4–3.3 ms after it
+ended, lining up with a send starting — GIL contention with the sending
+thread, most likely. The sweep's own reader-lag p99 is 3.45 ms (stock 10x10)
+and 0.11–0.13 ms under `arrival`, which sends while the reader is idle.
+
+### What this does not establish
+
+- Anything about the app path or hardware — see the entry above.
+- Loopback, one Mac, a writer on the sender's own clock.
+
+---
+
 ## `stream-cadence-2026-09-28` — `mapper stream` alone, fed a steady 30 fps, by phase
 
 `tools/probe_stream_cadence.py`. The first arm of attributing the app-path

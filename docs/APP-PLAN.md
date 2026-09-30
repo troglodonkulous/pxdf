@@ -107,7 +107,8 @@ own 30 Hz clock  verified·untouched  reader thread
 ```
 
 Python owning the clock (D-03 — **challenged 2026-09-28** by the render-rate
-cadence measurement; see `docs/DECISIONS.md`) is the README's double-buffering requirement for free: a
+cadence measurement, and opt-in replaced by `stream --pacing arrival`
+2026-09-29 — see `docs/DECISIONS.md` and the risk below) is the README's double-buffering requirement for free: a
 renderer hitch re-sends the previous frame instead of producing a gap, and the
 wire keeps its measured ±0.4 ms pacing whatever Chromium is doing. (That figure
 is from `docs/RUNSHEET-10x5-4P.md` §11. On the dev Mac, over loopback,
@@ -903,8 +904,16 @@ Named so they do not creep back in.
   D-03 in `docs/DECISIONS.md` carries it. Partly attributed 2026-09-28
   (`captures/measurements/README.md`, stream-cadence): `mapper stream` alone,
   fed a steady 30 fps, reproduces it at the same magnitude, and does not when
-  `sender.run()` sleeps in 1 ms slices. The video-to-renderer handoff is not
-  yet measured.
+  `sender.run()` sleeps in 1 ms slices. **2026-09-29:** `mapper stream
+  --pacing arrival`, reached from the app with `DDF_STREAM_PACING=arrival`,
+  sends on the renderer's writes rather than its own tick; 30-on-30 errors
+  fell to 7.3–9.6 %, steady across runs (stream-pacing and
+  render-rate-pacing entries). Opt-in: `clock` stays the default until a floor
+  capture judges it by eye (D-02). The ~8 % left is inferred to be the
+  video-to-renderer handoff — composing on `requestAnimationFrame` rather than
+  on new video frames — and is the next cadence fix. Under `arrival` a
+  renderer stall reaches the wire as a gap (113 and 172 ms seen) rather than a
+  repeated frame; the floor session should look for it.
 - **The app must run unattended for hours.** Nothing here is soak-tested. PR 6's
   drills are the minimum, not proof.
 

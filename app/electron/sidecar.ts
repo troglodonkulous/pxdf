@@ -354,6 +354,10 @@ export class Sidecar {
     const port = process.env.DDF_PORT ?? String(60_001)
     const python = process.env.DDF_PYTHON ?? 'python3'
     const localIp = process.env.DDF_LOCAL_IP
+    // Opt-in only (D-02). Unset leaves `mapper`'s own default, `clock`, in
+    // charge. `--emit-timing` is never passed: every stdout line is logged at
+    // INFO below, and it prints one per frame.
+    const pacing = process.env.DDF_STREAM_PACING
     const args = [
       '-m', 'mapper', 'stream',
       '--type', this.options.type,
@@ -365,6 +369,9 @@ export class Sidecar {
     ]
     if (localIp !== undefined && localIp.length > 0) {
       args.push('--local-ip', localIp)
+    }
+    if (pacing !== undefined && pacing.length > 0) {
+      args.push('--pacing', pacing)
     }
 
     // The command, in full, every time.

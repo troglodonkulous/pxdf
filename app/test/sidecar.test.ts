@@ -177,6 +177,51 @@ describe('the command line it builds', () => {
     packaged.start();
     expect(spawn.mock.calls[0][1]).toContain('255.255.255.255');
   });
+
+  // `--pacing` is the opt-in D-02 allows `mapper stream` for the cadence work
+  // (docs/APP-PLAN.md, step 6). Absent means `mapper`'s own default, `clock`,
+  // which is today's sender byte for byte and timing for timing — so an unset
+  // variable must add nothing, not `--pacing clock`, or the default would
+  // silently become whatever the app says rather than what `mapper` says. The
+  // value is not validated here: argparse refuses a bad one with exit 2 and
+  // says why on stderr, which the log already keeps.
+  describe('DDF_STREAM_PACING', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('adds nothing when unset or empty', () => {
+      for (const value of [undefined, '']) {
+        vi.stubEnv('DDF_STREAM_PACING', value);
+        spawn.mockClear();
+        const { sidecar, logs } = makeSidecar();
+        sidecar.start();
+
+        expect(spawn.mock.calls[0][1]).not.toContain('--pacing');
+        expect(logs.find((line) => line.includes('spawning:'))).not.toContain('--pacing');
+      }
+    });
+
+    it('passes the mode to `mapper stream` and names it in the spawning line', () => {
+      vi.stubEnv('DDF_STREAM_PACING', 'arrival');
+      const { sidecar, logs } = makeSidecar();
+      sidecar.start();
+
+      const args: string[] = spawn.mock.calls[0][1];
+      expect(args.slice(args.indexOf('--pacing'), args.indexOf('--pacing') + 2))
+        .toEqual(['--pacing', 'arrival']);
+      // The log line is the only place a floor-test reader can tell which
+      // sender produced the cadence they are looking at.
+      expect(logs.find((line) => line.includes('spawning:'))).toContain('--pacing arrival');
+    });
+
+    it('never turns on --emit-timing, which would log a line per frame', () => {
+      vi.stubEnv('DDF_STREAM_PACING', 'arrival');
+      const { sidecar } = makeSidecar();
+      sidecar.start();
+      expect(spawn.mock.calls[0][1]).not.toContain('--emit-timing');
+    });
+  });
 });
 
 describe('backpressure drops, it never queues', () => {
