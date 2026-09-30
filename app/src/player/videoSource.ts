@@ -150,7 +150,6 @@ export class VideoSource implements FrameSource {
    */
   private readonly closeCensusEntry = openDecoder()
   private frameCallbackId: number | null = null
-  private lastPresentedFrames: number | null = null
   /**
    * Whether the engine has told this source to stop, as opposed to the element
    * having stopped on its own.
@@ -232,8 +231,8 @@ export class VideoSource implements FrameSource {
   //
   // (Measured 2026-09-29 in this Electron: rVFC does fire on these detached
   // elements, ~30 a second on a 30 fps clip, and keeping one registered
-  // changes how Chromium hands them frames — see `presentedFrames`. That is
-  // one Chromium, not a guarantee, so readiness still does not depend on it.)
+  // changes how Chromium hands them frames — see `requestDecodedFrame`. That
+  // is one Chromium, not a guarantee, so readiness still does not depend on it.)
   //
   // Both signals land in `markReadyFromElement`, which owns the threshold.
   private readonly onData = (): void => {
@@ -381,17 +380,6 @@ export class VideoSource implements FrameSource {
     this.rotation = rotation
   }
 
-  /**
-   * How many frames the element has presented, from its newest
-   * `requestVideoFrameCallback`; `null` until the first, and for ever on an
-   * element with no frame callbacks. The render loop composes when this moves
-   * (`render/framePacing.ts`, `composeDue`), so it has to keep moving for the
-   * life of the source — see `requestDecodedFrame`.
-   */
-  get presentedFrames(): number | null {
-    return this.lastPresentedFrames
-  }
-
   get positionMs(): number {
     const seconds = this.video.currentTime
     return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1_000 : 0
@@ -532,16 +520,35 @@ export class VideoSource implements FrameSource {
   }
 
   /**
-   * One frame callback at a time, for the life of the source. It used to stop
-   * once the source was ready, which was all it was for; it now also carries
-   * `presentedFrames`, which the render loop composes on, so it re-arms
-   * unconditionally and only `dispose` ends it.
+   * One frame callback at a time, for the life of the source — not only until
+   * it is ready, which was all this used to be for.
+   *
+   * ## Why it stays armed
+   *
+   * Keeping a callback registered is what puts this element's frames on the
+   * floor at an even cadence. These elements are detached, and without a
+   * callback Chromium hands the element new frames on a clock of its own; the
+   * render loop samples it every other vsync, and where the two sit close,
+   * rAF jitter decides which side of a frame change a compose lands on — one
+   * frame composed twice and the next never. With a callback armed, the same
+   * renderer composed every frame once. Measured with
+   * `test/e2e/probe-render-rate.mjs`'s renderer trace under `--pacing
+   * arrival` at 30-on-30 (`captures/measurements/README.md`,
+   * render-rate-video-frames-2026-09-29): 2.29-3.58 % of composes off-pattern
+   * with the chain stopping at ready, 0.00-0.18 % with it kept.
+   *
+   * That is an observed Chromium behaviour, not a documented one — which is
+   * why the test that keeps this armed names the measurement, and why the
+   * probe should be re-run on an Electron upgrade. Composing *on* the
+   * callback (gating the render loop on `presentedFrames`) was built and
+   * graded too, and measured no better than this alone (same entry).
+   *
+   * The callback's own work is one readiness check; only `dispose` ends it.
    */
   private requestDecodedFrame(): void {
     if (!this.hasVideoFrameCallbacks() || this.state.disposed) return
-    this.frameCallbackId = this.video.requestVideoFrameCallback((_now, metadata) => {
+    this.frameCallbackId = this.video.requestVideoFrameCallback(() => {
       this.frameCallbackId = null
-      this.lastPresentedFrames = metadata.presentedFrames
       this.markReadyFromElement()
       this.requestDecodedFrame()
     })

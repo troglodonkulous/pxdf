@@ -68,7 +68,6 @@ class FakeSource implements FrameSource {
   }
 
   stallReason: string | null = null;
-  presentedFrames: number | null = null;
   positionMs = 0;
   mediaDurationMs: number | null = null;
   playCalls = 0;

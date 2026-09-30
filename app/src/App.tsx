@@ -11,7 +11,7 @@ import { VideoSource } from './player/videoSource.js'
 import { ZOOM_FIT, zoomIn, zoomOut } from './player/zoom.js'
 import { floorGeometry, SHOP_RIG, workSize, type Rotation } from './render/geometry.js'
 import { blackFrame } from './render/onePass.js'
-import { composeDue, type ComposedFrame, type FrameMark } from './render/framePacing.js'
+import { shouldCompose } from './render/framePacing.js'
 
 const S = 8
 const INITIAL_SHOW = emptyShow(
@@ -199,7 +199,7 @@ export function App() {
     if (workContext === null) return
 
     let animationFrame = 0
-    let lastComposed: ComposedFrame | null = null
+    let lastComposedAt: number | null = null
     let sampleStartedAt = performance.now()
     let sampledFrames = 0
     let sampledPasses = 0
@@ -255,25 +255,18 @@ export function App() {
     const render = (now: number): void => {
       // Schedule first: a decoder or preview failure must not stop future writes.
       animationFrame = requestAnimationFrame(render)
-      // Compose when the wire source has a new frame, and no faster than
-      // `mapper stream` sends. Everything past this point is one composed,
-      // written frame — the gate only decides how often that happens. See
-      // `render/framePacing.ts` for why a skipped animation frame is not a gap
-      // on the wire, and why a new frame rather than the clock.
-      //
-      // `engine.tick()` runs on every animation frame, composed or not: it is
-      // what promotes a pending cue and advances on duration, and the gate
-      // needs to know which source is on the wire before it can decide.
-      const tick = engine.tick()
-      const mark: FrameMark = tick.wire.kind === 'black'
-        ? { source: null, frame: null }
-        : { source: tick.wire.source, frame: tick.wire.source.presentedFrames }
-      if (!composeDue(now, lastComposed, mark)) return
-      lastComposed = { at: now, ...mark }
+      // Compose no faster than `mapper stream` sends. Everything past this
+      // point is one composed, written frame — the gate only decides how often
+      // that happens. See `render/framePacing.ts` for why a skipped animation
+      // frame is not a gap on the wire.
+      if (!shouldCompose(now, lastComposedAt)) return
+      lastComposedAt = now
       const currentFloor = floorRef.current
       const currentWork = workRef.current
       if (workCanvas.width !== currentWork.width) workCanvas.width = currentWork.width
       if (workCanvas.height !== currentWork.height) workCanvas.height = currentWork.height
+
+      const tick = engine.tick()
 
       // The floor. Exactly one write per composed frame, on every path —
       // stopping the send is what makes controller 1 revert to the vendor's own

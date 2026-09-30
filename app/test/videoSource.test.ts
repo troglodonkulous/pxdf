@@ -922,39 +922,41 @@ class FakeFramingVideoElement extends FakeVideoElement {
 }
 
 /**
- * `presentedFrames` is what the render loop composes on (`render/framePacing.ts`,
- * `composeDue`): a new number means a new frame to draw. It has to keep moving
- * for the whole life of the source, not only until the source is ready —
- * readiness was the only thing the frame callback used to be for, and it
- * stopped asking once it had its answer.
+ * The frame callback stays armed for the whole life of the source, not only
+ * until it is ready. Keeping one registered on a detached element is what took
+ * the renderer's own repeat/skip judder at 30-on-30 from 2.29-3.58 % of
+ * composes to 0.00-0.18 % (`captures/measurements/README.md`,
+ * render-rate-video-frames-2026-09-29) — see `requestDecodedFrame`. A chain
+ * that quietly stops after the first frame is the regression this catches;
+ * no byte comparison in the project can see it.
  */
-describe('VideoSource presented frames', () => {
-  it('follows every frame the element presents, past the first', () => {
+describe('VideoSource frame callbacks', () => {
+  it('stays armed after the source is ready, frame after frame', () => {
     const element = new FakeFramingVideoElement()
     const source = sourceOver(element)
-    expect(source.presentedFrames).toBe(null)
+    expect(element.pending()).toBe(1)
 
     element.readyState = 2
     element.present(1)
     expect(source.ready).toBe(true)
-    expect(source.presentedFrames).toBe(1)
-
-    element.present(2)
-    element.present(4)
-    expect(source.presentedFrames).toBe(4)
+    for (let frame = 2; frame <= 5; frame += 1) {
+      expect(element.pending()).toBe(1)
+      element.present(frame)
+    }
     expect(element.pending()).toBe(1)
   })
 
-  it('is null on an element that has no frame callbacks, ready or not', () => {
-    const element = new FakeVideoElement()
+  it('still marks the source ready from a presented frame', () => {
+    const element = new FakeFramingVideoElement()
     const source = sourceOver(element)
+    element.present(1)
+    expect(source.ready).toBe(false)
     element.readyState = 2
-    element.emit('loadeddata')
+    element.present(2)
     expect(source.ready).toBe(true)
-    expect(source.presentedFrames).toBe(null)
   })
 
-  it('stops asking once disposed', () => {
+  it('stops once disposed', () => {
     const element = new FakeFramingVideoElement()
     const source = sourceOver(element)
     element.readyState = 2
