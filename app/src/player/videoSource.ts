@@ -150,6 +150,7 @@ export class VideoSource implements FrameSource {
    */
   private readonly closeCensusEntry = openDecoder()
   private frameCallbackId: number | null = null
+  private lastPresentedFrames: number | null = null
   /**
    * Whether the engine has told this source to stop, as opposed to the element
    * having stopped on its own.
@@ -228,6 +229,11 @@ export class VideoSource implements FrameSource {
   // may never fire in exactly the configuration this app uses, and a source
   // that never reports ready is a cue that never goes live: GO would appear to
   // do nothing, for ever, with no error anywhere.
+  //
+  // (Measured 2026-09-29 in this Electron: rVFC does fire on these detached
+  // elements, ~30 a second on a 30 fps clip, and keeping one registered
+  // changes how Chromium hands them frames — see `presentedFrames`. That is
+  // one Chromium, not a guarantee, so readiness still does not depend on it.)
   //
   // Both signals land in `markReadyFromElement`, which owns the threshold.
   private readonly onData = (): void => {
@@ -375,6 +381,17 @@ export class VideoSource implements FrameSource {
     this.rotation = rotation
   }
 
+  /**
+   * How many frames the element has presented, from its newest
+   * `requestVideoFrameCallback`; `null` until the first, and for ever on an
+   * element with no frame callbacks. The render loop composes when this moves
+   * (`render/framePacing.ts`, `composeDue`), so it has to keep moving for the
+   * life of the source — see `requestDecodedFrame`.
+   */
+  get presentedFrames(): number | null {
+    return this.lastPresentedFrames
+  }
+
   get positionMs(): number {
     const seconds = this.video.currentTime
     return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1_000 : 0
@@ -514,11 +531,19 @@ export class VideoSource implements FrameSource {
     return typeof this.video.requestVideoFrameCallback === 'function'
   }
 
+  /**
+   * One frame callback at a time, for the life of the source. It used to stop
+   * once the source was ready, which was all it was for; it now also carries
+   * `presentedFrames`, which the render loop composes on, so it re-arms
+   * unconditionally and only `dispose` ends it.
+   */
   private requestDecodedFrame(): void {
     if (!this.hasVideoFrameCallbacks() || this.state.disposed) return
-    this.frameCallbackId = this.video.requestVideoFrameCallback(() => {
+    this.frameCallbackId = this.video.requestVideoFrameCallback((_now, metadata) => {
       this.frameCallbackId = null
-      if (!this.markReadyFromElement()) this.requestDecodedFrame()
+      this.lastPresentedFrames = metadata.presentedFrames
+      this.markReadyFromElement()
+      this.requestDecodedFrame()
     })
   }
 

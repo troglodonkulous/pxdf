@@ -82,6 +82,12 @@ export interface FrameSource {
    * anywhere says why.
    */
   readonly stallReason: string | null;
+  /**
+   * How many frames the source has presented so far, or `null` if it cannot
+   * say. The render loop composes the wire when this moves rather than on a
+   * clock (`render/framePacing.ts`, `composeDue`); `null` keeps it on the clock.
+   */
+  readonly presentedFrames: number | null;
   /** Playback position within the media, in milliseconds. */
   readonly positionMs: number;
   /** The media's own length, once known. Not the cue's duration. */

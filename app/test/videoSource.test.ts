@@ -888,3 +888,78 @@ describe('resuming a clip parked at its end', () => {
     expect(element.currentTime).toBe(2)
   })
 })
+
+/**
+ * The same element, with the frame callbacks the base fake deliberately
+ * lacks, fired by hand: `present(n)` is the element handing its compositor a
+ * frame, with `n` as rVFC's `presentedFrames`.
+ */
+class FakeFramingVideoElement extends FakeVideoElement {
+  private nextId = 1
+  private readonly callbacks = new Map<number, VideoFrameRequestCallback>()
+
+  requestVideoFrameCallback(callback: VideoFrameRequestCallback): number {
+    const id = this.nextId
+    this.nextId += 1
+    this.callbacks.set(id, callback)
+    return id
+  }
+
+  cancelVideoFrameCallback(id: number): void {
+    this.callbacks.delete(id)
+  }
+
+  pending(): number {
+    return this.callbacks.size
+  }
+
+  present(presentedFrames: number): void {
+    const due = [...this.callbacks.values()]
+    this.callbacks.clear()
+    const metadata = { presentedFrames, mediaTime: presentedFrames / 30 } as VideoFrameCallbackMetadata
+    for (const callback of due) callback(0, metadata)
+  }
+}
+
+/**
+ * `presentedFrames` is what the render loop composes on (`render/framePacing.ts`,
+ * `composeDue`): a new number means a new frame to draw. It has to keep moving
+ * for the whole life of the source, not only until the source is ready —
+ * readiness was the only thing the frame callback used to be for, and it
+ * stopped asking once it had its answer.
+ */
+describe('VideoSource presented frames', () => {
+  it('follows every frame the element presents, past the first', () => {
+    const element = new FakeFramingVideoElement()
+    const source = sourceOver(element)
+    expect(source.presentedFrames).toBe(null)
+
+    element.readyState = 2
+    element.present(1)
+    expect(source.ready).toBe(true)
+    expect(source.presentedFrames).toBe(1)
+
+    element.present(2)
+    element.present(4)
+    expect(source.presentedFrames).toBe(4)
+    expect(element.pending()).toBe(1)
+  })
+
+  it('is null on an element that has no frame callbacks, ready or not', () => {
+    const element = new FakeVideoElement()
+    const source = sourceOver(element)
+    element.readyState = 2
+    element.emit('loadeddata')
+    expect(source.ready).toBe(true)
+    expect(source.presentedFrames).toBe(null)
+  })
+
+  it('stops asking once disposed', () => {
+    const element = new FakeFramingVideoElement()
+    const source = sourceOver(element)
+    element.readyState = 2
+    element.present(1)
+    source.dispose()
+    expect(element.pending()).toBe(0)
+  })
+})
