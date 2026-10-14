@@ -129,6 +129,19 @@ repeat. It is opt-in (`DDF_STREAM_PACING=arrival`); `clock` stays the default
 until a floor capture (D-02). A second candidate, the same tick slept to in
 1 ms slices (`precise`), was built, graded and removed: still bimodal on the
 app path (2.1–9.8 %).
+Challenged by: `captures/measurements/README.md`,
+render-rate-video-frames-2026-09-29. The residue under `arrival` is now
+measured at the renderer, not inferred: on main its compose errors track the
+wire's run for run, as paired repeats and skips. It was also not steady —
+more runs of the same build read 0.82–8.23 %. The fix is in the renderer, not
+Python: `VideoSource` keeps a `requestVideoFrameCallback` armed for the
+element's life instead of stopping at ready, which on this Electron evens out
+how Chromium hands a detached element its frames. `arrival` at 30-on-30 went
+from 2.53–4.59 % to 0.00–0.59 % (three final runs; the 0.59 % is a ~100 ms
+renderer stall, skips only), 60 fps to 0.00 %, 24 fps to 0.00–0.18 %.
+Composing on the callback (gating on `presentedFrames`) was built too and
+measured no better; removed. `clock` stays the default until a floor capture
+(D-02); its wire is still bimodal (0.00–46.48 %) because the metronome is.
 
 ### D-04 — Do not port the mapper to TypeScript or Swift (a preference)
 Protects: D-01's graded encoder from a rewrite's regressions.

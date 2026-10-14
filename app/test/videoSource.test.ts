@@ -888,3 +888,80 @@ describe('resuming a clip parked at its end', () => {
     expect(element.currentTime).toBe(2)
   })
 })
+
+/**
+ * The same element, with the frame callbacks the base fake deliberately
+ * lacks, fired by hand: `present(n)` is the element handing its compositor a
+ * frame, with `n` as rVFC's `presentedFrames`.
+ */
+class FakeFramingVideoElement extends FakeVideoElement {
+  private nextId = 1
+  private readonly callbacks = new Map<number, VideoFrameRequestCallback>()
+
+  requestVideoFrameCallback(callback: VideoFrameRequestCallback): number {
+    const id = this.nextId
+    this.nextId += 1
+    this.callbacks.set(id, callback)
+    return id
+  }
+
+  cancelVideoFrameCallback(id: number): void {
+    this.callbacks.delete(id)
+  }
+
+  pending(): number {
+    return this.callbacks.size
+  }
+
+  present(presentedFrames: number): void {
+    const due = [...this.callbacks.values()]
+    this.callbacks.clear()
+    const metadata = { presentedFrames, mediaTime: presentedFrames / 30 } as VideoFrameCallbackMetadata
+    for (const callback of due) callback(0, metadata)
+  }
+}
+
+/**
+ * The frame callback stays armed for the whole life of the source, not only
+ * until it is ready. Keeping one registered on a detached element is what took
+ * the renderer's own repeat/skip judder at 30-on-30 from 2.29-3.58 % of
+ * composes to 0.00-0.18 % (`captures/measurements/README.md`,
+ * render-rate-video-frames-2026-09-29) — see `requestDecodedFrame`. A chain
+ * that quietly stops after the first frame is the regression this catches;
+ * no byte comparison in the project can see it.
+ */
+describe('VideoSource frame callbacks', () => {
+  it('stays armed after the source is ready, frame after frame', () => {
+    const element = new FakeFramingVideoElement()
+    const source = sourceOver(element)
+    expect(element.pending()).toBe(1)
+
+    element.readyState = 2
+    element.present(1)
+    expect(source.ready).toBe(true)
+    for (let frame = 2; frame <= 5; frame += 1) {
+      expect(element.pending()).toBe(1)
+      element.present(frame)
+    }
+    expect(element.pending()).toBe(1)
+  })
+
+  it('still marks the source ready from a presented frame', () => {
+    const element = new FakeFramingVideoElement()
+    const source = sourceOver(element)
+    element.present(1)
+    expect(source.ready).toBe(false)
+    element.readyState = 2
+    element.present(2)
+    expect(source.ready).toBe(true)
+  })
+
+  it('stops once disposed', () => {
+    const element = new FakeFramingVideoElement()
+    const source = sourceOver(element)
+    element.readyState = 2
+    element.present(1)
+    source.dispose()
+    expect(element.pending()).toBe(0)
+  })
+})

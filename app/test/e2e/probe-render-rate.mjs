@@ -62,7 +62,10 @@
  *      24-in-30 has to repeat at least one step in five — with a mean of 0.8
  *      and no backward steps, repeats are >= 20 % by arithmetic — so a
  *      detector reading ~0 there is blind, and a clean 30 fps result from it
- *      would mean nothing.
+ *      would mean nothing. Graded only on an arm whose wire owes repeats
+ *      (wire rate >= 1.18 x source): under `arrival`, a renderer that
+ *      composes on new video frames sends a 24 fps clip at 24 fps and owes
+ *      none. A run with a 24 fps arm in which no arm owed them refuses.
  *  6.  The page raised no uncaught exception, and no Electron survived.
  *  1b. **The sender under test is the one named.** `mapper stream` states its
  *      own pacing in its opening line (`sending to … pacing <mode>, …`), which
@@ -81,8 +84,34 @@
  *      compare across processes without an offset. This is the instrument the
  *      interval p50/p99/max below is read through; if it smooths, delays or
  *      bunches packets, no pacing mode's intervals mean anything.
+ *  8.  **The renderer trace sees every compose** (see "The renderer trace"):
+ *      its composes per second in the window agree with the app's own
+ *      heartbeat to ±5 %, and it did not hit its buffer cap.
+ *  9.  >= 99 % of traced composes decode to a valid index, and >= 100 of them.
+ *  10. **The trace and the wire read the same frames**: >= 98 % of the indices
+ *      the wire carried were among those the trace saw composed. A trace
+ *      decoding the wrong bits, or watching the wrong canvas, fails it.
  *
  * A valid run exits 0 whatever the cadence numbers are.
+ *
+ * ## The renderer trace
+ *
+ * The wire shows a repeat or skip; it cannot say which handoff made it. The
+ * trace (`TRACE_SCRIPT`) records, at the renderer, the source index each
+ * compose actually drew, so `rend. steps` / `renderer err` are the renderer's
+ * own cadence, and the wire's can be compared against them.
+ *
+ *     TRACE_RVFC=0 …   # trace without its own requestVideoFrameCallback chain
+ *
+ * **The trace's rVFC chain is not a passive observer.** With it on, the
+ * shipped renderer's 30-on-30 errors under `arrival` read 0.00-0.41 %; with it
+ * off, 0.82-8.23 % (3 runs each, 2026-09-29): keeping a frame callback
+ * registered on a detached `<video>` changes how Chromium hands it frames. So
+ * a *baseline* of a renderer that does not keep its own chain must be taken
+ * with `TRACE_RVFC=0`. It is on by default because it is what attributes an
+ * error (`presented between`) and compares the drawn frame against rVFC's
+ * report (`drawn vs rVFC`), and on a renderer that keeps its own chain it
+ * adds nothing Chromium was not already doing.
  *
  * ## Pacing modes (docs/APP-PLAN.md, cadence step 6)
  *
@@ -608,6 +637,215 @@ const selectScript = (label, value) => `(() => {
   return select.value
 })()`
 
+// ------------------------------------------------------------ renderer trace
+
+/**
+ * The wire says a frame was repeated or skipped; it cannot say where. Under
+ * `--pacing arrival` the sender forwards each write once, so a wire repeat is
+ * the renderer composing one video frame twice — but that is an inference from
+ * the pipe's behaviour, not something seen at the renderer. This trace sees it.
+ *
+ * Installed over CDP before GO, read back after the window, and silent in
+ * between (the probe's own rule: nothing is sent to the page during the
+ * window). It wraps two prototype methods in the page's main world:
+ *
+ * - `drawImage` with an `HTMLVideoElement` onto a work-sized canvas (square, a
+ *   multiple of the floor's 10 tiles, at least 2 x 80) notes the element, its
+ *   `currentTime`, and the newest `requestVideoFrameCallback` metadata seen
+ *   for it; and the first time it sees an element, starts an rVFC chain on it.
+ * - the `getImageData` that follows on the same context samples the centre of
+ *   each of the 26 code tiles out of the pixels it returns, which is exactly
+ *   what `composeFrame` downsamples and writes.
+ *
+ * Plus an rAF chain, for the display's own timeline. Timestamps are the
+ * page's `performance.now()`, a different origin from this script's; the
+ * window is marked by reading the page's clock just before and just after it.
+ *
+ * Controls 8-10 below say whether the trace is reading what was written.
+ */
+const TRACE_RVFC = process.env.TRACE_RVFC !== '0'
+const TRACE_SCRIPT = `(() => {
+  if (window.__ddfTrace !== undefined) return 'already installed'
+  const CAP = 40000
+  const trace = { composes: [], frames: [], rafs: [], ids: new WeakMap(), latest: new WeakMap(), nextId: 1 }
+  const idOf = (video) => {
+    let id = trace.ids.get(video)
+    if (id === undefined) {
+      id = trace.nextId++
+      trace.ids.set(video, id)
+      const onFrame = (now, meta) => {
+        if (trace.frames.length < CAP) {
+          trace.frames.push([id, now, meta.mediaTime, meta.presentedFrames, meta.expectedDisplayTime, performance.now()])
+        }
+        trace.latest.set(video, meta)
+        video.requestVideoFrameCallback(onFrame)
+      }
+      if (${TRACE_RVFC} && typeof video.requestVideoFrameCallback === 'function') video.requestVideoFrameCallback(onFrame)
+    }
+    return id
+  }
+  const workSized = (canvas) => canvas.width === canvas.height && canvas.width >= 160 && canvas.width % 10 === 0
+  const draw = CanvasRenderingContext2D.prototype.drawImage
+  const read = CanvasRenderingContext2D.prototype.getImageData
+  CanvasRenderingContext2D.prototype.drawImage = function (image, ...rest) {
+    if (image instanceof HTMLVideoElement && workSized(this.canvas)) {
+      const meta = trace.latest.get(image)
+      this.__ddfDrawn = [idOf(image), performance.now(), image.currentTime,
+        meta === undefined ? -1 : meta.presentedFrames, meta === undefined ? -1 : meta.mediaTime]
+    }
+    return draw.call(this, image, ...rest)
+  }
+  CanvasRenderingContext2D.prototype.getImageData = function (...args) {
+    const image = read.apply(this, args)
+    const drawn = this.__ddfDrawn
+    this.__ddfDrawn = undefined
+    if (drawn !== undefined && trace.composes.length < CAP && image.width === this.canvas.width) {
+      const width = image.width
+      const tile = width / 10
+      const lum = (col, row) => {
+        let sum = 0
+        for (let j = 0; j < 4; j++) {
+          for (let i = 0; i < 4; i++) {
+            const x = Math.floor(col * tile + tile * (0.3 + 0.4 * i / 3))
+            const y = Math.floor(row * tile + tile * (0.3 + 0.4 * j / 3))
+            const p = (y * width + x) * 4
+            sum += image.data[p] + image.data[p + 1] + image.data[p + 2]
+          }
+        }
+        return Math.round(sum / 48)
+      }
+      const tiles = ${JSON.stringify([WHITE_MARK, BLACK_MARK, ...Array.from({ length: BITS }, (_, b) => bitTile(b)), ...Array.from({ length: BITS }, (_, b) => complementTile(b))])}
+      trace.composes.push([...drawn, ...tiles.map(([c, r]) => lum(c, r))])
+    }
+    return image
+  }
+  const onRaf = (now) => {
+    if (trace.rafs.length < CAP) trace.rafs.push(now)
+    requestAnimationFrame(onRaf)
+  }
+  requestAnimationFrame(onRaf)
+  window.__ddfTrace = {
+    dump: () => ({ composes: trace.composes, frames: trace.frames, rafs: trace.rafs, capped: trace.composes.length >= CAP || trace.frames.length >= CAP }),
+  }
+  return 'installed'
+})()`
+
+/** The index a traced compose's 26 tile samples carry, by `decodeIndex`'s rule. */
+function decodeTraceTiles(lums) {
+  const level = (v) => (v > 192 ? 1 : v < 64 ? 0 : null)
+  if (level(lums[0]) !== 1 || level(lums[1]) !== 0) return null
+  let index = 0
+  for (let b = 0; b < BITS; b++) {
+    const bit = level(lums[2 + b])
+    const complement = level(lums[2 + BITS + b])
+    if (bit === null || complement === null || bit === complement) return null
+    index |= bit << b
+  }
+  return index
+}
+
+/**
+ * The renderer's side of one arm: which source frame each compose drew, how
+ * the video presented frames between composes, and whether the trace agrees
+ * with the wire it fed.
+ */
+function analyseTrace(arm, clip, dump, from, to, wireFrames) {
+  const inWindow = (t) => t >= from && t <= to
+  const all = dump.composes.filter((c) => inWindow(c[1]))
+  // The live video is the one composed most; any other is the preview path.
+  const perVideo = new Map()
+  for (const c of all) perVideo.set(c[0], (perVideo.get(c[0]) ?? 0) + 1)
+  const liveId = [...perVideo.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+  const composes = all.filter((c) => c[0] === liveId).map((c) => ({
+    t: c[1], currentTime: c[2], presentedAtDraw: c[3], mediaTimeAtDraw: c[4], index: decodeTraceTiles(c.slice(5)),
+  }))
+  const frames = dump.frames.filter((f) => f[0] === liveId && inWindow(f[5]))
+    .map((f) => ({ now: f[1], mediaTime: f[2], presented: f[3], expected: f[4], at: f[5] }))
+  const rafs = dump.rafs.filter(inWindow)
+  const intervalsOf = (times) => {
+    const out = []
+    for (let i = 1; i < times.length; i++) out.push(times[i] - times[i - 1])
+    return out.sort((a, b) => a - b)
+  }
+
+  const seam = Math.round(SEAM_SECONDS * arm.fps)
+  const interior = (index) => index >= seam && index < clip.frames - seam
+  const histogram = new Map()
+  let steady = 0
+  let errors = 0
+  let stepSum = 0
+  // Why each off-pattern step happened, by how many new video frames the
+  // element presented (rVFC callbacks) between the two composes.
+  const why = new Map()
+  let frameCursor = 0
+  for (let i = 1; i < composes.length; i++) {
+    const a = composes[i - 1]
+    const b = composes[i]
+    while (frameCursor < frames.length && frames[frameCursor].at <= a.t) frameCursor += 1
+    let presentedBetween = 0
+    for (let k = frameCursor; k < frames.length && frames[k].at <= b.t; k++) presentedBetween += 1
+    if (a.index === null || b.index === null || !interior(a.index) || !interior(b.index)) continue
+    const step = b.index - a.index
+    steady += 1
+    stepSum += step
+    histogram.set(step, (histogram.get(step) ?? 0) + 1)
+    if (!arm.allowed.includes(step)) {
+      errors += 1
+      const key = `step ${step}, ${presentedBetween} presented between`
+      why.set(key, (why.get(key) ?? 0) + 1)
+    }
+  }
+
+  // rVFC's own account: mediaTime advance per callback, in source frames.
+  const mediaSteps = new Map()
+  for (let i = 1; i < frames.length; i++) {
+    const s = Math.round((frames[i].mediaTime - frames[i - 1].mediaTime) * arm.fps)
+    mediaSteps.set(s, (mediaSteps.get(s) ?? 0) + 1)
+  }
+  const seconds = (to - from) / 1_000
+  const decoded = composes.filter((c) => c.index !== null).length
+
+  // What was drawn against what rVFC had last reported for the element: the
+  // same frame, a newer one (the element's current frame moved on before its
+  // callback ran), or an older one. Frame i of a clip has mediaTime i / fps.
+  const drawnVsReported = new Map()
+  for (const c of composes) {
+    if (c.index === null || c.mediaTimeAtDraw < 0) continue
+    const d = c.index - Math.round(c.mediaTimeAtDraw * arm.fps)
+    const key = d === 0 ? 'same' : d > 0 ? `ahead ${d}` : `behind ${-d}`
+    drawnVsReported.set(key, (drawnVsReported.get(key) ?? 0) + 1)
+  }
+
+  // Control 10: every index the wire carried was composed by the renderer.
+  const composedIndices = new Set(composes.map((c) => c.index).filter((i) => i !== null))
+  const wireIndices = wireFrames.map((f) => f.index).filter((i) => i !== null)
+  const onWireComposed = wireIndices.filter((i) => composedIndices.has(i)).length
+
+  return {
+    liveId,
+    otherVideos: [...perVideo.entries()].filter(([id]) => id !== liveId).map(([id, n]) => `#${id}:${n}`),
+    composes: composes.length,
+    composesAll: all.length,
+    seconds,
+    decoded,
+    steady,
+    histogram,
+    meanStep: steady === 0 ? NaN : stepSum / steady,
+    errors,
+    why,
+    frames: frames.length,
+    framesPerSecond: frames.length / seconds,
+    mediaSteps,
+    drawnVsReported,
+    frameIntervals: intervalsOf(frames.map((f) => f.at)),
+    composeIntervals: intervalsOf(composes.map((c) => c.t)),
+    rafIntervals: intervalsOf(rafs),
+    wireIndices: wireIndices.length,
+    onWireComposed,
+    capped: dump.capped,
+  }
+}
+
 // ------------------------------------------------------------------ heartbeat
 
 function parseHeartbeats(text) {
@@ -762,6 +1000,7 @@ async function runArm(arm, clip, layout, workspace, tap) {
   let windowEnd = null
   let frames = []
   let exceptions = []
+  let trace = null
   try {
     const squatter = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`).then(() => true, () => false)
     if (squatter) throw new Error(`something is already listening on ${DEBUG_PORT} — a leaked Electron. lsof -ti :${DEBUG_PORT} | xargs kill -9`)
@@ -830,6 +1069,9 @@ async function runArm(arm, clip, layout, workspace, tap) {
     if (await waitFor('document.querySelector(\'[aria-label="Add cue"]\') !== null') === null) {
       throw new Error('the Play surface never mounted')
     }
+    // Before GO, so the live video's first draw is already traced.
+    const installed = await page.evaluate(TRACE_SCRIPT)
+    if (installed !== 'installed') throw new Error(`the renderer trace did not install: ${installed}`)
     await page.evaluate('document.querySelector(\'[aria-label="Add cue"]\').click()')
     await page.evaluate(`(() => {
       const item = [...document.querySelectorAll('.add-menu [role="menuitem"]')].find((b) => b.textContent.includes('Upload'))
@@ -857,6 +1099,8 @@ async function runArm(arm, clip, layout, workspace, tap) {
     if (!live) throw new Error('GO was pressed and no wire frame ever carried a decodable index')
     await sleep(SETTLE_MS)
 
+    // The page's clock, read once on each side of the window and never inside it.
+    const traceFrom = await page.evaluate('performance.now()')
     tap.reset()
     windowStart = Date.now()
     await sleep(WINDOW_SECONDS * 1_000)
@@ -864,7 +1108,9 @@ async function runArm(arm, clip, layout, workspace, tap) {
     const packets = tap.packets
     const times = tap.times
     tap.reset()
+    const traceTo = await page.evaluate('performance.now()')
     frames = assembleFrames(packets, times, layout)
+    trace = { dump: await page.evaluate('window.__ddfTrace.dump()'), from: traceFrom, to: traceTo }
     // A moment for a heartbeat stamped right at the window's end to reach the
     // log before the app is killed. Nothing from this tail is graded.
     await sleep(1_500)
@@ -902,13 +1148,17 @@ async function runArm(arm, clip, layout, workspace, tap) {
     beats = parseHeartbeats(text).filter((b) => b.at - HEARTBEAT_SECONDS * 1_000 >= windowStart - 500 && b.at <= windowEnd + 500)
     pacings = parseSenderPacings(text)
   }
-  return { problems, frames, beats, pacings }
+  return { problems, frames, beats, pacings, trace }
 }
 
 // --------------------------------------------------------------------- main
 
+const f2 = (v) => (v === null || v === undefined || Number.isNaN(v) ? '-' : v.toFixed(2))
+const pair = (v) => (v === null ? '-' : `${f2(v.avg)}/${f2(v.max)}`)
+
 const refusals = []
 const results = []
+let repeatDetectorGraded = false
 const controlLines = []
 const workspace = mkdtempSync(join(tmpdir(), 'ddf-render-rate-'))
 const tap = new WireTap()
@@ -928,7 +1178,7 @@ try {
   console.log(`probe-render-rate · ${FLOOR.type} ${FLOOR.cols}x${FLOOR.rows} = ${WIDTH_PX}x${HEIGHT_PX} px · ` +
     `window ${WINDOW_SECONDS} s per arm · clips ${CLIP_SECONDS} s, ${SRC_PX}x${SRC_PX}, h264 yuv420p · ` +
     `sender ${SENDER_FPS} fps · heartbeat ${HEARTBEAT_SECONDS} s · ` +
-    `pacings ${PACINGS.join(',')} × sources ${SOURCES.join(',')} × ${REPEATS} repeat(s) = ${ARMS.length} arms`)
+    `renderer trace ${TRACE_RVFC ? "with" : "without"} an rVFC chain · pacings ${PACINGS.join(',')} × sources ${SOURCES.join(',')} × ${REPEATS} repeat(s) = ${ARMS.length} arms`)
 
   // 0b. The wire decoder, against mapper's own packetiser.
   const KNOWN = 1234
@@ -965,7 +1215,7 @@ try {
       console.log(`\n· ${arm.tag} arm: launching…`)
       const linesBefore = controlLines.length
       const refusalsBefore = refusals.length
-      const { problems, frames, beats, pacings } = await runArm(arm, clip, layout, workspace, tap)
+      const { problems, frames, beats, pacings, trace } = await runArm(arm, clip, layout, workspace, tap)
       refusals.push(...problems)
       if (problems.some((p) => p.includes('did not run'))) {
         for (const problem of problems) console.log(`  REFUSED — ${problem}`)
@@ -979,6 +1229,7 @@ try {
       const result = analyse(arm, clip, frames)
       result.heartbeat = beats.length === 0 ? null : foldHeartbeats(beats)
       result.beats = beats
+      result.trace = analyseTrace(arm, clip, trace.dump, trace.from, trace.to, frames)
       results.push(result)
 
       const tag = arm.tag
@@ -1018,8 +1269,17 @@ try {
         refusals.push(`${tag} arm: mean step ${result.meanStep.toFixed(3)} over ${result.steady} steady steps, want ${wantMean.toFixed(3)} ±2 % ` +
           `(and >= 100 steps) — the decoded index is not tracking source time, so no step in this run means anything. Steps: ${steps}`)
       }
-      // 5. The repeat detector can see a repeat.
-      if (arm.fps === 24) {
+      // 5. The repeat detector can see a repeat — on an arm whose wire owes
+      //    them. Under `arrival` with a renderer that composes on new video
+      //    frames, a 24 fps clip goes out at 24 fps and owes none; that arm
+      //    says n/a, and a run in which no 24 fps arm owed repeats refuses
+      //    below, rather than passing with the detector ungraded.
+      const owedRepeats = 1 - arm.fps / result.fps
+      if (arm.fps === 24 && owedRepeats < 0.15) {
+        controlLines.push(`5   ${tag}: wire ${result.fps.toFixed(2)} fps owes ${(Math.max(0, owedRepeats) * 100).toFixed(1)} % repeats — n/a on this arm`)
+      }
+      if (arm.fps === 24 && owedRepeats >= 0.15) {
+        repeatDetectorGraded = true
         const share = result.steady === 0 ? 0 : result.repeats / result.steady
         const blindOk = result.steady >= 100 && share >= 0.15
         controlLines.push(`5   ${tag}: ${result.repeats}/${result.steady} steady steps are repeats (${(share * 100).toFixed(1)} %), want >= 15 %  ${blindOk ? 'ok' : 'FAILED'}`)
@@ -1029,6 +1289,27 @@ try {
             `from this run means anything. Steps: ${steps}`)
         }
       }
+      // 8-10. The renderer trace reads what the renderer wrote.
+      const rt = result.trace
+      const hbRate = result.heartbeat?.composesPerSecond ?? NaN
+      const traceRate = rt.composesAll / rt.seconds
+      const rateAgrees = !rt.capped && Math.abs(traceRate - hbRate) <= 0.05 * hbRate
+      controlLines.push(`8   ${tag}: trace ${traceRate.toFixed(2)} composes/s against the heartbeat's ${f2(hbRate)}${rt.capped ? ' (trace capped)' : ''}, want ±5 %  ${rateAgrees ? 'ok' : 'FAILED'}`)
+      if (!rateAgrees) {
+        refusals.push(`${tag} arm: the renderer trace saw ${traceRate.toFixed(2)} composes/s, the app's own heartbeat ${f2(hbRate)} — ` +
+          'the trace is not seeing every compose, or is seeing something else')
+      }
+      const traceDecodedShare = rt.composes === 0 ? 0 : rt.decoded / rt.composes
+      const traceDecodeOk = rt.composes >= 100 && traceDecodedShare >= 0.99
+      controlLines.push(`9   ${tag}: ${rt.decoded}/${rt.composes} traced composes decode (${(traceDecodedShare * 100).toFixed(2)} %)  ${traceDecodeOk ? 'ok' : 'FAILED'}`)
+      if (!traceDecodeOk) refusals.push(`${tag} arm: only ${rt.decoded} of ${rt.composes} traced composes decode a valid index (need >= 99 % and >= 100)`)
+      const containedShare = rt.wireIndices === 0 ? 0 : rt.onWireComposed / rt.wireIndices
+      const containedOk = rt.wireIndices > 0 && containedShare >= 0.98
+      controlLines.push(`10  ${tag}: ${rt.onWireComposed}/${rt.wireIndices} wire indices were composed in the trace (${(containedShare * 100).toFixed(2)} %), want >= 98 %  ${containedOk ? 'ok' : 'FAILED'}`)
+      if (!containedOk) {
+        refusals.push(`${tag} arm: only ${rt.onWireComposed} of ${rt.wireIndices} indices on the wire appear among the traced composes — ` +
+          'the trace and the wire are not reading the same frames')
+      }
       for (const line of controlLines.slice(linesBefore)) console.log(`  ${line}`)
       if (refusals.length > refusalsBefore) {
         console.log(`  REFUSED — ${refusals.length - refusalsBefore} reason(s); the run cannot print a table`)
@@ -1037,6 +1318,11 @@ try {
           break
         }
       }
+    }
+    if (ARMS.some((a) => a.fps === 24) && results.some((r) => r.arm.fps === 24) && !repeatDetectorGraded) {
+      controlLines.push('5   no 24 fps arm owed repeats, so the repeat detector was never graded  FAILED')
+      refusals.push('control 5: no 24 fps arm in this run sent faster than its source, so nothing showed the repeat detector can see a repeat — ' +
+        'add a `clock` arm (PACINGS=clock,arrival)')
     }
     controlLines.push(`6   page exceptions and surviving Electron processes: ${refusals.some((r) => r.includes('exceptions') || r.includes('survived')) ? 'FAILED' : 'none'}`)
   }
@@ -1054,9 +1340,6 @@ if (refusals.length > 0) {
   console.log(`\nINSTRUMENT BROKEN — no table printed. ${refusals.length} reason(s):\n  - ${refusals.join('\n  - ')}`)
   process.exit(2)
 }
-
-const f2 = (v) => (v === null || v === undefined || Number.isNaN(v) ? '-' : v.toFixed(2))
-const pair = (v) => (v === null ? '-' : `${f2(v.avg)}/${f2(v.max)}`)
 
 console.log('\nper arm')
 for (const r of results) {
@@ -1077,10 +1360,22 @@ for (const r of results) {
   console.log(`  renderer     ${hb.count} heartbeat(s) · composes/s ${f2(hb.composesPerSecond)} · writes/s ${f2(hb.writesPerSecond)} · ` +
     `draw ${pair(hb.draw)} · readback ${pair(hb.readback)} · pass ${pair(hb.pass)} ms avg/max · ${hb.renderers.join(',')}`)
   console.log(`  floor        ${hb.floors.join(', ')}`)
+  const rt = r.trace
+  const rsteps = [...rt.histogram.entries()].sort((a, b) => a[0] - b[0]).map(([s, n]) => `${s}:${n}`).join('  ')
+  const q = (sorted) => `p50 ${f2(quantile(sorted, 0.5))} p99 ${f2(quantile(sorted, 0.99))} max ${f2(sorted[sorted.length - 1])}`
+  console.log(`  trace        ${rt.composes} composes of video #${rt.liveId}${rt.otherVideos.length > 0 ? ` (others ${rt.otherVideos.join(' ')})` : ''} · ` +
+    `compose interval ms ${q(rt.composeIntervals)} · rAF interval ms ${q(rt.rafIntervals)}`)
+  console.log(`  rend. steps  ${rsteps}   (${rt.steady} steady, mean ${rt.meanStep.toFixed(3)}) · cadence err ${rt.errors} (${(rt.errors / rt.steady * 100).toFixed(2)} %)`)
+  const whys = [...rt.why.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}: ${n}`).join(' · ')
+  console.log(`  rend. errors ${whys === '' ? '(none)' : whys}`)
+  const media = [...rt.mediaSteps.entries()].sort((a, b) => a[0] - b[0]).map(([s, n]) => `${s}:${n}`).join('  ')
+  const dvr = [...rt.drawnVsReported.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}:${n}`).join('  ')
+  console.log(`  drawn vs rVFC ${dvr === '' ? '-' : dvr}   (the frame drawn, against the newest one rVFC had reported)`)
+  console.log(`  rVFC         ${rt.frames} callbacks = ${f2(rt.framesPerSecond)}/s · interval ms ${rt.frames > 1 ? q(rt.frameIntervals) : '-'} · mediaTime step (frames) ${media === '' ? '-' : media}`)
 }
 
 console.log('\nsummary')
-console.log('pacing    src fps  rep  wire fps  interval p50/p99/max ms    sd  step 0 / 1 / 2 / other   cadence err   composes/s  draw avg/max  readback avg/max  pass avg/max')
+console.log('pacing    src fps  rep  wire fps  interval p50/p99/max ms    sd  step 0 / 1 / 2 / other   cadence err   renderer err   rVFC/s  composes/s  draw avg/max  readback avg/max  pass avg/max')
 for (const r of results) {
   const hb = r.heartbeat
   const h = (s) => r.histogram.get(s) ?? 0
@@ -1094,6 +1389,8 @@ for (const r of results) {
     f2(r.interval.sd).padStart(5),
     `${h(0)} / ${h(1)} / ${h(2)} / ${other}`.padStart(23),
     `${r.errors} (${(r.errors / r.steady * 100).toFixed(2)} %)`.padStart(13),
+    `${r.trace.errors} (${(r.trace.errors / r.trace.steady * 100).toFixed(2)} %)`.padStart(13),
+    f2(r.trace.framesPerSecond).padStart(7),
     f2(hb.composesPerSecond).padStart(11),
     pair(hb.draw).padStart(13),
     pair(hb.readback).padStart(17),
