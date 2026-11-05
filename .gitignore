@@ -54,14 +54,15 @@ Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
-# --- Agent session state ------------------------------------------------------
-# Rolling session notes written by the Remember plugin: a buffer, per-day files
-# and rotated archives, rewritten several times an hour. It is one machine's
-# scratch memory, not a record this project reasons from -- the decisions that
-# matter are in commit messages and docs/, which is where CLAUDE.md sends every
-# reader. Tracking it produced churn in every diff and merge conflicts in a file
-# nobody reads. Untracked 2026-08-13; the files stay on disk.
+# --- Agent tooling -----------------------------------------------------------
+# Per-machine state written by coding-agent plugins. Not project records: the
+# decisions that matter are in commit messages and docs/.
+.claude/
 .remember/
+.cursor/
+.agents/
+AGENTS.md
+skills-lock.json
 
 # --- Tooling ------------------------------------------------------------------
 *.tmp
@@ -69,10 +70,3 @@ $RECYCLE.BIN/
 
 # Generated oracle harness output
 tools/oracle/out/
-
-# Session diary written by the remember plugin. Session state, not evidence:
-# untracked 2026-09-28 after sitting permanently dirty; history keeps the old files.
-.remember/
-
-# --- Misc ---------------------------------------------------------------------
-docs/billing/
