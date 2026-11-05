@@ -831,7 +831,7 @@ void app.whenReady().then(() => {
     // answer, unchanged in what it says.
     //
     // `Content-Length` is load-bearing here and was added on its own, in
-    // 09f796d, for a defect this comment must not lose. Without it Chromium's
+    // d10a575, for a defect this comment must not lose. Without it Chromium's
     // media pipeline has no total length for the resource, treats it as an
     // unbounded stream, and a race in that incremental-read path yields a
     // premature `FFmpegDemuxer: av_read_frame(): End of file` about 20 ms after

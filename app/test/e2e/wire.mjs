@@ -1563,7 +1563,7 @@ try {
   // have been a capability claim this handler could not honour. It can now, and
   // it is on the whole-file response as well as the partial ones — a client
   // learns whether it may ask from the first answer it gets, which is the 200.
-  // `Content-Length` on that response is 09f796d's fix and stays graded here:
+  // `Content-Length` on that response is d10a575's fix and stays graded here:
   // without it Chromium treats the resource as an unbounded stream and races
   // its own EOF.
   check(rangeProbe !== null

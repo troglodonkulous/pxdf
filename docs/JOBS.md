@@ -43,7 +43,7 @@ about, this is the one that has been on hardware.
 | controllers | three |
 | sender NIC | `10.200.50.78` |
 | sender rate | `mapper stream --fps 30` |
-| build | unpackaged, from `/Users/USER/dev/ddf`, on `app-media-content-length`. **Commit not recorded, and whether the working tree was clean is unknown.** The branch tip was `09f796d`, tagged `show-2026-09-05` after the fact; that is the best available answer, not a record |
+| build | unpackaged, from `/Users/USER/dev/ddf`, on `app-media-content-length`. **Commit not recorded, and whether the working tree was clean is unknown.** The branch tip was `d10a575`, tagged `show-2026-09-05` after the fact; that is the best available answer, not a record |
 | ran | 2026-09-06T00:01:59Z → 08:06:59Z (UTC; the venue evening of 09-05) |
 
 **The log is tracked** at `captures/ddf-job-2026-09-05T23-2026-09-06T08.log`,

@@ -53,7 +53,7 @@ the runtime prototype of 2026-09-28, kept so that sweep stays re-runnable.
 candidate, `precise` -- the tick grid slept to in 1 ms slices -- was built,
 swept here and removed on 2026-09-29: clean on this probe, but still bimodal
 run to run on the app path (captures/measurements/README.md, stream-pacing
-entry). The sweep that graded it is re-runnable from commit dfa3af4. Its
+entry). The sweep that graded it is re-runnable from commit d3d6060. Its
 narrow band is why the phase step is 1.67 ms (20 phases). `arrival` sends each frame as it lands,
 so it has no tick grid and phase should not matter at all: its phase column
 is measured against its own lead-in, and a result that varies with it would

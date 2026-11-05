@@ -128,7 +128,7 @@
  * wire-interval p50/p99/max through the tap control 7 vouches for. Each arm's
  * controls print as soon as it finishes, so a refusal is visible then, not
  * at the end. A third mode, `precise`, was graded here and removed on
- * 2026-09-29 (captures/measurements/README.md); re-run it from commit dfa3af4.
+ * 2026-09-29 (captures/measurements/README.md); re-run it from commit d3d6060.
  *
  * ## Control 5 was changed after seeing data, and why that is not a loosened gate
  *

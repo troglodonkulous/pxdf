@@ -12,7 +12,7 @@ can re-run it and compare rather than trust the transcript.
 
 ## `render-rate-video-frames-2026-09-29` — the video-to-renderer handoff, measured at the renderer, and fixed
 
-`app/test/e2e/probe-render-rate.mjs` with its new renderer trace (ee94d21):
+`app/test/e2e/probe-render-rate.mjs` with its new renderer trace (933b6a6):
 it records, per compose, the source index the renderer actually drew, read
 out of the pixels `composeFrame` downsamples and writes. Controls 8–10 hold it
 to the heartbeat's compose rate (±5 %), ≥ 99 % decoding, and ≥ 98 % of the
@@ -22,19 +22,19 @@ code and the build it graded on line 1:
 
 | file | build | arms |
 |---|---|---|
-| `render-rate-trace-2026-09-29-rvfc-off.txt` | main 69e92be | arrival 30 × 3, trace without its rVFC chain |
-| `render-rate-trace-2026-09-29-rvfc-on.txt` | main 69e92be | the same, trace with its rVFC chain |
-| `render-rate-video-frames-2026-09-29-before.txt` | main 69e92be | clock, arrival × 60/30/24 × 3 |
-| `render-rate-video-frames-2026-09-29-after.txt` | 5379db1 (chain + gate) | clock, arrival × 60/30/24 × 3 |
-| `render-rate-video-frames-2026-09-29-chain-only.txt` | 5379db1, gate disabled | arrival × 60/30/24 × 3 |
-| `render-rate-video-frames-2026-09-29-final.txt` | ea1bdbf (what the PR ships) | clock, arrival × 60/30/24 × 3 |
+| `render-rate-trace-2026-09-29-rvfc-off.txt` | main 0cb2111 | arrival 30 × 3, trace without its rVFC chain |
+| `render-rate-trace-2026-09-29-rvfc-on.txt` | main 0cb2111 | the same, trace with its rVFC chain |
+| `render-rate-video-frames-2026-09-29-before.txt` | main 0cb2111 | clock, arrival × 60/30/24 × 3 |
+| `render-rate-video-frames-2026-09-29-after.txt` | 58a4655 (chain + gate) | clock, arrival × 60/30/24 × 3 |
+| `render-rate-video-frames-2026-09-29-chain-only.txt` | 58a4655, gate disabled | arrival × 60/30/24 × 3 |
+| `render-rate-video-frames-2026-09-29-final.txt` | 5e8e9b1 (what the PR ships) | clock, arrival × 60/30/24 × 3 |
 
 All with `TRACE_RVFC=0` except the one file named for it, for the reason in
 the first bullet below.
 
 Cadence errors, wire (renderer), per run, `arrival`:
 
-| source | before (main) | chain + gate (5379db1) | chain only (5379db1, gate off) | final (ea1bdbf) |
+| source | before (main) | chain + gate (58a4655) | chain only (58a4655, gate off) | final (5e8e9b1) |
 |---|---|---|---|---|
 | 60 fps | 16.92 (15.76), 14.07 (13.38), 22.60 (22.44) % | 2.70 (1.12), 0.00 (0.00), 0.29 (0.00) % | 1.91 (0.76), 0.06 (0.06), 0.65 (0.47) % | 0.00, 0.00, 0.00 % (all 0.00) |
 | 30 fps | 4.59 (3.58), 2.53 (2.29), 2.83 (2.70) % | 1.07 (0.53), 0.41 (0.06), 0.00 (0.00) % | 0.24 (0.18), 0.06 (0.00), 0.00 (0.00) % | 0.00 (0.00), 0.00 (0.00), 0.59 (0.47) % |
@@ -63,12 +63,12 @@ Wire interval at `arrival` 30-on-30, final, p99 / max: 35.01/44.34,
   was perturbing the thing it measured, which is why `TRACE_RVFC=0` exists
   and why every baseline above uses it. `VideoSource` used to stop its chain
   once the source was ready; it now keeps it for the source's life
-  (ea1bdbf), and that is the whole fix.
+  (5e8e9b1), and that is the whole fix.
 - **Composing *on* the callback bought nothing on top.** The candidate the
-  plan named — gate the render loop on rVFC's `presentedFrames` (5379db1) —
+  plan named — gate the render loop on rVFC's `presentedFrames` (58a4655) —
   measured no better than the chain alone at 30 fps, and sent a 24 fps clip
   at 24 Hz with 33/50 ms wire intervals (p99 67–72 ms against ~35 ms). Dropped
-  in the same PR (ea1bdbf). The trace also showed why gating on it is
+  in the same PR (5e8e9b1). The trace also showed why gating on it is
   fragile: `drawImage` drew a frame *newer* than rVFC's latest report on
   44–58 % of composes (`drawn vs rVFC`, `rvfc-on` file).
 - **What is left is stalls, not phase.** Final 30-on-30 run 3's ten errors
@@ -98,7 +98,7 @@ Wire interval at `arrival` 30-on-30, final, p99 / max: 35.01/44.34,
 
 ## `render-rate-pacing-2026-09-29-10x10` — the app path, per `mapper stream --pacing` mode
 
-`app/test/e2e/probe-render-rate.mjs` at commit 8a59b1f (plus the per-arm
+`app/test/e2e/probe-render-rate.mjs` at commit d26ce83 (plus the per-arm
 printing added later), `REPEATS=3`: modes `clock`, `precise`, `arrival` × 60,
 30 and 24 fps sources × 3 repeats = 27 arms of 60 s, interleaved so machine
 load lands on every mode alike. Renderer capped at 30 (as shipped). Exit 0,
@@ -149,7 +149,7 @@ arrival 35.08/112.97, 34.55/40.33, 36.04/44.41 ms.
 ### Decision (user, 2026-09-29)
 
 Keep `arrival`, remove `precise`, in the same PR. `clock` stays the default
-until a floor capture (D-02). `precise` can be re-run from commit dfa3af4.
+until a floor capture (D-02). `precise` can be re-run from commit d3d6060.
 
 ### What this does not establish
 
@@ -162,7 +162,7 @@ until a floor capture (D-02). `precise` can be re-run from commit dfa3af4.
 
 ## `stream-pacing-2026-09-29` — `clock`, `precise` and `arrival`, `mapper stream` alone, by phase
 
-`tools/probe_stream_cadence.py` at commit dfa3af4, defaults: 20 phases
+`tools/probe_stream_cadence.py` at commit d3d6060, defaults: 20 phases
 (1.67 ms apart) × 3 senders × 3 repeats × 2 geometries, 10 s windows, plus the
 24 Hz repeat/pause control and (for `arrival`) the 20 Hz ±12 ms jitter
 control per repeat. Exit 0. Eight runs re-run after control 7 alone refused
@@ -206,7 +206,7 @@ silence 1.01 s. Jitter control: wire p99 − p50 17.4, 20.1, 20.3 ms (≥ 8).
 
 ### The sweep before it refused, and why that was the instrument
 
-`stream-pacing-2026-09-29-refused.txt`, commit 92d7c08, exit 2: one run of
+`stream-pacing-2026-09-29-refused.txt`, commit f78a2c9, exit 2: one run of
 384, 10x12 stock 24 Hz, control 9 "pause carried [240], not the last frame
 241" — one of 76 pause frames. Reproduced 7 of 50 times at 10x12 24 Hz,
 stock and precise, with the sender's stamps kept: each time the sender read
@@ -215,7 +215,7 @@ had), and its first packet landed after, inside the pause window, because
 `build_frame` takes a few ms at 10x12. Control 9 judged by arrival time. It
 now excuses one such in-flight frame — first, `last − 1`, and read before the
 slot held `last` by the sender's own record — and every other stale frame
-still refuses (dfa3af4, checked with synthetic records). The sweep above never
+still refuses (d3d6060, checked with synthetic records). The sweep above never
 used the excuse.
 
 Seen there, inferred: the reader adopted that last write 1.4–3.3 ms after it
@@ -649,3 +649,22 @@ failures. It grades one operator-visible consequence — cue rows that came up
 blank when a library was added — and the signature it moved is a lost
 thumbnail, not the `PIPELINE_ERROR_DECODE` the job logged 116 times. The
 caveat in the section above stands unchanged.
+
+## Commit IDs in captured files
+
+This repository's history was rewritten for publication, so every commit ID changed.
+The prose above uses the new IDs. The captured `.txt` files are evidence and keep the
+IDs that were current when they were recorded; this table maps one to the other.
+
+| in captured files | in this repository |
+|---|---|
+| `08d17c2` | `c201660` |
+| `09f796d` | `d10a575` |
+| `5379db1` | `58a4655` |
+| `69e92be` | `0cb2111` |
+| `8a59b1f` | `d26ce83` |
+| `92d7c08` | `f78a2c9` |
+| `c9e2d46` | `dc489e1` |
+| `dfa3af4` | `d3d6060` |
+| `ea1bdbf` | `5e8e9b1` |
+| `ee94d21` | `933b6a6` |
