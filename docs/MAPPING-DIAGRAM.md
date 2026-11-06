@@ -2,9 +2,11 @@
 
 **What this is.** A written specification of how the vendor's mapper window
 renders its controller/power/floor diagram, recovered from
-`decompiled/LedSet.decompiled.cs` (decompiler output, not published) on 2026-08-12. It exists so PR 3 can build the
-same diagram without reinventing its layout, and without anyone re-reading the
-decompiler output.
+`decompiled/LedSet.decompiled.cs` (decompiler output, not published) on
+2026-08-12. This project's own implementation in `app/src/mapping/` was written
+from this specification, not from the vendor's code, and where it deliberately
+departs from the vendor's drawing (jack-level at every type, below) this file
+says so.
 
 **The rule this file obeys.** The decompiler output is not in this repository. This file, `docs/DECOMP_FINDINGS.md` and
 `docs/PROTOCOL.md` are the written record of what it showed. It is
