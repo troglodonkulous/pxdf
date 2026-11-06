@@ -17,6 +17,8 @@ It is two parts:
 
 Everything below runs without the floor. See [Try it yourself](#try-it-yourself).
 
+https://github.com/user-attachments/assets/0a8ceace-bec8-4cd1-9aac-7c9842fb74a0
+
 ## The problem
 
 The floor is a grid of 8 × 8-pixel LED tiles chained to small network
