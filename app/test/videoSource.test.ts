@@ -563,7 +563,7 @@ describe('a MediaError reaches the operator', () => {
  *
  * `video.loop` was false, and the only wrap in the player was inside
  * `if (this.trimEndMs !== null)`. No surface in the app can set `trimEndMs` —
- * it is reachable only through `DDF_CUE_SEED`, a test seam — so the branch was
+ * it is reachable only through `PXDF_CUE_SEED`, a test seam — so the branch was
  * dead in every real show and every clip played once and froze on its last
  * frame. `PlayScreen` rendered a `LOOP ∞` chip over it and cue rows rendered
  * `∞`, so the app stated a behaviour it did not have: at a wedding that is a

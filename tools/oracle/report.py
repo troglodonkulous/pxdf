@@ -14,7 +14,7 @@ import json
 
 from .decode_diff import ConfigResult
 
-SCHEMA = "ddf-oracle-report/2"
+SCHEMA = "pxdf-oracle-report/2"
 
 
 def _divergence_row(d) -> dict | None:

@@ -1,4 +1,4 @@
 body{margin:0;background:var(--surface-canvas);color:var(--text-body);font-family:var(--font-ui);font-size:var(--fs-body);line-height:var(--lh-ui);-webkit-font-smoothing:antialiased}
 a{color:var(--text-accent);text-decoration:none}
 a:hover{color:oklch(0.88 0.16 148)}
-::selection{background:var(--ddf-green-deep);color:var(--text-primary)}
+::selection{background:var(--pxdf-green-deep);color:var(--text-primary)}

@@ -131,7 +131,7 @@ describe('show file', () => {
   it('names a cue something the parser will accept, for every path the picker can return', () => {
     // `asString` refuses an empty name, so a `cueNameFromPath` that can return
     // one is a show the app builds and cannot reopen. The native dialog returns
-    // files, but `DDF_PICK_MEDIA` — the wire gate's seam into the same code —
+    // files, but `PXDF_PICK_MEDIA` — the wire gate's seam into the same code —
     // is a delimiter-split string, and a stray trailing delimiter yields ''.
     for (const path of ['/media/clip.mp4', 'C:\\clips\\a.mov', '.mp4', 'noext', '/media/', '']) {
       const name = cueNameFromPath(path);

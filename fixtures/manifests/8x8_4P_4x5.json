@@ -1,5 +1,5 @@
 {
-  "schema": "ddf-mapper-fixture/1",
+  "schema": "pxdf-mapper-fixture/1",
   "name": "8x8_4P_4x5",
   "why": "one controller, exactly full, 4P",
   "config": {

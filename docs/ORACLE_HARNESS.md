@@ -218,7 +218,7 @@ or the user's own concurrent activity.
 ## 4. How to run
 
 ```bash
-cd C:\Users\USER\dev\ddf
+cd C:\Users\USER\dev\pxdf
 
 # the default: dry-run against captures/*.pcapng, no hardware, no Ledset, no transmission
 python -m tools.oracle.harness run

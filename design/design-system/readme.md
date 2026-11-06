@@ -1,24 +1,19 @@
-# Distinctive Dance Floor — Design System
+# PXDF — Design System
 
 > **Vendored verbatim 2026-08-11** from the Claude design session that authored
 > it. Everything below is authoritative *for visual design* — palette,
 > typography, chrome metrics, voice, motion, iconography.
 >
-> **Two claims in it are out of date and are not corrected inline**, so this
-> file stays a faithful copy of its source:
->
-> - "a macOS (**SwiftUI**) app" and "GUI is step 5 of the repo plan" — the stack
->   decision was superseded on 2026-08-11. The app is Electron + TypeScript +
->   React driving `mapper/` as a sidecar. See `docs/APP-PLAN.md`.
-> - Every path it references — `uploads/`, `assets/`, `guidelines/`,
->   `components/`, `ui_kits/`, `templates/`, `SKILL.md` — belongs to the design
->   tool, not this repo, including the ones in the Index at the bottom. What was
->   actually exported lives in `../` — see `design/README.md`.
+> The project name, repository link and app stack below reflect the current
+> repository. The remaining design references describe the exported design.
+> Paths under `uploads/`, `assets/`, `guidelines/`, `components/`, `ui_kits/`,
+> `templates/` and `SKILL.md` belong to the external design tool, not this repo.
+> Exported files live in `../` — see `design/README.md`.
 
-Design system for **Distinctive Dance Floor (DDF)**, a macOS (SwiftUI) app by Distinctive Event Solutions that controls a TOP Dance TP-878 pixel-LED dance floor over its native UDP protocol. The vendor software (Ledset/LPlayer) was reverse-engineered and replaced with a verified Python backend (`mapper/`); this system defines the UI that wraps it.
+Design system for **pixel dance floor (PXDF)**, a macOS Electron + TypeScript + React app by Rob Maxey that controls a TOP Dance TP-878 pixel-LED dance floor over its native UDP protocol. The vendor software (Ledset/LPlayer) was reverse-engineered and replaced with a verified Python backend (`mapper/`); this system defines the UI that wraps it.
 
 **Sources**
-- GitHub: https://github.com/symphonia-ai/ddf — protocol spec, mapper, domain vocabulary (no UI code exists yet; GUI is step 5 of the repo plan). Explore `README.md`, `CLAUDE.md`, `mapper/README.md`, `docs/PROTOCOL.md` for grounding.
+- GitHub: https://github.com/troglodonkulous/pxdf — protocol spec, mapper, domain vocabulary and the Electron + TypeScript + React sender UI in `app/`. Explore `README.md`, `CLAUDE.md`, `mapper/README.md`, `docs/PROTOCOL.md` for grounding.
 - `uploads/DDF Pairings.dc.html` — the approved "1a Signal" color/type pairing; the visual ground truth this system codifies.
 - `uploads/ddf-ff-p*.png` — the user's MVP page sketches (Mapping, Play, Edit), copied to `assets/sketches/`.
 - `assets/des-logo.png` — Distinctive Event Solutions logo (white lockup + core green bar on black).
@@ -40,7 +35,7 @@ Design system for **Distinctive Dance Floor (DDF)**, a macOS (SwiftUI) app by Di
 ## Visual foundations
 
 - **One hot green on a cold near-black.** Everything is a green-tinted (hue 152) neutral ramp from `--n-0` (0.075 L) to `--n-11` (0.97 L); the only chromatic elements are the accent green `oklch(0.80 0.20 148)` and the floor render itself. "Zero personality by design — the floor is the only thing on screen with color."
-- **Brand green** `#057B1F` (`oklch(0.47 0.16 145)`) comes from the logo; it appears as deep fills (`--ddf-green-deep`) and palette anchors. The *screen* accent is the hotter `--ddf-green-hot` for legibility on dark chrome.
+- **Brand green** `#057B1F` (`oklch(0.47 0.16 145)`) comes from the logo; it appears as deep fills (`--pxdf-green-deep`) and palette anchors. The *screen* accent is the hotter `--pxdf-green-hot` for legibility on dark chrome.
 - **Backgrounds:** flat fills only. No gradients, no imagery, no textures, no illustration. Depth comes from the neutral ramp (window `n-2`, chrome `n-3`, raised `n-4`, wells `n-1`) plus 1px hairlines (`n-5`).
 - **Borders:** 1px hairlines everywhere; panel seams are borders, not shadows. Wells (floor stage, previews) are inset: darker fill + hairline.
 - **Shadows:** one big soft window shadow (`0 24px 60px rgba(0,0,0,.6)`); popovers slightly tighter. No card shadows inside the window.

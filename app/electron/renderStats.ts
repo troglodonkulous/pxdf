@@ -14,7 +14,7 @@
  * fan-out, and neither the decoder count nor the per-frame readback cost that
  * would test it appears anywhere in the nine hours of log that job wrote.
  *
- * So the numbers travel renderer -> main over `ddf:render-stats` and come out
+ * So the numbers travel renderer -> main over `pxdf:render-stats` and come out
  * in the heartbeat, which is the one line in the file that is emitted whether
  * or not anything is wrong.
  *

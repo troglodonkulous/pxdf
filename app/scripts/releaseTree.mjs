@@ -12,7 +12,7 @@
  * "was this fixed in what the show ran?" is unanswerable after the fact.
  *
  * `buildString` is baked into the main-process bundle at build time
- * (`vite.config.ts`, `__DDF_BUILD__`) and printed on the launch line, so the log
+ * (`vite.config.ts`, `__PXDF_BUILD__`) and printed on the launch line, so the log
  * answers that question itself. `npm run dist` calls this file first and
  * refuses a dirty tree (`docs/DECISIONS.md` D-20), so a show build is a commit.
  *
@@ -71,12 +71,12 @@ export function formatBuildString(describe, dirty) {
 export function releaseRefusal(buildString, dirty, allowDirty) {
   if (allowDirty) return null
   if (buildString === 'unknown') {
-    return 'refusing to build: cannot read this build\'s provenance from git. Set DDF_ALLOW_DIRTY=1 to override; the build will say so at every launch.'
+    return 'refusing to build: cannot read this build\'s provenance from git. Set PXDF_ALLOW_DIRTY=1 to override; the build will say so at every launch.'
   }
   if (dirty.length === 0) return null
   const listed = dirty.slice(0, 10).map((path) => `  ${path}`).join('\n')
   const more = dirty.length > 10 ? `\n  … and ${dirty.length - 10} more` : ''
-  return `refusing to build: ${dirty.length} uncommitted change(s) under ${BUILD_PATHS.join('/, ')}/ — a show build must be a commit.\n${listed}${more}\nCommit them, or set DDF_ALLOW_DIRTY=1 to override; the build will say so at every launch.`
+  return `refusing to build: ${dirty.length} uncommitted change(s) under ${BUILD_PATHS.join('/, ')}/ — a show build must be a commit.\n${listed}${more}\nCommit them, or set PXDF_ALLOW_DIRTY=1 to override; the build will say so at every launch.`
 }
 
 /** Read the tree now. Never throws: an unreadable tree is `unknown`. */
@@ -94,7 +94,7 @@ export function readBuild() {
 // `node scripts/releaseTree.mjs` — the gate `npm run dist` runs first.
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { buildString, dirty } = readBuild()
-  const refusal = releaseRefusal(buildString, dirty, process.env.DDF_ALLOW_DIRTY === '1')
+  const refusal = releaseRefusal(buildString, dirty, process.env.PXDF_ALLOW_DIRTY === '1')
   if (refusal !== null) {
     console.error(refusal)
     process.exit(1)

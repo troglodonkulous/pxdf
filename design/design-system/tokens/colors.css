@@ -1,12 +1,12 @@
 :root{
 /* ---- brand ---- */
---ddf-green-core:#057B1F;              /* Distinctive Event Solutions logo green */
---ddf-green-core-oklch:oklch(0.47 0.16 145);
---ddf-green-hot:oklch(0.80 0.20 148);  /* the one screen-hot accent */
---ddf-green-hot-hex:#3ddc76;
---ddf-green-deep:oklch(0.28 0.06 148); /* accent-tinted chrome fill */
---ddf-green-glow:oklch(0.82 0.20 148);
---ddf-ink:#07090a;                     /* logo lockup black / canvas void */
+--pxdf-green-core:#057B1F;              /* Distinctive Event Solutions logo green */
+--pxdf-green-core-oklch:oklch(0.47 0.16 145);
+--pxdf-green-hot:oklch(0.80 0.20 148);  /* the one screen-hot accent */
+--pxdf-green-hot-hex:#3ddc76;
+--pxdf-green-deep:oklch(0.28 0.06 148); /* accent-tinted chrome fill */
+--pxdf-green-glow:oklch(0.82 0.20 148);
+--pxdf-ink:#07090a;                     /* logo lockup black / canvas void */
 
 /* ---- neutral ramp: green-tinted near-blacks (hue 152) ---- */
 --n-0:oklch(0.075 0.008 152);
@@ -42,8 +42,8 @@
 --surface-raised:var(--n-4);      /* buttons, fields, segmented tracks */
 --surface-well:var(--n-1);        /* inset preview wells, floor stage */
 --surface-card:var(--n-3);
---surface-accent-soft:var(--ddf-green-deep);
---surface-selected:var(--ddf-green-hot);
+--surface-accent-soft:var(--pxdf-green-deep);
+--surface-selected:var(--pxdf-green-hot);
 
 /* ---- text ---- */
 --text-primary:var(--n-11);
@@ -51,14 +51,14 @@
 --text-secondary:var(--n-8);
 --text-muted:var(--n-7);
 --text-on-accent:oklch(0.20 0.06 148);
---text-accent:var(--ddf-green-hot);
+--text-accent:var(--pxdf-green-hot);
 --text-numeric:var(--n-10);
 
 /* ---- lines ---- */
 --border-hairline:var(--n-5);
 --border-well:var(--n-5);
 --border-strong:var(--n-6);
---border-accent:var(--ddf-green-hot);
+--border-accent:var(--pxdf-green-hot);
 --focus-ring:oklch(0.80 0.20 148 / 0.55);
 
 /* ---- floor render ---- */

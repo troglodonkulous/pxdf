@@ -79,7 +79,7 @@ export async function captureThumbnail(
   video.muted = true
   video.playsInline = true
   video.preload = 'auto'
-  // Same pairing as `VideoSource`: `ddf-media://` is cross-origin to the page
+  // Same pairing as `VideoSource`: `pxdf-media://` is cross-origin to the page
   // however it was served, and without a CORS-mode fetch the frame taints the
   // canvas this draws into — see the long note in `electron/main.ts`.
   video.crossOrigin = 'anonymous'

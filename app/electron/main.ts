@@ -34,7 +34,7 @@ import { mapperCwd, resolvePythonEnv } from './paths.js'
 import { Sidecar, type SenderStatus } from './sidecar.js'
 
 /** Baked in by `vite.config.ts` from `scripts/releaseTree.mjs`: `git describe`, `-dirty`, or `unknown`. */
-declare const __DDF_BUILD__: string
+declare const __PXDF_BUILD__: string
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 const devRepoRoot = resolve(currentDirectory, '../..')
@@ -87,7 +87,7 @@ let nicVerdictQueued = false
 let quitAfterStop = false
 let stopInProgress = false
 /**
- * The one folder the Cue Library may list and `ddf-media://` may serve
+ * The one folder the Cue Library may list and `pxdf-media://` may serve
  * library files from, beyond the individually-picked files in `allowedMedia`.
  * Canonical (realpath'd) or null — see `mediaAuth.ts` for what canonical
  * means here and why it matters against a symlink.
@@ -102,7 +102,7 @@ let stopInProgress = false
  * ever from a value the operator produced by clicking through the native
  * `dialog.showOpenDialog` in some earlier session; or set fresh from
  * `dirname()` of a path that same dialog just returned. The renderer
- * cannot set this value, cannot pass a directory into `ddf:list-media-dir`
+ * cannot set this value, cannot pass a directory into `pxdf:list-media-dir`
  * (it takes no argument — see the handler), and cannot reach a folder this
  * way that the operator did not, at some point, choose a file from through
  * the OS's own picker. Restoring it at launch is re-granting a capability
@@ -151,7 +151,7 @@ function reportFatal(kind: string, error: unknown): void {
     ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
     : String(error)
   logLine('FATAL', 'main', `${kind}: ${detail}`)
-  process.stderr.write(`ddf: ${kind}: ${detail}\n`)
+  process.stderr.write(`pxdf: ${kind}: ${detail}\n`)
   setBanner('fatal', `the app hit an internal error — see the log. ${kind}: ${detail.split('\n')[0]}`)
 }
 
@@ -165,7 +165,7 @@ function publishStatus(status: SenderStatus): void {
   // would bury the death that caused them under the noise it produced.
   if (status !== currentStatus) logLine('INFO', 'sender', `status ${currentStatus} -> ${status}`)
   currentStatus = status
-  mainWindow?.webContents.send('ddf:status', status)
+  mainWindow?.webContents.send('pxdf:status', status)
 }
 
 /**
@@ -198,7 +198,7 @@ function setBanner(source: BannerSource, message: string | null): void {
   // the UI can only show the most urgent one.
   const composed = composeBanner(liveBanners)
   currentSenderError = composed === null ? null : { message: composed }
-  mainWindow?.webContents.send('ddf:sender-error', currentSenderError)
+  mainWindow?.webContents.send('pxdf:sender-error', currentSenderError)
 }
 
 function listIpv4Interfaces(): { name: string; address: string }[] {
@@ -212,7 +212,7 @@ function listIpv4Interfaces(): { name: string; address: string }[] {
 function pollInterfaces(): void {
   const interfaces = listIpv4Interfaces()
   const verdict = nicVerdict(
-    process.env.DDF_LOCAL_IP,
+    process.env.PXDF_LOCAL_IP,
     interfaces,
     nicBanner,
     liveBanners.nic ?? null,
@@ -239,7 +239,7 @@ function pollInterfaces(): void {
       `interfaces: ${interfaces.map(({ name, address }) => `${name}=${address}`).join(' ') || '(none)'}`,
     )
     lastInterfaces = interfaces
-    mainWindow?.webContents.send('ddf:interfaces', interfaces)
+    mainWindow?.webContents.send('pxdf:interfaces', interfaces)
   }
 }
 
@@ -304,7 +304,7 @@ let renderWindow: RenderWindow = emptyRenderWindow()
  * a minute's worth of counting. The launch block records it too.
  */
 const HEARTBEAT_TICKS = (() => {
-  const override = Number(process.env.DDF_HEARTBEAT_SECONDS)
+  const override = Number(process.env.PXDF_HEARTBEAT_SECONDS)
   return Number.isFinite(override) && override >= 1 ? Math.floor(override) : 60
 })()
 
@@ -358,7 +358,7 @@ function checkFrames(): void {
     logLine(
       'INFO',
       'heartbeat',
-      `status=${currentStatus} nic=${process.env.DDF_LOCAL_IP ?? 'default'} ` +
+      `status=${currentStatus} nic=${process.env.PXDF_LOCAL_IP ?? 'default'} ` +
       `floor=${currentFloor.type} ${currentFloor.tileCols}x${currentFloor.tileRows} ` +
       `frames=${framesSinceHeartbeat}/${HEARTBEAT_TICKS}s ` +
       // Never omitted and never blank, on any path. `renderField` has a string
@@ -459,11 +459,11 @@ function setFloor(next: ShowFloor): Promise<void> {
 }
 
 function setLocalIp(address: string | undefined): Promise<void> {
-  if (address !== undefined && address.length > 0) process.env.DDF_LOCAL_IP = address
-  else delete process.env.DDF_LOCAL_IP
-  updateSettings({ localIp: process.env.DDF_LOCAL_IP ?? '' })
+  if (address !== undefined && address.length > 0) process.env.PXDF_LOCAL_IP = address
+  else delete process.env.PXDF_LOCAL_IP
+  updateSettings({ localIp: process.env.PXDF_LOCAL_IP ?? '' })
   // Re-spawns at the current geometry so the new env var takes effect.
-  // Sidecar's spawn reads process.env.DDF_LOCAL_IP fresh on every call;
+  // Sidecar's spawn reads process.env.PXDF_LOCAL_IP fresh on every call;
   // there is simply no path that rebinds a live child.
   return withSidecar(() => doSetFloor(currentFloor))
 }
@@ -474,7 +474,7 @@ function createWindow(): void {
     height: 800,
     minWidth: 720,
     minHeight: 520,
-    title: 'DDF Sender',
+    title: 'PXDF Sender',
     backgroundColor: '#07090a',
     webPreferences: {
       contextIsolation: true,
@@ -531,8 +531,8 @@ function createWindow(): void {
     renderWindow = emptyRenderWindow()
     logLine('INFO', 'window', 'renderer loaded')
     publishStatus(currentStatus)
-    window.webContents.send('ddf:sender-error', currentSenderError)
-    if (lastInterfaces !== null) window.webContents.send('ddf:interfaces', lastInterfaces)
+    window.webContents.send('pxdf:sender-error', currentSenderError)
+    if (lastInterfaces !== null) window.webContents.send('pxdf:interfaces', lastInterfaces)
   })
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL
@@ -543,7 +543,7 @@ function createWindow(): void {
   }
 }
 
-ipcMain.on('ddf:frame', (_event: unknown, frame: Uint8Array) => {
+ipcMain.on('pxdf:frame', (_event: unknown, frame: Uint8Array) => {
   // Two counters and nothing else. This runs 30-60 times a second, so it is the
   // one handler in the app that must never log, never allocate and never call
   // into the verdict — `checkFrames` reads what this leaves behind, once a
@@ -553,11 +553,11 @@ ipcMain.on('ddf:frame', (_event: unknown, frame: Uint8Array) => {
   sidecar?.writeFrame(frame)
 })
 
-ipcMain.on('ddf:log', (_event: unknown, level: LogLevel, source: string, message: string) => {
+ipcMain.on('pxdf:log', (_event: unknown, level: LogLevel, source: string, message: string) => {
   logLine(level, source, message)
 })
 
-ipcMain.on('ddf:render-stats', (_event: unknown, sample: RenderSample) => {
+ipcMain.on('pxdf:render-stats', (_event: unknown, sample: RenderSample) => {
   // Four times a second, from the render loop's existing 250 ms batch — not
   // per frame. Folded and nothing else: the heartbeat tick is what reads this,
   // once a cadence, which is what keeps `log.ts`'s never-per-frame rule true by
@@ -565,22 +565,22 @@ ipcMain.on('ddf:render-stats', (_event: unknown, sample: RenderSample) => {
   renderWindow = foldRenderSample(renderWindow, sample, Date.now())
 })
 
-ipcMain.on('ddf:reveal-log', () => {
+ipcMain.on('pxdf:reveal-log', () => {
   if (logger !== null) shell.showItemInFolder(logger.path)
 })
 
-ipcMain.handle('ddf:mapper-plan', (_event, type: string, cols: number, rows: number) => {
+ipcMain.handle('pxdf:mapper-plan', (_event, type: string, cols: number, rows: number) => {
   return runMapperPlan(type, cols, rows, app.isPackaged)
 })
 
-ipcMain.handle('ddf:list-interfaces', () => {
+ipcMain.handle('pxdf:list-interfaces', () => {
   return listIpv4Interfaces()
 })
 
-ipcMain.handle('ddf:get-local-ip', () => process.env.DDF_LOCAL_IP ?? '')
-ipcMain.handle('ddf:set-floor', (_event, floor: ShowFloor) => setFloor(floor))
-ipcMain.handle('ddf:set-local-ip', (_event, address: string | undefined) => setLocalIp(address))
-ipcMain.handle('ddf:list-media-dir', (): { dir: string; files: string[] } | null => {
+ipcMain.handle('pxdf:get-local-ip', () => process.env.PXDF_LOCAL_IP ?? '')
+ipcMain.handle('pxdf:set-floor', (_event, floor: ShowFloor) => setFloor(floor))
+ipcMain.handle('pxdf:set-local-ip', (_event, address: string | undefined) => setLocalIp(address))
+ipcMain.handle('pxdf:list-media-dir', (): { dir: string; files: string[] } | null => {
   if (authorizedMediaDir === null) return null
   return { dir: authorizedMediaDir, files: listLibraryFiles(authorizedMediaDir, PICKER_EXTENSIONS) }
 })
@@ -603,7 +603,7 @@ ipcMain.handle('ddf:list-media-dir', (): { dir: string; files: string[] } | null
  */
 const allowedMedia = new Set<string>()
 
-ipcMain.handle('ddf:pick-media', async (): Promise<string[]> => {
+ipcMain.handle('pxdf:pick-media', async (): Promise<string[]> => {
   const chosen = await chooseMedia()
   for (const path of chosen) allowedMedia.add(servedForm(path))
   if (chosen.length > 0) {
@@ -616,8 +616,8 @@ ipcMain.handle('ddf:pick-media', async (): Promise<string[]> => {
   return chosen
 })
 
-ipcMain.handle('ddf:cue-seed', (): Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>> => {
-  const raw = process.env.DDF_CUE_SEED
+ipcMain.handle('pxdf:cue-seed', (): Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>> => {
+  const raw = process.env.PXDF_CUE_SEED
   if (raw === undefined || raw.length === 0) return {}
   try {
     return JSON.parse(raw) as Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>>
@@ -652,12 +652,12 @@ function servedForm(path: string): string {
 }
 
 async function chooseMedia(): Promise<string[]> {
-  // A test seam, in the same family as the DDF_ADDRESS / DDF_PORT / DDF_PYTHON
+  // A test seam, in the same family as the PXDF_ADDRESS / PXDF_PORT / PXDF_PYTHON
   // overrides `Sidecar` already reads. The wire gate has to get a cue into the
   // stack, and a native file dialog cannot be driven from a script — so with
   // this set, the picker returns these paths instead of opening. Without it,
   // nothing about the dialog changes.
-  const seeded = process.env.DDF_PICK_MEDIA
+  const seeded = process.env.PXDF_PICK_MEDIA
   if (seeded !== undefined && seeded.length > 0) return seeded.split(delimiter)
 
   const result = await dialog.showOpenDialog({
@@ -711,7 +711,7 @@ void app.whenReady().then(() => {
   try {
     logger = createLogger(app.getPath('logs'))
   } catch (error) {
-    process.stderr.write(`ddf: no log this session: ${String(error)}\n`)
+    process.stderr.write(`pxdf: no log this session: ${String(error)}\n`)
   }
 
   powerSaveBlocker.start('prevent-app-suspension')
@@ -845,7 +845,7 @@ void app.whenReady().then(() => {
     })
   })
 
-  // The stored NIC seeds the environment, and an explicit `DDF_LOCAL_IP` still
+  // The stored NIC seeds the environment, and an explicit `PXDF_LOCAL_IP` still
   // wins — the wire gate and `npm run dev:floor` both set it, and a stored
   // preference must not quietly override what the operator typed on the command
   // line. If the stored address is not on this machine any more, the interface
@@ -861,8 +861,8 @@ void app.whenReady().then(() => {
   // silencing the whole wire gate. The failure was loud and immediate, which
   // is the only reason it cost minutes instead of a session.
   const storedSettings = loadSettings()
-  if (process.env.DDF_LOCAL_IP === undefined && storedSettings.localIp.length > 0) {
-    process.env.DDF_LOCAL_IP = storedSettings.localIp
+  if (process.env.PXDF_LOCAL_IP === undefined && storedSettings.localIp.length > 0) {
+    process.env.PXDF_LOCAL_IP = storedSettings.localIp
   }
   authorizedMediaDir = canonicalDir(storedSettings.lastMediaDir)
 
@@ -881,21 +881,21 @@ void app.whenReady().then(() => {
   // visible from the UI afterwards.
   const env = resolvePythonEnv(app.isPackaged)
   logLine('INFO', 'launch', [
-    // `app.getName()` and not the literal "ddf": unpackaged, Electron answers
-    // "Electron 43.4.0" for both of these, and a line reading "ddf 43.4.0"
+    // `app.getName()` and not the literal "pxdf": unpackaged, Electron answers
+    // "Electron 43.4.0" for both of these, and a line reading "pxdf 43.4.0"
     // would be the log confidently misidentifying the build that wrote it —
     // in the one file anyone consults to answer exactly that question.
     `${app.getName()} ${app.getVersion()} · electron ${process.versions.electron} · ${process.platform} ${process.arch}`,
     // The code this is, as `git describe` saw it at build time. The version
     // above names the package, never the commit; this line is what lets a show
     // log answer "was that fixed in what we ran?". `scripts/releaseTree.mjs`.
-    `build: ${__DDF_BUILD__}`,
+    `build: ${__PXDF_BUILD__}`,
     `packaged=${String(app.isPackaged)}`,
     `mapper cwd: ${mapperCwd(app.isPackaged, devRepoRoot)}`,
-    `python: "${process.env.DDF_PYTHON ?? 'python3'}"`,
+    `python: "${process.env.PXDF_PYTHON ?? 'python3'}"`,
     `PATH: ${env.PATH ?? ''}`,
     `floor: ${currentFloor.type} ${currentFloor.tileCols}x${currentFloor.tileRows}`,
-    `local ip: ${process.env.DDF_LOCAL_IP ?? '(default route)'}`,
+    `local ip: ${process.env.PXDF_LOCAL_IP ?? '(default route)'}`,
     `log: ${logger?.path ?? '(none)'}`,
     // The legend for the heartbeat, written once per run rather than repeated
     // on every line. `draw`/`readback`/`pass` are the three spans of
@@ -909,8 +909,8 @@ void app.whenReady().then(() => {
   // launch rather than once at build time, where nobody at the show will look.
   // Unpackaged runs are dev builds, dirty as a matter of course, and a warning
   // on every one of them would be a channel that cries wolf.
-  if (app.isPackaged && (__DDF_BUILD__.endsWith('-dirty') || __DDF_BUILD__ === 'unknown')) {
-    logLine('WARN', 'launch', `this build's code is not a commit (${__DDF_BUILD__}) — it was packaged with DDF_ALLOW_DIRTY, and no record says exactly what it contains`)
+  if (app.isPackaged && (__PXDF_BUILD__.endsWith('-dirty') || __PXDF_BUILD__ === 'unknown')) {
+    logLine('WARN', 'launch', `this build's code is not a commit (${__PXDF_BUILD__}) — it was packaged with PXDF_ALLOW_DIRTY, and no record says exactly what it contains`)
   }
 
   // The logger reporting on itself, and the one message that cannot be trusted

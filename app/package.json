@@ -1,14 +1,14 @@
 {
-  "name": "ddf-app",
+  "name": "pxdf-app",
   "version": "0.1.0",
   "private": true,
-  "description": "Geometry-independent sender UI for the Symphonia LED dance floor. Drives mapper/ as a sidecar.",
-  "author": "Symphonia",
+  "description": "Geometry-independent sender UI for a TP-878 LED pixel dance floor. Drives mapper/ as a sidecar.",
+  "author": "Rob Maxey",
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
     "dev": "npm run build:electron && vite --host 127.0.0.1",
-    "dev:floor": "DDF_ADDRESS=255.255.255.255 npm run dev",
+    "dev:floor": "PXDF_ADDRESS=255.255.255.255 npm run dev",
     "build": "vite build && npm run build:electron",
     "build:electron": "vite build --mode electron-main && vite build --mode electron-preload",
     "dist": "node scripts/releaseTree.mjs && npm run build && electron-builder --mac",
@@ -17,8 +17,8 @@
     "typecheck": "tsc --noEmit"
   },
   "build": {
-    "appId": "com.symphonia.ddf-sender",
-    "productName": "DDF Sender",
+    "appId": "io.github.troglodonkulous.pxdf-sender",
+    "productName": "PXDF Sender",
     "directories": {
       "output": "release"
     },

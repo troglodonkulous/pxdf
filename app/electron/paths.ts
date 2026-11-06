@@ -38,7 +38,7 @@ export function mapperCwd(isPackaged: boolean, devRepoRoot: string): string {
  * `/Applications` that directory is not writable, so every launch would
  * otherwise attempt a `__pycache__` write that silently fails.
  *
- * `DDF_PYTHON` is untouched — this patches `PATH`, never the binary name, so
+ * `PXDF_PYTHON` is untouched — this patches `PATH`, never the binary name, so
  * the override keeps working in both modes.
  */
 export function resolvePythonEnv(isPackaged: boolean): NodeJS.ProcessEnv {

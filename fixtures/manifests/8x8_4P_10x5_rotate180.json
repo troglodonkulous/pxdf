@@ -1,5 +1,5 @@
 {
-  "schema": "ddf-mapper-fixture/1",
+  "schema": "pxdf-mapper-fixture/1",
   "name": "8x8_4P_10x5_rotate180",
   "why": "the current rig with the controllers moved to the opposite end",
   "config": {

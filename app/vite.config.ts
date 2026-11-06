@@ -12,7 +12,7 @@ function launchElectron(): Plugin {
   let child: ChildProcess | null = null
 
   return {
-    name: 'ddf-launch-electron',
+    name: 'pxdf-launch-electron',
     configureServer(server) {
       server.httpServer?.once('listening', () => {
         const address = server.httpServer?.address() as AddressInfo | null
@@ -37,7 +37,7 @@ export default defineConfig(({ mode }) => {
     return {
       // What code this bundle was built from, printed on the launch line. See
       // `scripts/releaseTree.mjs` for why, and for what `-dirty` and `unknown` mean.
-      define: { __DDF_BUILD__: JSON.stringify(readBuild().buildString) },
+      define: { __PXDF_BUILD__: JSON.stringify(readBuild().buildString) },
       build: {
         emptyOutDir: false,
         lib: {

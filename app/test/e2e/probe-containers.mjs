@@ -1,6 +1,6 @@
 /**
  * Which media containers does this Electron build actually decode, and what
- * `Content-Type` does `ddf-media://` serve each of them as?
+ * `Content-Type` does `pxdf-media://` serve each of them as?
  *
  * **This is a measurement, not a gate.** Nothing runs it automatically and
  * nothing should: it answers one question, the answer goes into
@@ -23,7 +23,7 @@
  *
  * So the probe authors one clip per container with ffmpeg, using a codec natural
  * to that container rather than forcing H.264 everywhere, and loads each one
- * through `ddf-media://` in the running app. The distinction it can draw and the
+ * through `pxdf-media://` in the running app. The distinction it can draw and the
  * cheap oracles cannot is *why* something failed: `DEMUXER_ERROR_COULD_NOT_OPEN`
  * means the container is not supported at all, while
  * `DEMUXER_ERROR_NO_SUPPORTED_STREAMS` means the container opened and the codec
@@ -37,7 +37,7 @@
  * paths in `allowedMedia`, which is populated by the picker, so a file that
  * skips it comes back 403 and reads as an undecodable container. That is the
  * security model working correctly and it would silently poison every row of the
- * table, so the script clicks Add cue with `DDF_PICK_MEDIA` seeded first.
+ * table, so the script clicks Add cue with `PXDF_PICK_MEDIA` seeded first.
  *
  * The route to that click is not fixed and this script does not get to assume
  * it. The app launches on the Mapping surface; the cue stack is behind `Open
@@ -60,7 +60,7 @@
  * gate plays is an `.mp4`, so nothing else in the repo could have caught a
  * wrong one.
  *
- * So each row now also `fetch`es its own `ddf-media://` URL from inside the
+ * So each row now also `fetch`es its own `pxdf-media://` URL from inside the
  * page and records `response.headers.get('Content-Type')`. `fetch` and not the
  * `<video>` element, because an element exposes no response headers at all —
  * this is the only way to see what the handler actually said. The two halves
@@ -212,7 +212,7 @@ function openPage(url) {
   })
 }
 
-const workspace = mkdtempSync(join(tmpdir(), 'ddf-probe-'))
+const workspace = mkdtempSync(join(tmpdir(), 'pxdf-probe-'))
 let electron = null
 let page = null
 /**
@@ -283,9 +283,9 @@ try {
       cwd: APP_DIR,
       env: {
         ...process.env,
-        DDF_ADDRESS: '127.0.0.1',
-        DDF_PORT: String(SIDECAR_PORT),
-        DDF_PICK_MEDIA: made.map((entry) => entry.path).join(delimiter),
+        PXDF_ADDRESS: '127.0.0.1',
+        PXDF_PORT: String(SIDECAR_PORT),
+        PXDF_PICK_MEDIA: made.map((entry) => entry.path).join(delimiter),
       },
       stdio: 'ignore',
       // `node_modules/.bin/electron` is a Node shim that spawns the real binary
@@ -355,7 +355,7 @@ try {
   }
 
   const probe = async ({ label, path }) => {
-    const url = `ddf-media://file${path.split('/').map(encodeURIComponent).join('/')}`
+    const url = `pxdf-media://file${path.split('/').map(encodeURIComponent).join('/')}`
     // One evaluate, two independent measurements of the same URL.
     //
     // The `fetch` is what reads the handler's own answer: a `<video>` element

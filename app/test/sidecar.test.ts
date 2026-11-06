@@ -185,14 +185,14 @@ describe('the command line it builds', () => {
   // silently become whatever the app says rather than what `mapper` says. The
   // value is not validated here: argparse refuses a bad one with exit 2 and
   // says why on stderr, which the log already keeps.
-  describe('DDF_STREAM_PACING', () => {
+  describe('PXDF_STREAM_PACING', () => {
     afterEach(() => {
       vi.unstubAllEnvs();
     });
 
     it('adds nothing when unset or empty', () => {
       for (const value of [undefined, '']) {
-        vi.stubEnv('DDF_STREAM_PACING', value);
+        vi.stubEnv('PXDF_STREAM_PACING', value);
         spawn.mockClear();
         const { sidecar, logs } = makeSidecar();
         sidecar.start();
@@ -203,7 +203,7 @@ describe('the command line it builds', () => {
     });
 
     it('passes the mode to `mapper stream` and names it in the spawning line', () => {
-      vi.stubEnv('DDF_STREAM_PACING', 'arrival');
+      vi.stubEnv('PXDF_STREAM_PACING', 'arrival');
       const { sidecar, logs } = makeSidecar();
       sidecar.start();
 
@@ -216,7 +216,7 @@ describe('the command line it builds', () => {
     });
 
     it('never turns on --emit-timing, which would log a line per frame', () => {
-      vi.stubEnv('DDF_STREAM_PACING', 'arrival');
+      vi.stubEnv('PXDF_STREAM_PACING', 'arrival');
       const { sidecar } = makeSidecar();
       sidecar.start();
       expect(spawn.mock.calls[0][1]).not.toContain('--emit-timing');

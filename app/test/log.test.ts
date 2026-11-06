@@ -24,7 +24,7 @@ describe('createLogger', () => {
   const made: string[] = [];
 
   const scratch = (): string => {
-    const dir = mkdtempSync(join(tmpdir(), 'ddf-log-'));
+    const dir = mkdtempSync(join(tmpdir(), 'pxdf-log-'));
     made.push(dir);
     return dir;
   };
@@ -91,17 +91,17 @@ describe('createLogger', () => {
     second.log('INFO', 'launch', 'run two');
 
     expect(readFileSync(second.path, 'utf8')).not.toContain('run one');
-    expect(readFileSync(join(dir, 'ddf.prev.log'), 'utf8')).toContain('run one');
+    expect(readFileSync(join(dir, 'pxdf.prev.log'), 'utf8')).toContain('run one');
   });
 
   it('rotates over an older previous run rather than accumulating files', () => {
     const dir = scratch();
-    writeFileSync(join(dir, 'ddf.prev.log'), 'ancient\n');
-    writeFileSync(join(dir, 'ddf.log'), 'recent\n');
+    writeFileSync(join(dir, 'pxdf.prev.log'), 'ancient\n');
+    writeFileSync(join(dir, 'pxdf.log'), 'recent\n');
 
     createLogger(dir).log('INFO', 'launch', 'current');
 
-    expect(readFileSync(join(dir, 'ddf.prev.log'), 'utf8')).toBe('recent\n');
+    expect(readFileSync(join(dir, 'pxdf.prev.log'), 'utf8')).toBe('recent\n');
   });
 
   it('reports a write it could not make instead of swallowing it', () => {
@@ -141,7 +141,7 @@ describe('createLogger', () => {
     chmodSync(logsDir, 0o700);
     logger.log('INFO', 'sender', 'and the disk came back');
 
-    expect(readFileSync(join(logsDir, 'ddf.log'), 'utf8')).toContain('the disk came back');
+    expect(readFileSync(join(logsDir, 'pxdf.log'), 'utf8')).toContain('the disk came back');
     expect(logger.writeError, 'forgot a gap the log cannot show').not.toBeNull();
   });
 

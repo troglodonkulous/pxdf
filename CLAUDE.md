@@ -1,6 +1,6 @@
-# ddf — working notes for Claude Code
+# pxdf — working notes for Claude Code
 
-A geometry-independent sender for the Symphonia LED dance floor, replacing the vendor's Ledset software. This file holds what a session cannot derive from the code: things it would rediscover expensively, or get wrong.
+A geometry-independent sender for a TP-878 LED pixel dance floor, replacing the vendor's Ledset software. This file holds what a session cannot derive from the code: things it would rediscover expensively, or get wrong.
 
 ## The one thing to internalise
 
@@ -91,7 +91,7 @@ The full entries — what each protects, its evidence, and what reopens it — a
 
 - **D-01** — The wire encoding and the byte output of `play`/`send` are frozen. Reopen if: a controller renders this encoding wrongly, or a new tile type needs a layout it cannot express.
 - **D-02** — `mapper stream` may change for the app: opt-in, default unchanged, graded by the digests plus a cadence instrument, and the default only after a floor capture. Reopen if: a boundary problem proves unfixable inside `stream` alone.
-- **D-03** — Python owns the send clock. Reopen if: content cadence on the wire is off-pattern. **Reopened 2026-09-28**; late wakes measured as the cause 2026-09-29. Opt-in `stream --pacing arrival` (`DDF_STREAM_PACING=arrival`) sends on the renderer's writes and removes it off-hardware; `clock` stays default until a floor capture (D-02). The residue was video-to-renderer, measured and fixed 2026-09-29 by keeping `VideoSource`'s rVFC chain armed (arrival 30-on-30 0.00–0.59 %). See the entry.
+- **D-03** — Python owns the send clock. Reopen if: content cadence on the wire is off-pattern. **Reopened 2026-09-28**; late wakes measured as the cause 2026-09-29. Opt-in `stream --pacing arrival` (`PXDF_STREAM_PACING=arrival`) sends on the renderer's writes and removes it off-hardware; `clock` stays default until a floor capture (D-02). The residue was video-to-renderer, measured and fixed 2026-09-29 by keeping `VideoSource`'s rVFC chain armed (arrival 30-on-30 0.00–0.59 %). See the entry.
 - **D-04** — Do not port the mapper (a preference). Reopen if: the sidecar boundary blocks a fix that D-02 cannot deliver, or packaging Python becomes a recurring show risk.
 - **D-05** — `mapper/` uses the Python standard library only. Reopen if: a needed capability has no reasonable stdlib route.
 - **D-06** — `tools/Send-FloorTest.ps1` is never modified; invoke it with `-PortsPerController 4`. Reopen if: the protocol changes.
@@ -119,9 +119,9 @@ The full entries — what each protects, its evidence, and what reopens it — a
 - **`max_tolerated` budgets are measured per capture window and clip length.** Re-derive them if either changes; a budget carried over from a different capture is exactly the unbounded tolerance the field exists to remove.
 - **Stopping the send does not black the floor.** In Master/IR mode controller 1 reverts to local content ~5 s later; in slave mode it holds its last frame, as 2 and 3 always do. Either way nothing blacks the floor on its own, so the app's BLACKOUT, cue gaps and idle must all send *black frames*. The socket opens with the show file and never closes.
 - **`design/mockups.html` renders a superset of what ships.** Direction (Fwd/Rev/Bounce), Custom layout, Calibrate… all appear in it, and all were shelved or scrapped. The operator's requirements (`docs/REQUIREMENTS-v1.pdf`, not published) win over the mockups, and `docs/APP-PLAN.md` says what was cut and why.
-- **Grab the log before relaunching after a fault.** It is `~/Library/Logs/DDF Sender/ddf.log`
-  packaged and `~/Library/Logs/Electron/ddf.log` unpackaged — macOS derives that folder from
-  the app name, not from `--user-data-dir`. Launch rotates it to `ddf.prev.log`, so one
+- **Grab the log before relaunching after a fault.** It is `~/Library/Logs/PXDF Sender/pxdf.log`
+  packaged and `~/Library/Logs/Electron/pxdf.log` unpackaged — macOS derives that folder from
+  the app name, not from `--user-data-dir`. Launch rotates it to `pxdf.prev.log`, so one
   restart is survivable and **two overwrite the evidence**. Copy the file; do not rely on
   the rotation. Timestamps are ISO **UTC**, not venue local.
 - **The same rotation applies to a batch of measurement runs, not just a fault.**

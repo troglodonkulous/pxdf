@@ -2,7 +2,7 @@ import { readdirSync, realpathSync, statSync } from 'node:fs'
 import { dirname, extname, join } from 'node:path'
 
 /**
- * The second authorisation path `ddf-media://` will serve a file over,
+ * The second authorisation path `pxdf-media://` will serve a file over,
  * alongside `main.ts`'s existing `allowedMedia` set of individually
  * picker-returned paths.
  *

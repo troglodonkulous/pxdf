@@ -1,5 +1,5 @@
 /**
- * The `Range` header of a `ddf-media://` request, turned into a decision.
+ * The `Range` header of a `pxdf-media://` request, turned into a decision.
  *
  * ## Why this exists at all
  *

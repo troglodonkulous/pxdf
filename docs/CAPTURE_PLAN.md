@@ -53,10 +53,10 @@ Test-Path "C:\Program Files\Wireshark\dumpcap.exe"
 If `False`, install Wireshark (bundles Npcap; Npcap's installer needs
 interactive click-through — no silent flag on the free version).
 
-The test sender is at `ddf\tools\Send-FloorTest.ps1`. Confirm it runs:
+The test sender is at `pxdf\tools\Send-FloorTest.ps1`. Confirm it runs:
 
 ```powershell
-cd $HOME\OneDrive\Documents\ddf
+cd $HOME\OneDrive\Documents\pxdf
 .\tools\Send-FloorTest.ps1 -Pattern white -DryRun
 ```
 
@@ -72,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\Send-FloorTest.ps1 -Pattern whi
 Lives inside the repo at `captures/` (tracked so both machines share the files):
 
 ```powershell
-cd $HOME\OneDrive\Documents\ddf
+cd $HOME\OneDrive\Documents\pxdf
 mkdir captures -ErrorAction SilentlyContinue; cd captures
 ```
 
@@ -181,7 +181,7 @@ Check it without launching Ledset — this runs the same two gates Ledset applie
 (extension filter, then a real `VideoGrabber.dll` decode):
 
 ```powershell
-cd $HOME\OneDrive\Documents\ddf
+cd $HOME\OneDrive\Documents\pxdf
 .\tools\Test-LedsetCanLoad.ps1
 ```
 
@@ -227,7 +227,7 @@ deliverable, not the vendor's software.
 Bind explicitly to the wired NIC — the box may have more than one:
 
 ```powershell
-cd $HOME\OneDrive\Documents\ddf
+cd $HOME\OneDrive\Documents\pxdf
 .\tools\Send-FloorTest.ps1 -ListInterfaces
 ```
 
@@ -354,7 +354,7 @@ headroom than the vendor tool suggests. Worth knowing; not blocking.
 
 ```powershell
 # terminal 1
-& "C:\Program Files\Wireshark\dumpcap.exe" -i N -f "udp port 60001" -w $HOME\OneDrive\Documents\ddf\captures\20-ours-white.pcapng
+& "C:\Program Files\Wireshark\dumpcap.exe" -i N -f "udp port 60001" -w $HOME\OneDrive\Documents\pxdf\captures\20-ours-white.pcapng
 # terminal 2
 .\tools\Send-FloorTest.ps1 -Pattern white -Duration 5 -LocalIP 10.200.50.78
 ```
@@ -367,7 +367,7 @@ behaved perfectly — it will be the reference when the macOS sender is written.
 
 ## 13. Wrap-up checklist
 
-Already in the shared `ddf` folder if you followed §0 (no USB stick or copy step
+Already in the shared `pxdf` folder if you followed §0 (no USB stick or copy step
 needed) — just confirm everything below is present:
 
 - [ ] `configure-ini-dump.txt`, `mapper-xml-dump.txt`
@@ -377,7 +377,7 @@ needed) — just confirm everything below is present:
 - [ ] Note of anything that contradicted `DECOMP_FINDINGS.md`
 
 ```powershell
-Get-ChildItem $HOME\OneDrive\Documents\ddf\captures\*.pcapng | Select-Object Name, Length
+Get-ChildItem $HOME\OneDrive\Documents\pxdf\captures\*.pcapng | Select-Object Name, Length
 ```
 
 0-byte or 24-byte files mean nothing was captured — wrong interface number.

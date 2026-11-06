@@ -34,7 +34,7 @@ written down here.
 **Working directory for every command below:**
 
 ```powershell
-cd C:\Users\USER\dev\ddf
+cd C:\Users\USER\dev\pxdf
 ```
 
 ---
@@ -1625,7 +1625,7 @@ the user closed the question directly: **the floor is always cabled
 left-to-right, monotonically, matching arrangement #1's convention.** Any
 future content-orientation need (a flipped video, a mirrored show) is
 handled at the media-authoring step, not in the floor mapper. Arrangement #2
-testing is abandoned; decisions 19 and 20 in `HANDOFF-ddf-geometry.md` are
+testing is abandoned; decisions 19 and 20 in `HANDOFF-ddf-geometry.md` (not in this repository) are
 amended accordingly. The floor was powered down and reconfigured back to
 arrangement #1's layout before the session ended.
 

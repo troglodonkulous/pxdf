@@ -14,7 +14,7 @@ export async function runMapperPlan(
   rows: number,
   isPackaged: boolean,
 ): Promise<string> {
-  const python = process.env.DDF_PYTHON ?? 'python3'
+  const python = process.env.PXDF_PYTHON ?? 'python3'
 
   try {
     const { stdout } = await execFileAsync(

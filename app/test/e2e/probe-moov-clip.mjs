@@ -1,5 +1,5 @@
 /**
- * Does one real clip open through the running app's `ddf-media://` handler?
+ * Does one real clip open through the running app's `pxdf-media://` handler?
  *
  *     node test/e2e/probe-moov-clip.mjs /path/to/clip.mov
  *
@@ -10,7 +10,7 @@
  *
  * ## What it was written for
  *
- * `ddf-media://` could not answer a `Range` request with a `206` until
+ * `pxdf-media://` could not answer a `Range` request with a `206` until
  * 2026-09-18, so an MP4 or MOV whose `moov` atom sits after `mdat` — which must
  * be read from the tail before anything decodes — never opened. The correlation
  * came out of one night's job log: 124/124 `moov`-at-front clips played, 0/7
@@ -37,8 +37,8 @@
  * verdict for it and exits non-zero. A single clip that failed on its own would
  * be indistinguishable from an instrument that was broken.
  *
- * Both files are authorised through the app's own `ddf:pick-media` path via the
- * `DDF_PICK_MEDIA` seam, because a 403 body reaches the demuxer as
+ * Both files are authorised through the app's own `pxdf:pick-media` path via the
+ * `PXDF_PICK_MEDIA` seam, because a 403 body reaches the demuxer as
  * `DEMUXER_ERROR_COULD_NOT_OPEN` — the identical string an unopenable container
  * produces. `docs/POSTMORTEMS.md`, "Container blacklist from belief": that
  * substitution is how a uniformly false table once looked entirely plausible.
@@ -54,7 +54,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 
 const APP_DIR = resolve(import.meta.dirname, '..', '..')
 const REPO_ROOT = resolve(APP_DIR, '..')
-const PYTHON = process.env.DDF_PYTHON ?? 'python3'
+const PYTHON = process.env.PXDF_PYTHON ?? 'python3'
 // Its own debug port and UDP port, so this can run beside nothing and still not
 // collide with `wire.mjs`'s hardcoded 9333 / 60001 if someone runs both.
 const DEBUG_PORT = 9_355
@@ -71,7 +71,7 @@ if (!existsSync(join(APP_DIR, 'dist', 'main.js'))) {
   process.exit(2)
 }
 
-const workspace = mkdtempSync(join(tmpdir(), 'ddf-moov-probe-'))
+const workspace = mkdtempSync(join(tmpdir(), 'pxdf-moov-probe-'))
 const control = join(workspace, `control-front${extname(target)}`)
 execFileSync('ffmpeg', [
   '-hide_banner', '-loglevel', 'error', '-y',
@@ -153,7 +153,7 @@ async function attachToPage() {
   throw new Error('Electron never exposed a debuggable page')
 }
 
-const mediaUrl = (path) => `ddf-media://file${path.split('/').map(encodeURIComponent).join('/')}`
+const mediaUrl = (path) => `pxdf-media://file${path.split('/').map(encodeURIComponent).join('/')}`
 
 const child = spawn(
   resolve(APP_DIR, 'node_modules', '.bin', 'electron'),
@@ -166,9 +166,9 @@ const child = spawn(
     cwd: APP_DIR,
     env: {
       ...process.env,
-      DDF_ADDRESS: '127.0.0.1',
-      DDF_PORT: String(SEND_PORT),
-      DDF_PICK_MEDIA: [target, control].join(':'),
+      PXDF_ADDRESS: '127.0.0.1',
+      PXDF_PORT: String(SEND_PORT),
+      PXDF_PICK_MEDIA: [target, control].join(':'),
     },
     stdio: 'ignore',
     // `node_modules/.bin/electron` is a Node shim that spawns the real binary as
@@ -183,9 +183,9 @@ let page = null
 let failed = false
 try {
   page = await attachToPage()
-  const authorised = await page.evaluate('window.ddf.pickMedia()')
+  const authorised = await page.evaluate('window.pxdf.pickMedia()')
   if (!Array.isArray(authorised) || authorised.length !== 2) {
-    throw new Error(`DDF_PICK_MEDIA authorised ${JSON.stringify(authorised)}, wanted both files`)
+    throw new Error(`PXDF_PICK_MEDIA authorised ${JSON.stringify(authorised)}, wanted both files`)
   }
 
   const load = (path) => page.evaluate(`

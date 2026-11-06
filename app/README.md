@@ -1,4 +1,4 @@
-# DDF Electron sender shell
+# PXDF Electron sender shell
 
 This app renders a diagnostic frame in Electron and streams raw RGB frames to the existing `mapper` Python sidecar.
 
@@ -25,7 +25,7 @@ The build writes the renderer and Electron main/preload output to `dist/`.
 
 ## Sidecar environment
 
-- `DDF_ADDRESS`: destination address
-- `DDF_PORT`: destination port (default `60001`)
-- `DDF_LOCAL_IP`: optional local interface address
-- `DDF_PYTHON`: Python executable (default `python3`)
+- `PXDF_ADDRESS`: destination address
+- `PXDF_PORT`: destination port (default `60001`)
+- `PXDF_LOCAL_IP`: optional local interface address
+- `PXDF_PYTHON`: Python executable (default `python3`)

@@ -293,7 +293,7 @@ export function PlayScreen({
   }
 
   const refreshLibrary = async (): Promise<void> => {
-    setLibrary(await window.ddf.listMediaDir())
+    setLibrary(await window.pxdf.listMediaDir())
   }
 
   usePopoverEscape(ADD_CUE_MENU_ID)
@@ -342,7 +342,7 @@ export function PlayScreen({
           next.set(cue.id, reason)
           return next
         })
-        window.ddf.log('WARN', 'player', `no thumbnail for cue "${cue.name}": ${reason} — ${cue.source.path}`)
+        window.pxdf.log('WARN', 'player', `no thumbnail for cue "${cue.name}": ${reason} — ${cue.source.path}`)
       })
     }
   }, [show.cues])
@@ -361,7 +361,7 @@ export function PlayScreen({
    */
   const addCuesFromPaths = async (paths: readonly string[]): Promise<void> => {
     if (paths.length === 0) return
-    const seed = await window.ddf.cueSeed()
+    const seed = await window.pxdf.cueSeed()
 
     let cues = [...showRef.current.cues]
     // The *first* of the added cues, not the last. Selecting a cue in live
@@ -395,7 +395,7 @@ export function PlayScreen({
   const addMedia = async (): Promise<void> => {
     setPickerError(null)
     try {
-      await addCuesFromPaths(await window.ddf.pickMedia())
+      await addCuesFromPaths(await window.pxdf.pickMedia())
     } catch (error) {
       setPickerError(error instanceof Error ? error.message : 'Media picker failed')
     }
@@ -520,7 +520,7 @@ export function PlayScreen({
         // "never advance", so Loop on that cue does nothing at all. That used
         // to be recorded nowhere. It is one line now.
         const reason = error instanceof Error ? error.message : String(error)
-        window.ddf.log('WARN', 'player', `no media length for cue "${cue.name}": ${reason} — ${cue.source.path}`)
+        window.pxdf.log('WARN', 'player', `no media length for cue "${cue.name}": ${reason} — ${cue.source.path}`)
       } finally {
         probe.dispose()
       }
@@ -572,7 +572,7 @@ export function PlayScreen({
   return (
     <main ref={shellRef} className={`player-shell mode-${snapshot.mode} play-screen`}>
       <header className="title-bar">
-        <span className="show-title">DDF Player — {show.name}</span>
+        <span className="show-title">PXDF Player — {show.name}</span>
         <span className="geometry-readout">
           {floor.tileCols} × {floor.tileRows} · {floor.widthPx} × {floor.heightPx}
         </span>

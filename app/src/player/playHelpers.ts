@@ -69,7 +69,7 @@ export function setCueRotation(cues: readonly Cue[], cueId: string, rotation: Ro
  *
  * The last fallback is not padding. `parseShow` refuses an empty `name`, so a
  * path whose last segment is empty — a trailing separator, or an empty entry in
- * the delimiter-split `DDF_PICK_MEDIA` the wire gate seeds — would otherwise
+ * the delimiter-split `PXDF_PICK_MEDIA` the wire gate seeds — would otherwise
  * build a cue the app can hold and cannot reopen: Save writes it, Open rejects
  * the whole file, and the cue that caused it is one line in a stack of thirty.
  * A visible placeholder is the cheaper failure, and it is one the operator can

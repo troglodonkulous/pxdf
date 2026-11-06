@@ -69,7 +69,7 @@ const PORT = 60_001
 const DEBUG_PORT = 9_333
 const APP_DIR = resolve(import.meta.dirname, '..', '..')
 const REPO_ROOT = resolve(APP_DIR, '..')
-const PYTHON = process.env.DDF_PYTHON ?? 'python3'
+const PYTHON = process.env.PXDF_PYTHON ?? 'python3'
 
 /**
  * How long the wire may go quiet across a sidecar restart.
@@ -169,7 +169,7 @@ function makeUndecodableClip(directory) {
  *
  * ## What this fixture is for
  *
- * `ddf-media://` served every request with `net.fetch` over a `file://` URL
+ * `pxdf-media://` served every request with `net.fetch` over a `file://` URL
  * until 2026-09-18, and that cannot answer a `Range` request: `bytes=0-` comes
  * back `200`, whole file, no `Content-Range`. The scheme is registered
  * `stream: true` and Chromium reports `kIsRangeHeaderSupported=true` for it, so
@@ -712,7 +712,7 @@ await new Promise((acquired) => {
   })
 })
 
-const workspace = mkdtempSync(join(tmpdir(), 'ddf-e2e-'))
+const workspace = mkdtempSync(join(tmpdir(), 'pxdf-e2e-'))
 /**
  * The respawn storm, graded by counting spawns.
  *
@@ -741,8 +741,8 @@ async function checkNoRespawnStorm(workspace) {
   // the way the real sender complains, and leaves with EXIT_NETWORK_GONE.
   writeFileSync(stub, [
     '#!/bin/sh',
-    'echo spawn >> "$DDF_SPAWN_LOG"',
-    'echo "floor NIC $DDF_LOCAL_IP unusable: [Errno 49] Can\'t assign requested address" >&2',
+    'echo spawn >> "$PXDF_SPAWN_LOG"',
+    'echo "floor NIC $PXDF_LOCAL_IP unusable: [Errno 49] Can\'t assign requested address" >&2',
     'exit 3',
     '',
   ].join('\n'))
@@ -765,16 +765,16 @@ async function checkNoRespawnStorm(workspace) {
         cwd: APP_DIR,
         env: {
           ...process.env,
-          DDF_ADDRESS: '127.0.0.1',
+          PXDF_ADDRESS: '127.0.0.1',
           // A different port from the main run's, so a stray packet from this
           // one can never be counted as content by the tap.
-          DDF_PORT: String(PORT + 1),
-          DDF_PYTHON: stub,
-          DDF_SPAWN_LOG: spawnLog,
+          PXDF_PORT: String(PORT + 1),
+          PXDF_PYTHON: stub,
+          PXDF_SPAWN_LOG: spawnLog,
           // TEST-NET-3 (RFC 5737). Reserved for documentation, so it is
           // guaranteed not to be assigned to any interface on this machine —
           // which is exactly the state a pulled cable leaves behind.
-          DDF_LOCAL_IP: '203.0.113.9',
+          PXDF_LOCAL_IP: '203.0.113.9',
         },
         stdio: 'ignore',
         detached: true,
@@ -839,9 +839,9 @@ async function checkLibrarySurvivesRestart(workspace, expectedFile) {
         cwd: APP_DIR,
         env: {
           ...process.env,
-          DDF_ADDRESS: '127.0.0.1',
-          DDF_PORT: String(PORT + 2),
-          // Deliberately absent: DDF_PICK_MEDIA. This run must not need to
+          PXDF_ADDRESS: '127.0.0.1',
+          PXDF_PORT: String(PORT + 2),
+          // Deliberately absent: PXDF_PICK_MEDIA. This run must not need to
           // pick anything to see the folder it already knows about.
         },
         stdio: 'ignore',
@@ -852,7 +852,7 @@ async function checkLibrarySurvivesRestart(workspace, expectedFile) {
     const listing = await restartPage.evaluate(`
       (async () => {
         for (let attempt = 0; attempt < 25; attempt++) {
-          const result = await window.ddf.listMediaDir()
+          const result = await window.pxdf.listMediaDir()
           if (result !== null) return result
           await new Promise((r) => setTimeout(r, 200))
         }
@@ -903,7 +903,7 @@ try {
   /**
    * The folder the picker's clips live in.
    *
-   * Cue Library widens `ddf-media://` from "files the operator individually
+   * Cue Library widens `pxdf-media://` from "files the operator individually
    * opened" to "files living in the folder the operator opened one from" —
    * see `authorizedMediaDir` in `main.ts`. Putting the picked clips in their
    * own subdirectory rather than loose in `workspace` is what makes that
@@ -918,7 +918,7 @@ try {
   const clips = [makeClip(libraryDir, 'red'), makeClip(libraryDir, 'white')]
   // A container this build cannot demux, measured in `mediaFormats.ts`: rawvideo
   // in AVI, which is what every test pattern in this repo actually is. Seeded
-  // through the picker like the others, because `DDF_PICK_MEDIA` bypasses the
+  // through the picker like the others, because `PXDF_PICK_MEDIA` bypasses the
   // dialog's extension filter — the filter is a courtesy, and the failed-cue
   // path is the thing that has to hold when something gets past it.
   //
@@ -930,7 +930,7 @@ try {
   const undecodable = makeUndecodableClip(libraryDir)
   /**
    * A sibling of the two picked clips — same folder, never itself passed
-   * through `DDF_PICK_MEDIA` or opened through the dialog. This is the file
+   * through `PXDF_PICK_MEDIA` or opened through the dialog. This is the file
    * the folder-wide grant exists for: the Library section is supposed to
    * list it and serve it because the folder it lives in was authorised when
    * its neighbours were picked, not because anyone opened it by name.
@@ -952,7 +952,7 @@ try {
    * The `moov`-at-end clip the range fix exists for, and its byte-identical
    * `moov`-at-front control. Outside `libraryDir` on purpose: both are
    * authorised by being picked, and putting them in the library folder would
-   * change what `ddf:list-media-dir` lists, which section 6g grades exactly.
+   * change what `pxdf:list-media-dir` lists, which section 6g grades exactly.
    */
   const moov = makeMoovPair(workspace)
 
@@ -963,8 +963,8 @@ try {
 
   // PR 3's engine half: loop and trim, seeded onto two more cues with no
   // editing UI at all — that UI lands with the merge from `app-player-layout`
-  // (`docs/APP-PLAN.md`, "the inspector and trim-mode UI wait"). `DDF_CUE_SEED`
-  // is a test-only, env-var-gated seam of exactly the shape `DDF_PICK_MEDIA`
+  // (`docs/APP-PLAN.md`, "the inspector and trim-mode UI wait"). `PXDF_CUE_SEED`
+  // is a test-only, env-var-gated seam of exactly the shape `PXDF_PICK_MEDIA`
   // already is: a JSON object keyed by picked path, read once in `main.ts` and
   // applied to a cue's `loop`/`trimStartMs`/`trimEndMs` at add time in
   // `PlayScreen.tsx`'s `addMedia` — nothing a real launch ever sets.
@@ -1033,8 +1033,8 @@ try {
       cwd: APP_DIR,
       env: {
         ...process.env,
-        DDF_ADDRESS: '127.0.0.1',
-        DDF_PORT: String(PORT),
+        PXDF_ADDRESS: '127.0.0.1',
+        PXDF_PORT: String(PORT),
         // The heartbeat is once a minute in every build anyone ships, and this
         // run lasts well under that — so without this the log section below
         // would be grading a channel that had never spoken, and would pass by
@@ -1042,9 +1042,9 @@ try {
         // heartbeats from a real run, and the line says its own cadence
         // (`frames=N/5s`) so nothing downstream can mistake them for a
         // minute's counting.
-        DDF_HEARTBEAT_SECONDS: '5',
-        DDF_PICK_MEDIA: [...clips, undecodable, loopClip, trimClip, moov.front, moov.end].join(delimiter),
-        DDF_CUE_SEED: JSON.stringify(cueSeed),
+        PXDF_HEARTBEAT_SECONDS: '5',
+        PXDF_PICK_MEDIA: [...clips, undecodable, loopClip, trimClip, moov.front, moov.end].join(delimiter),
+        PXDF_CUE_SEED: JSON.stringify(cueSeed),
       },
       stdio: 'inherit',
       // `node_modules/.bin/electron` is a Node shim that spawns the real binary
@@ -1186,12 +1186,12 @@ try {
   //     and nothing compared them.
   //
   //     It holds for the unbound case too, which is what this run exercises:
-  //     no `DDF_LOCAL_IP` means `mapper` gets no `--local-ip`, and the select
+  //     no `PXDF_LOCAL_IP` means `mapper` gets no `--local-ip`, and the select
   //     has to say so rather than displaying the first interface as though it
   //     had been chosen.
   const nicAgrees = await waitFor(
     '(async () => (document.querySelector(\'[aria-label="Network interface"]\').value ' +
-    '=== await window.ddf.getLocalIp()) ? 1 : 0)()')
+    '=== await window.pxdf.getLocalIp()) ? 1 : 0)()')
   check(nicAgrees === 1, 'the Network dropdown shows the address the sender is bound to')
 
   // 1c. Rotation is presentation, not orientation — it must not restart anything.
@@ -1438,7 +1438,7 @@ try {
   //     refuses everything else. `unpicked` is the same kind of file, made the
   //     same way, differing only in never having been chosen — so a pass here
   //     cannot be explained by the clip being unplayable.
-  const unpickedUrl = `ddf-media://file${unpicked.split('/').map(encodeURIComponent).join('/')}`
+  const unpickedUrl = `pxdf-media://file${unpicked.split('/').map(encodeURIComponent).join('/')}`
   const refused = await page.evaluate(`
     new Promise((done) => {
       const v = document.createElement('video')
@@ -1460,11 +1460,11 @@ try {
     `handler returned ${refused}`)
 
   // 2c. The protocol-level half of the folder-wide grant: a direct
-  //     `ddf-media://` request for a sibling of the picked clips — never
+  //     `pxdf-media://` request for a sibling of the picked clips — never
   //     itself opened by name — bypassing the UI entirely. This is what "the
   //     Library can serve it" means at the layer that actually decides it;
   //     the DOM checks below only prove the UI *asks* correctly.
-  const siblingUrl = `ddf-media://file${sibling.split('/').map(encodeURIComponent).join('/')}`
+  const siblingUrl = `pxdf-media://file${sibling.split('/').map(encodeURIComponent).join('/')}`
   const siblingResult = await page.evaluate(`
     new Promise((done) => {
       const v = document.createElement('video')
@@ -1493,7 +1493,7 @@ try {
   //     one and the consequence check is the one that survives the mechanism
   //     changing shape, and `docs/APP-PLAN.md` is explicit that the second is
   //     what a gate is ultimately for.
-  const redUrl = `ddf-media://file${clips[0].split('/').map(encodeURIComponent).join('/')}`
+  const redUrl = `pxdf-media://file${clips[0].split('/').map(encodeURIComponent).join('/')}`
   const rangeProbe = await page.evaluate(`
     (async () => {
       const url = ${JSON.stringify(redUrl)}
@@ -1717,7 +1717,7 @@ try {
   // before the app quits. Both add or move cues in the stack, and every
   // section between here and there (3, 3b, 4a-4d, 6a-6f) assumes the exact
   // 7-cue [red, white, rawvideo, loop, trim, moov-front, moov-end]
-  // arrangement `DDF_PICK_MEDIA` seeds this run with — 3b in particular
+  // arrangement `PXDF_PICK_MEDIA` seeds this run with — 3b in particular
   // indexes rows 3 and 4, and 2d above indexes 5 and 6; running them here
   // would silently invalidate every assumption downstream instead of failing
   // loudly where the mistake was made. The two moov rows are appended last
@@ -1781,7 +1781,7 @@ try {
 
   // 3b. Loop and trim reach the wire — PR 3's engine half, proven with no
   //     editing UI at all. `loopClip` and `trimClip` (rows 3 and 4) already
-  //     carry `loop`/`trimStartMs` from `DDF_CUE_SEED`, applied at add time in
+  //     carry `loop`/`trimStartMs` from `PXDF_CUE_SEED`, applied at add time in
   //     `addMedia` — the same path a real cue goes through once the Loop/Trim
   //     controls exist. This only replaces the operator's not-yet-built click;
   //     nothing about the engine or the decoder downstream of it is a stub.
@@ -2061,7 +2061,7 @@ try {
   //     and rebuilt between the two reads, which is what used to lose it.
   const nicSurvived = await waitFor(
     '(async () => (document.querySelector(\'[aria-label="Network interface"]\').value ' +
-    '=== await window.ddf.getLocalIp()) ? 1 : 0)()')
+    '=== await window.pxdf.getLocalIp()) ? 1 : 0)()')
   check(nicSurvived === 1,
     'the NIC selection still matches the binding after a trip through the Player')
 
@@ -2211,7 +2211,7 @@ try {
   //     fixes. The old bar read `elapsedMs / cueDurationMs`, and
   //     `cueDurationMs` is `null` for every hold-until-GO cue, so it sat at 0
   //     for most of the stack. Cue 2 (the white clip) is never seeded through
-  //     `DDF_CUE_SEED` — only rows 3 and 4 are, in section 3b — so its `loop`
+  //     `PXDF_CUE_SEED` — only rows 3 and 4 are, in section 3b — so its `loop`
   //     is still `null`, `cueHoldMs` returns `null`, and it holds until GO.
   //     That is exactly the case the old bar could not move for.
   //
@@ -2404,16 +2404,16 @@ try {
   //     unconditionally regardless of what was live. The navigation back to
   //     Play that this block used to open with is now done once, above, by
   //     the block that runs first.
-  //     `ddf:list-media-dir` takes no path from the renderer — the main
+  //     `pxdf:list-media-dir` takes no path from the renderer — the main
   //     process answers with its own idea of the authorised folder. That is
   //     the property that keeps the handler from being a read-any-directory
   //     primitive handed to the untrusted side of `contextIsolation`; a
   //     handler that took a directory argument would pass every check below
   //     just as well while being a different, much worse, feature.
-  const listing = await page.evaluate('window.ddf.listMediaDir()')
+  const listing = await page.evaluate('window.pxdf.listMediaDir()')
   const listedNames = listing === null ? [] : listing.files.map((path) => path.split('/').pop()).sort()
   check(listing !== null && typeof listing.dir === 'string' && listing.dir.endsWith('/library'),
-    'ddf:list-media-dir answers with the folder the operator actually picked from',
+    'pxdf:list-media-dir answers with the folder the operator actually picked from',
     JSON.stringify(listing))
   // Derived from the fixtures this file authored rather than spelled out, so a
   // change to how `makeClip` names its output cannot make this check wrong
@@ -2438,7 +2438,7 @@ try {
   // library that lies to the operator about what GO will do.
   //
   // Counted relative to whatever the stack already holds rather than against a
-  // literal. `DDF_PICK_MEDIA` seeds five cues on the merged tree and seeded
+  // literal. `PXDF_PICK_MEDIA` seeds five cues on the merged tree and seeded
   // three before `app-cue-timing` added its loop and trim clips; a hard-coded
   // "4" grades the seed count, not the Library.
   const cueCountBeforeLibrary = await page.evaluate('document.querySelectorAll(".cue-row").length')
@@ -2805,14 +2805,14 @@ try {
   //
   //    Placed here deliberately: after the quit, so the record is complete, and
   //    BEFORE `checkLibrarySurvivesRestart` relaunches Electron — that
-  //    relaunch rotates `ddf.log` to `ddf.prev.log`, and reading afterwards
+  //    relaunch rotates `pxdf.log` to `pxdf.prev.log`, and reading afterwards
   //    would grade a two-line file from a different run while looking exactly
   //    like a pass.
   //
   //    `~/Library/Logs/<app name>` is not the `--user-data-dir` this run set:
   //    on macOS Electron derives the log folder from the app name, not from
   //    the profile. Unpackaged, that name is "Electron".
-  const logPath = join(homedir(), 'Library', 'Logs', 'Electron', 'ddf.log')
+  const logPath = join(homedir(), 'Library', 'Logs', 'Electron', 'pxdf.log')
   const logText = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
   const logRecords = logText.split('\n').filter((line) => /^\d{4}-/.test(line))
 

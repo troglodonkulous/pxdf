@@ -150,7 +150,7 @@ function Write-UncompressedAvi {
 
     fourcc $w 'LIST'; $w.Write([uint32]26); fourcc $w 'INFO'
     fourcc $w 'ISFT'; $w.Write([uint32]13)
-    $w.Write([System.Text.Encoding]::ASCII.GetBytes("ddf-patterns"))
+    $w.Write([System.Text.Encoding]::ASCII.GetBytes("pxdf-patterns"))
     $w.Write([byte]0)
     $w.Write([byte]0)
 

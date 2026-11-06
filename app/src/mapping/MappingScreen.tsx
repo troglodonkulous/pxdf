@@ -86,7 +86,7 @@ const NETWORK_HELP_ID = 'network-help'
  * somewhere they cannot use a terminal, and the System Settings route survives
  * a reboot where the `ipconfig` one does not.
  *
- * Deliberately not here: everything about `DDF_ADDRESS` and running from a dev
+ * Deliberately not here: everything about `PXDF_ADDRESS` and running from a dev
  * server. Operators run a packaged build, where that default does not apply,
  * and a panel that is mostly irrelevant is a panel nobody finishes reading.
  *
@@ -154,7 +154,7 @@ export function MappingScreen({
     setDiagramState({ kind: 'loading' })
     setHighlightedCols([])
 
-    void window.ddf.mapperPlan(floor.type, floor.tileCols, floor.tileRows)
+    void window.pxdf.mapperPlan(floor.type, floor.tileCols, floor.tileRows)
       .then((stdout) => {
         const plan = parsePlanTable(stdout)
         const diagram = buildDiagram(floor.type, floor.tileCols, floor.tileRows, plan)
@@ -212,7 +212,7 @@ export function MappingScreen({
 
   /**
    * The bound address may not be in the list — the cable is out, or a
-   * `DDF_LOCAL_IP` from the environment names an interface this machine does
+   * `PXDF_LOCAL_IP` from the environment names an interface this machine does
    * not have. Showing it anyway, marked, beats the two alternatives: silently
    * re-pointing the dropdown at `interfaces[0]` (which is the bug this PR is
    * about) or dropping the operator's choice on the floor with no explanation.
@@ -260,7 +260,7 @@ export function MappingScreen({
   return (
     <main className="mapping-screen">
       <header className="title-bar">
-        <span className="show-title">DDF Setup — Mapping</span>
+        <span className="show-title">PXDF Setup — Mapping</span>
         <StatusPill status={status} />
         {/*
           On Mapping rather than Play, and on purpose: this is the surface the
@@ -271,7 +271,7 @@ export function MappingScreen({
         <button
           type="button"
           className="button small ghost reveal-log"
-          onClick={() => window.ddf.revealLog()}
+          onClick={() => window.pxdf.revealLog()}
         >
           Reveal log
         </button>

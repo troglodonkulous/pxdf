@@ -414,7 +414,7 @@ in two, and it is the gate flaking rather than the app. Every DOM assertion in
 
 **Only one launch of the built app at a time.** `wire.mjs`, every `probe-*.mjs`,
 and `npm run dev` each start their own Electron instance, and two running
-together contend for the same `ddf.log` (whichever exits last wins the file),
+together contend for the same `pxdf.log` (whichever exits last wins the file),
 the same DevTools debug port, and the same CPU — the last of which silently
 perturbs any cadence measurement (`probe-render-rate.mjs`) without producing an
 error either harness would report. Run one, let it exit, confirm no Electron
@@ -429,15 +429,15 @@ had no way to report a failure to anyone who was not watching the screen in the
 second it happened. Every channel ended in a React banner: overwritten by the
 next event, erased by a restart, invisible afterwards.
 
-**Where it is.** `~/Library/Logs/DDF Sender/ddf.log` when packaged,
-`~/Library/Logs/Electron/ddf.log` in development — macOS derives the folder from
+**Where it is.** `~/Library/Logs/PXDF Sender/pxdf.log` when packaged,
+`~/Library/Logs/Electron/pxdf.log` in development — macOS derives the folder from
 the app name, not from `--user-data-dir`, which is why the wire gate's log lands
-in the development one. One rotation at launch to `ddf.prev.log`, by run and not
+in the development one. One rotation at launch to `pxdf.prev.log`, by run and not
 by size: after something goes wrong at a venue the operator restarts, and the
 file anyone wants is the one from the launch before. The launch block carries
 the heartbeat's legend — its cadence, and what `draw`/`readback`/`pass` and
 `decoders`/`peak`/`opened` mean — once per run, rather than repeating it on
-every line. `DDF_HEARTBEAT_SECONDS` turns the cadence down; `wire.mjs` sets it
+every line. `PXDF_HEARTBEAT_SECONDS` turns the cadence down; `wire.mjs` sets it
 to 5 because the gate runs for under a minute and a channel nothing can observe
 is a channel graded by nobody. It is safe in the product because each line says
 its own cadence in `frames=N/Ms`. **Reveal log** on the
@@ -490,7 +490,7 @@ only in `engine.test.ts`, because the unit test can prove the string exists and
 not that it survives the trip through the effect, the IPC and `log.ts`.
 
 The numbers ride the render loop's **existing 250 ms batching tick** to the main
-process over `ddf:render-stats`, which folds them and prints one summary per
+process over `pxdf:render-stats`, which folds them and prints one summary per
 heartbeat. Sums and maxima cross the boundary, never averages: a heartbeat is
 240 of those samples and they do not all see the same number of frames. There is
 no second cadence and `log.ts`'s never-per-frame rule holds by arithmetic.
@@ -643,9 +643,9 @@ hole is invisible from the records that did get written. Checked only at startup
 a log that dies at 21:40 reads exactly like one that is fine, and `(+2 more)`
 goes on pointing at a file that stopped recording hours earlier.
 
-**What is deliberately not logged.** Not frames — `ddf:frame` runs 30-60 times a
+**What is deliberately not logged.** Not frames — `pxdf:frame` runs 30-60 times a
 second and does nothing but bump two counters. Not the renderer's 250 ms
-samples: `ddf:render-stats` arrives four times a second and is folded into a
+samples: `pxdf:render-stats` arrives four times a second and is folded into a
 window, never written, so only the once-a-cadence summary reaches the file. Not every status publish —
 `Sidecar` republishes `restarting`/`sending` on every spawn, so a crash loop
 would bury its own cause; transitions only. Not renderer console output beyond
@@ -763,7 +763,7 @@ Two rules keep the renderer replaceable, and cost nothing today:
   moves over time, which is the layer stack's machinery and nothing the engine's
   single live slot can express. Until then, cue changes are hard cuts —
   gaplessly, which `engine.test.ts` grades.
-- **Media is loaded over `ddf-media://`, never over `file://`.** A `<video>`
+- **Media is loaded over `pxdf-media://`, never over `file://`.** A `<video>`
   whose `src` is a `file://` URL loads from a page served over `file://` and is
   blocked from a page served over `http://`, and the app is served both ways —
   `loadFile` when packaged, the Vite dev server when not. PR 2 shipped the
@@ -837,7 +837,7 @@ Two rules keep the renderer replaceable, and cost nothing today:
   `tools/dancefloor-loops.html`, not from this repo's tree. `Test Clips*/converted/`
   holds rawvideo AVIs and is output, not source.)
 
-  **Normalisation was also written down here as the answer to `ddf-media://`
+  **Normalisation was also written down here as the answer to `pxdf-media://`
   not serving ranges, and that part is now settled the other way.** The
   reasoning was that range requests are a workaround for *an unknown file,
   possibly enormous, that must be streamed in pieces*, and that import replaces
@@ -909,7 +909,7 @@ Named so they do not creep back in.
   (`captures/measurements/README.md`, stream-cadence): `mapper stream` alone,
   fed a steady 30 fps, reproduces it at the same magnitude, and does not when
   `sender.run()` sleeps in 1 ms slices. **2026-09-29:** `mapper stream
-  --pacing arrival`, reached from the app with `DDF_STREAM_PACING=arrival`,
+  --pacing arrival`, reached from the app with `PXDF_STREAM_PACING=arrival`,
   sends on the renderer's writes rather than its own tick; 30-on-30 errors
   fell to 7.3–9.6 %, steady across runs (stream-pacing and
   render-rate-pacing entries). Opt-in: `clock` stays the default until a floor

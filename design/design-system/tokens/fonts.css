@@ -1,4 +1,4 @@
-/* DDF ships no custom webfonts. The macOS app uses the system faces
+/* PXDF ships no custom webfonts. The macOS app uses the system faces
    (SF Pro Text / SF Pro Display / SF Mono); on the web we fall back to the
    system stack, then to Inter-free generics. No @font-face rules by design —
    see readme.md "Typography". */

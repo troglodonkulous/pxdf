@@ -3,7 +3,7 @@ import type { RenderSample } from './renderStats.js'
 import type { SenderStatus } from './sidecar.js'
 import type { Cue } from '../src/player/show.js'
 
-export interface DdfApi {
+export interface PxdfApi {
   writeFrame(frame: Uint8Array): void
   /** Put a line in the log file. Transitions and faults only — never per frame. */
   log(level: 'INFO' | 'WARN' | 'ERROR', source: string, message: string): void
@@ -47,15 +47,15 @@ export interface DdfApi {
  * subscriber sees the same value whenever it happens to subscribe.
  */
 let lastStatus: SenderStatus = 'restarting'
-ipcRenderer.on('ddf:status', (_event: unknown, status: SenderStatus) => { lastStatus = status })
+ipcRenderer.on('pxdf:status', (_event: unknown, status: SenderStatus) => { lastStatus = status })
 
 let lastSenderError: { message: string } | null = null
-ipcRenderer.on('ddf:sender-error', (_event: unknown, payload: { message: string } | null) => {
+ipcRenderer.on('pxdf:sender-error', (_event: unknown, payload: { message: string } | null) => {
   lastSenderError = payload
 })
 
 let lastInterfaces: { name: string; address: string }[] = []
-ipcRenderer.on('ddf:interfaces', (_event: unknown, list: { name: string; address: string }[]) => {
+ipcRenderer.on('pxdf:interfaces', (_event: unknown, list: { name: string; address: string }[]) => {
   lastInterfaces = list
 })
 
@@ -85,7 +85,7 @@ window.addEventListener('error', (event: ErrorEvent) => {
     : resource !== undefined
       ? `failed to load ${resource}`
       : `${event.message} (${event.filename}:${event.lineno})`
-  ipcRenderer.send('ddf:log', 'ERROR', 'renderer', `uncaught: ${detail}`)
+  ipcRenderer.send('pxdf:log', 'ERROR', 'renderer', `uncaught: ${detail}`)
 }, true)
 
 window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
@@ -93,73 +93,73 @@ window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => 
   const detail = reason instanceof Error
     ? `${reason.name}: ${reason.message}\n${reason.stack ?? ''}`
     : String(reason)
-  ipcRenderer.send('ddf:log', 'ERROR', 'renderer', `unhandled rejection: ${detail}`)
+  ipcRenderer.send('pxdf:log', 'ERROR', 'renderer', `unhandled rejection: ${detail}`)
 })
 
-const api: DdfApi = {
+const api: PxdfApi = {
   writeFrame(frame) {
-    ipcRenderer.send('ddf:frame', frame)
+    ipcRenderer.send('pxdf:frame', frame)
   },
   log(level, source, message) {
-    ipcRenderer.send('ddf:log', level, source, message)
+    ipcRenderer.send('pxdf:log', level, source, message)
   },
   renderStats(sample) {
-    ipcRenderer.send('ddf:render-stats', sample)
+    ipcRenderer.send('pxdf:render-stats', sample)
   },
   revealLog() {
-    ipcRenderer.send('ddf:reveal-log')
+    ipcRenderer.send('pxdf:reveal-log')
   },
   onStatus(callback) {
     const listener = (_event: unknown, status: SenderStatus): void => callback(status)
-    ipcRenderer.on('ddf:status', listener)
+    ipcRenderer.on('pxdf:status', listener)
     // Replay before returning. A status that arrived before this subscriber
     // existed is not stale news to it — it is the only news there is until the
     // next spawn, which may be hours away or never.
     callback(lastStatus)
-    return () => ipcRenderer.removeListener('ddf:status', listener)
+    return () => ipcRenderer.removeListener('pxdf:status', listener)
   },
   onSenderError(callback) {
     const listener = (_event: unknown, payload: { message: string } | null): void => callback(payload)
-    ipcRenderer.on('ddf:sender-error', listener)
+    ipcRenderer.on('pxdf:sender-error', listener)
     callback(lastSenderError)
-    return () => ipcRenderer.removeListener('ddf:sender-error', listener)
+    return () => ipcRenderer.removeListener('pxdf:sender-error', listener)
   },
   onInterfaces(callback) {
     const listener = (_event: unknown, list: { name: string; address: string }[]): void => callback(list)
-    ipcRenderer.on('ddf:interfaces', listener)
+    ipcRenderer.on('pxdf:interfaces', listener)
     callback(lastInterfaces)
-    return () => ipcRenderer.removeListener('ddf:interfaces', listener)
+    return () => ipcRenderer.removeListener('pxdf:interfaces', listener)
   },
   pickMedia() {
-    return ipcRenderer.invoke('ddf:pick-media') as Promise<string[]>
+    return ipcRenderer.invoke('pxdf:pick-media') as Promise<string[]>
   },
   listMediaDir() {
-    return ipcRenderer.invoke('ddf:list-media-dir') as Promise<{ dir: string; files: string[] } | null>
+    return ipcRenderer.invoke('pxdf:list-media-dir') as Promise<{ dir: string; files: string[] } | null>
   },
   cueSeed() {
-    return ipcRenderer.invoke('ddf:cue-seed') as Promise<Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>>>
+    return ipcRenderer.invoke('pxdf:cue-seed') as Promise<Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>>>
   },
   mapperPlan(type, cols, rows) {
-    return ipcRenderer.invoke('ddf:mapper-plan', type, cols, rows) as Promise<string>
+    return ipcRenderer.invoke('pxdf:mapper-plan', type, cols, rows) as Promise<string>
   },
   listInterfaces() {
-    return ipcRenderer.invoke('ddf:list-interfaces') as Promise<{ name: string; address: string }[]>
+    return ipcRenderer.invoke('pxdf:list-interfaces') as Promise<{ name: string; address: string }[]>
   },
   getLocalIp() {
-    return ipcRenderer.invoke('ddf:get-local-ip') as Promise<string>
+    return ipcRenderer.invoke('pxdf:get-local-ip') as Promise<string>
   },
   setFloor(floor) {
-    return ipcRenderer.invoke('ddf:set-floor', floor) as Promise<void>
+    return ipcRenderer.invoke('pxdf:set-floor', floor) as Promise<void>
   },
   setLocalIp(address) {
-    return ipcRenderer.invoke('ddf:set-local-ip', address) as Promise<void>
+    return ipcRenderer.invoke('pxdf:set-local-ip', address) as Promise<void>
   },
 }
 
-contextBridge.exposeInMainWorld('ddf', api)
+contextBridge.exposeInMainWorld('pxdf', api)
 
 declare global {
   interface Window {
-    ddf: DdfApi
+    pxdf: PxdfApi
   }
 }

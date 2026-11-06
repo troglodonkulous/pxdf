@@ -24,7 +24,7 @@ let dir: string
 
 beforeEach(() => {
   vi.useFakeTimers()
-  dir = mkdtempSync(join(tmpdir(), 'ddf-settings-test-'))
+  dir = mkdtempSync(join(tmpdir(), 'pxdf-settings-test-'))
   getPath.mockReturnValue(dir)
 })
 

@@ -70,9 +70,9 @@ import { setTimeout as sleep } from 'node:timers/promises'
 
 const DEBUG_PORT = 9_338 // distinct from 9333-9337, used by the other probes/wire.mjs
 const APP_DIR = resolve(import.meta.dirname, '..', '..')
-const CLIP_DIR = process.env.DDF_CLIP_DIR ?? resolve(APP_DIR, '..', 'test-patterns', 'Test Clips 3')
+const CLIP_DIR = process.env.PXDF_CLIP_DIR ?? resolve(APP_DIR, '..', 'test-patterns', 'Test Clips 3')
 const ROUNDS = Number(process.env.ROUNDS ?? '8')
-const OUT_FILE = process.env.DDF_MI_OUT
+const OUT_FILE = process.env.PXDF_MI_OUT
   ?? resolve(APP_DIR, '..', 'docs', 'media-internals-capture.txt')
 
 const PICKER_EXTENSIONS = ['.mp4', '.m4v', '.mov', '.webm', '.mkv']
@@ -83,10 +83,10 @@ const CLIPS = readdirSync(CLIP_DIR).sort().filter((name) => {
   return false
 }).map((name) => join(CLIP_DIR, name))
 
-const CONTROL_CLIP = process.env.DDF_CONTROL_CLIP
+const CONTROL_CLIP = process.env.PXDF_CONTROL_CLIP
   ?? resolve(APP_DIR, '..', 'test-patterns', '11-white-8x8_4P-10x5.mp4')
 
-const mediaUrl = (path) => `ddf-media://file${path.split('/').map(encodeURIComponent).join('/')}`
+const mediaUrl = (path) => `pxdf-media://file${path.split('/').map(encodeURIComponent).join('/')}`
 
 /** Byte-identical to `loadOne` in `probe-hwdecode.mjs` — see there for why every part of this shape (the `settled` guard, cleanup before reporting any outcome, cleanup failure as its own outcome) is load-bearing. */
 const loadOne = (path) => `
@@ -305,9 +305,9 @@ try {
       cwd: APP_DIR,
       env: {
         ...process.env,
-        DDF_ADDRESS: '127.0.0.1',
-        DDF_PORT: '60004',
-        DDF_PICK_MEDIA: [...CLIPS, CONTROL_CLIP].join(':'),
+        PXDF_ADDRESS: '127.0.0.1',
+        PXDF_PORT: '60004',
+        PXDF_PICK_MEDIA: [...CLIPS, CONTROL_CLIP].join(':'),
       },
       stdio: 'ignore',
       detached: true,

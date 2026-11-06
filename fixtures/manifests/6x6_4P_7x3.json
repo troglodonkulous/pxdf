@@ -1,5 +1,5 @@
 {
-  "schema": "ddf-mapper-fixture/1",
+  "schema": "pxdf-mapper-fixture/1",
   "name": "6x6_4P_7x3",
   "why": "6x6 transpose scan \u2014 carried as data, no hardware, unverified",
   "config": {

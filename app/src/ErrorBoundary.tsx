@@ -35,11 +35,11 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   override componentDidCatch(error: Error, info: ErrorInfo): void {
     // The component stack is the whole value of catching here rather than
     // letting the watchdog report a frozen floor two seconds later: it names
-    // which surface threw. `window.ddf` is reached defensively because a
+    // which surface threw. `window.pxdf` is reached defensively because a
     // preload that failed to load is itself a way to get here, and a reporting
     // path that throws inside `componentDidCatch` replaces a diagnosable
     // failure with an undiagnosable one.
-    window.ddf?.log(
+    window.pxdf?.log(
       'ERROR',
       'renderer',
       `React tree unmounted — the render loop has stopped and the floor is holding its last frame\n` +

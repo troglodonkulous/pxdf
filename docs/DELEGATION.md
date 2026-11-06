@@ -19,7 +19,7 @@ acceptance-command rule below is a fix *around* that; this is the mechanism it
 was never a fix *of*.
 
 - **`network_access = true` is set in this repo's `.codex/config.toml`, scoped
-  to `ddf` only** — not in `~/.codex/config.toml`, which would widen it to
+  to `pxdf` only** — not in `~/.codex/config.toml`, which would widen it to
   every trusted project on this machine. Decided 2026-08-12. It lets
   `npm install` run inside the sandbox, but it also means any future `--write`
   Codex run in this repo can reach the network for anything, not just installs.

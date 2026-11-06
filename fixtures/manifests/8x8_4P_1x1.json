@@ -1,5 +1,5 @@
 {
-  "schema": "ddf-mapper-fixture/1",
+  "schema": "pxdf-mapper-fixture/1",
   "name": "8x8_4P_1x1",
   "why": "the minimum floor \u2014 one port, one packet, which is also the last",
   "config": {

@@ -53,7 +53,7 @@ describe('PICKER_EXTENSIONS', () => {
 /**
  * The `Content-Type` half, which the handler did not used to own.
  *
- * Before ranges, `ddf-media://` fetched bytes with `net.fetch` over a `file://`
+ * Before ranges, `pxdf-media://` fetched bytes with `net.fetch` over a `file://`
  * URL and passed that response's headers through, so Chromium supplied the
  * type. A `206` is built from a raw `createReadStream`, which carries no
  * headers at all — so the type is now this module's answer, on both the `200`

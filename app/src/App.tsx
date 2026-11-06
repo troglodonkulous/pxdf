@@ -96,9 +96,9 @@ export function App() {
   const passRef = useRef({ rotation, mirrorX: false, mirrorY: false, s: S })
   passRef.current = { rotation, mirrorX: false, mirrorY: false, s: S }
 
-  useEffect(() => window.ddf.onStatus(setStatus), [])
-  useEffect(() => window.ddf.onSenderError((payload) => setSenderError(payload?.message ?? null)), [])
-  useEffect(() => window.ddf.onInterfaces(setInterfaces), [])
+  useEffect(() => window.pxdf.onStatus(setStatus), [])
+  useEffect(() => window.pxdf.onSenderError((payload) => setSenderError(payload?.message ?? null)), [])
+  useEffect(() => window.pxdf.onInterfaces(setInterfaces), [])
 
   /*
    * What the show did, for the log.
@@ -122,14 +122,14 @@ export function App() {
     // file has the opposite need, so it gets the failing path too. The two
     // fields are null and non-null together (`engine.ts`), so keying on this
     // one fires on exactly the transitions the old one did.
-    if (snapshot.lastErrorLog !== null) window.ddf.log('ERROR', 'player', snapshot.lastErrorLog)
+    if (snapshot.lastErrorLog !== null) window.pxdf.log('ERROR', 'player', snapshot.lastErrorLog)
   }, [snapshot.lastErrorLog])
 
   useEffect(() => {
     // Logged when it appears and not when it clears. A stall that resolves is
     // the system working; the line that matters is the one whose timestamp can
     // be lined up against a glitch somebody saw on the floor.
-    if (snapshot.stallWarning !== null) window.ddf.log('WARN', 'player', snapshot.stallWarning)
+    if (snapshot.stallWarning !== null) window.pxdf.log('WARN', 'player', snapshot.stallWarning)
   }, [snapshot.stallWarning])
 
   useEffect(() => {
@@ -137,7 +137,7 @@ export function App() {
     // a dependency, so this fires when the live cue changes and not when the
     // operator renames one.
     const cue = showRef.current.cues.find(({ id }) => id === snapshot.liveCueId)
-    window.ddf.log(
+    window.pxdf.log(
       'INFO',
       'player',
       cue === undefined
@@ -148,15 +148,15 @@ export function App() {
 
   // The bound address is the main process's to know — it is what `mapper stream`
   // was actually launched with. Reading it once at start rather than assuming
-  // `interfaces[0]` is what makes a `DDF_LOCAL_IP` set in the environment, or
+  // `interfaces[0]` is what makes a `PXDF_LOCAL_IP` set in the environment, or
   // restored from settings, show up in the dropdown as the truth instead of
   // being silently contradicted by it.
   useEffect(() => {
-    void window.ddf.getLocalIp().then(setLocalIp)
+    void window.pxdf.getLocalIp().then(setLocalIp)
   }, [])
 
   const selectInterface = async (address: string): Promise<void> => {
-    await window.ddf.setLocalIp(address)
+    await window.pxdf.setLocalIp(address)
     setLocalIp(address)
   }
 
@@ -276,7 +276,7 @@ export function App() {
       const wireBytes = tick.wire.kind === 'black'
         ? blackFrameRef.current
         : compose(tick.wire.source, tick.master, wireBufferRef.current)
-      window.ddf.writeFrame(wireBytes)
+      window.pxdf.writeFrame(wireBytes)
 
       // The on-screen floor preview. Live mode reuses exactly what was sent.
       let screenBytes: Uint8Array
@@ -312,7 +312,7 @@ export function App() {
         // runs on a clock — a push from `VideoSource`'s constructor would put an
         // IPC send on the cue-arming path.
         const census = decoderCensus()
-        window.ddf.renderStats({
+        window.pxdf.renderStats({
           composes: sampledPasses,
           drawMsTotal: sampledDrawTime,
           readbackMsTotal: sampledReadbackTime,
@@ -430,7 +430,7 @@ export function App() {
     patch: Partial<Pick<ShowFloor, 'type' | 'tileCols' | 'tileRows'>>,
   ): Promise<void> => {
     const next = applyFloorSelection(show.floor, patch)
-    await window.ddf.setFloor(next)
+    await window.pxdf.setFloor(next)
     applyShow({ ...show, floor: next })
   }
 

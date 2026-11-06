@@ -32,7 +32,7 @@ from .orientation import IDENTITY, Orientation
 from .patterns import PATTERNS
 from .plan import build_plan
 
-SCHEMA = "ddf-mapper-fixture/1"
+SCHEMA = "pxdf-mapper-fixture/1"
 
 
 class FixturesExist(Exception):

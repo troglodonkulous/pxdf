@@ -55,7 +55,7 @@
  * 0/7 `moov`-at-end clips did, across one night's job log, for 105
  * `DEMUXER_ERROR_COULD_NOT_OPEN` lines.
  */
-export const MEDIA_SCHEME = 'ddf-media';
+export const MEDIA_SCHEME = 'pxdf-media';
 
 /**
  * A dummy authority.
@@ -85,7 +85,7 @@ export function mediaUrl(path: string): string {
 }
 
 /**
- * The absolute path a `ddf-media://` URL refers to, or `null` if it refers to
+ * The absolute path a `pxdf-media://` URL refers to, or `null` if it refers to
  * nothing.
  *
  * The `null` is not defensive padding. This runs in the main process against a

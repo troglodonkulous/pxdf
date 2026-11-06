@@ -52,7 +52,7 @@
  * ## Positive control
  *
  * The instrument's own failure mode is measuring nothing: a page that never
- * mounts, a clip directory that is empty, a `ddf-media://` that 403s every
+ * mounts, a clip directory that is empty, a `pxdf-media://` that 403s every
  * request would each produce a tidy table of failures that says "the decoder is
  * broken" when the truth is "the probe is".
  *
@@ -85,7 +85,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
  */
 const DEBUG_PORTS = { hardware: 9_336, software: 9_337 }
 const APP_DIR = resolve(import.meta.dirname, '..', '..')
-const CLIP_DIR = process.env.DDF_CLIP_DIR ?? resolve(APP_DIR, '..', 'test-patterns', 'Test Clips 3')
+const CLIP_DIR = process.env.PXDF_CLIP_DIR ?? resolve(APP_DIR, '..', 'test-patterns', 'Test Clips 3')
 /** How many times each arm walks the whole clip set. The failure is intermittent; one pass is an anecdote. */
 const ROUNDS = Number(process.env.ROUNDS ?? '3')
 
@@ -120,10 +120,10 @@ const CLIPS = readdirSync(CLIP_DIR).sort().filter((name) => {
  * untracked as of 2026-09-03 — `CLAUDE.md` wants evidence in the repo, so it
  * should be committed if this probe's results are ever cited.
  */
-const CONTROL_CLIP = process.env.DDF_CONTROL_CLIP
+const CONTROL_CLIP = process.env.PXDF_CONTROL_CLIP
   ?? resolve(APP_DIR, '..', 'test-patterns', '11-white-8x8_4P-10x5.mp4')
 
-const mediaUrl = (path) => `ddf-media://file${path.split('/').map(encodeURIComponent).join('/')}`
+const mediaUrl = (path) => `pxdf-media://file${path.split('/').map(encodeURIComponent).join('/')}`
 
 /**
  * One clip, loaded and seeked the way `captureThumbnail` does.
@@ -231,7 +231,7 @@ function openPage(url) {
  * One arm: a fresh Electron, `ROUNDS` serial passes over every clip.
  *
  * The clips must reach `allowedMedia` or every request 403s, so they go through
- * the `DDF_PICK_MEDIA` seam the same way the other probes authorize theirs —
+ * the `PXDF_PICK_MEDIA` seam the same way the other probes authorize theirs —
  * the picker is never opened, but the paths are the operator's choice as far as
  * `main.ts` is concerned.
  */
@@ -260,11 +260,11 @@ async function runArm(label, port, extraArgs) {
         cwd: APP_DIR,
         env: {
           ...process.env,
-          DDF_ADDRESS: '127.0.0.1',
-          DDF_PORT: '60004',
+          PXDF_ADDRESS: '127.0.0.1',
+          PXDF_PORT: '60004',
           // The control is picked alongside the set so it lands in
           // `allowedMedia` too; it is excluded from the measured columns below.
-          DDF_PICK_MEDIA: [...CLIPS, CONTROL_CLIP].join(':'),
+          PXDF_PICK_MEDIA: [...CLIPS, CONTROL_CLIP].join(':'),
         },
         stdio: 'ignore',
         detached: true,

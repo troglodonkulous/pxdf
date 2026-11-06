@@ -74,7 +74,7 @@ class ReportRendering(unittest.TestCase):
         self.assertIn("configs passed", table)
 
         payload = json.loads(to_json(results))
-        self.assertEqual(payload["schema"], "ddf-oracle-report/2")
+        self.assertEqual(payload["schema"], "pxdf-oracle-report/2")
         self.assertEqual(payload["summary"]["total"], len(results))
         self.assertEqual(
             payload["summary"]["passed"] + payload["summary"]["failed"], len(results)

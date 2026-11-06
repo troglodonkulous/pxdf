@@ -60,13 +60,13 @@ if (-not (Test-Path (Join-Path $ReleaseDir 'VideoGrabber.dll'))) {
     throw "VideoGrabber.dll not found in $ReleaseDir"
 }
 if (-not $WorkDir) {
-    $WorkDir = Join-Path ([System.IO.Path]::GetTempPath()) 'ddf-grabber-probe'
+    $WorkDir = Join-Path ([System.IO.Path]::GetTempPath()) 'pxdf-grabber-probe'
 }
 if (-not (Test-Path $WorkDir)) { New-Item -ItemType Directory -Path $WorkDir | Out-Null }
 
 # The DLL pulls in mfc140u / msvcp140 / vcruntime140 from its own folder, so it
 # has to be loaded with that folder on the search path.
-Add-Type -Namespace Ddf -Name Native -MemberDefinition @'
+Add-Type -Namespace Pxdf -Name Native -MemberDefinition @'
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern bool SetDllDirectory(string lpPathName);
 
@@ -83,14 +83,14 @@ Add-Type -Namespace Ddf -Name Native -MemberDefinition @'
     public static extern void ReleaseGrabber();
 '@
 
-[void][Ddf.Native]::SetDllDirectory($ReleaseDir)
-if ([IntPtr]::Zero -eq [Ddf.Native]::LoadLibrary((Join-Path $ReleaseDir 'VideoGrabber.dll'))) {
+[void][Pxdf.Native]::SetDllDirectory($ReleaseDir)
+if ([IntPtr]::Zero -eq [Pxdf.Native]::LoadLibrary((Join-Path $ReleaseDir 'VideoGrabber.dll'))) {
     throw "LoadLibrary failed for VideoGrabber.dll (error $([ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()).Message))"
 }
 
 $supported = @('.MP4', '.AVI', '.FLV', '.MOV', '.WMV', '.MPG')
 
-if (-not [Ddf.Native]::InitGrabber()) {
+if (-not [Pxdf.Native]::InitGrabber()) {
     throw "InitGrabber() returned false -- DirectShow could not be initialised."
 }
 
@@ -114,7 +114,7 @@ try {
             $thumb = Join-Path $WorkDir ($f.BaseName + '.bmp')
             if (Test-Path $thumb) { Remove-Item $thumb -Force }
             try {
-                [void][Ddf.Native]::GenerateThumbnail($f.FullName, $thumb)
+                [void][Pxdf.Native]::GenerateThumbnail($f.FullName, $thumb)
             }
             catch {
                 $note = "GenerateThumbnail threw: $($_.Exception.Message)"
@@ -142,5 +142,5 @@ try {
     Write-Host "$($ok.Count) file(s) will load and play in Ledset." -ForegroundColor Green
 }
 finally {
-    [Ddf.Native]::ReleaseGrabber()
+    [Pxdf.Native]::ReleaseGrabber()
 }

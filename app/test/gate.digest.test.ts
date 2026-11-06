@@ -30,7 +30,7 @@ import { SHOP_RIG, JOB_RIG } from '../src/render/geometry';
 import type { FloorGeometry, Rotation } from '../src/render/geometry';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const PYTHON = process.env.DDF_PYTHON ?? 'python3';
+const PYTHON = process.env.PXDF_PYTHON ?? 'python3';
 
 /** The gradient24 framebuffer for a floor, straight out of `mapper.patterns`. */
 function gradient24(floor: FloorGeometry): Uint8ClampedArray {

@@ -81,7 +81,7 @@ then a cabling choice, made at load-in — this rig's arrangement #1 convention
 is connector 1 = the lower pair of a controller's block, connector 2 = the
 higher pair, giving a strictly monotonic P1→P10 walk. That specific
 left-to-right convention is now **fixed**, per decision 19/20's amendment in
-`HANDOFF-ddf-geometry.md` — see there for why.
+`HANDOFF-ddf-geometry.md` (not in this repository) — see there for why.
 
 **Device Order `0k` ⇒ byte 1 = `k−1` — confirmed ✅, gate 4, 2026-08-08.**
 §3's V1a/b/c triple landed each byte-1 value on exactly the physical block

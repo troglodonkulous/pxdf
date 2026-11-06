@@ -344,7 +344,7 @@ Struck through where gate 2 settled them.
   rows for arrangement #1; findings in its §10. Arrangement #2 was attempted,
   found the current orientation model can't represent a per-controller port
   pair-swap, and was abandoned by explicit user override rather than fixed —
-  decisions 19/20 amended in `HANDOFF-ddf-geometry.md` accordingly. See
+  decisions 19/20 amended in `HANDOFF-ddf-geometry.md` (not in this repository) accordingly. See
   `docs/RUNSHEET-10x5-4P.md` §9's closing note for the full derivation.
 - ~~**Arrangement #2's capture row**~~ — moot. Decision 20 dropped; the
   `configs.acceptance.json` row that depended on it was removed rather than

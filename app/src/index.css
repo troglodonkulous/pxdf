@@ -148,7 +148,7 @@ input:disabled {
 .button.primary,
 .icon-button.primary {
   color: var(--text-on-accent);
-  background: var(--ddf-green-hot);
+  background: var(--pxdf-green-hot);
   font-weight: var(--fw-semibold);
 }
 
@@ -337,7 +337,7 @@ input:disabled {
 
 .cue-row.is-selected {
   border-color: var(--border-accent);
-  box-shadow: inset 3px 0 var(--ddf-green-hot);
+  box-shadow: inset 3px 0 var(--pxdf-green-hot);
 }
 
 .cue-row.is-live {
@@ -594,7 +594,7 @@ input:disabled {
 }
 
 .segmented button.is-active .segment-dot {
-  background: var(--ddf-green-hot);
+  background: var(--pxdf-green-hot);
   box-shadow: var(--glow-accent);
 }
 
@@ -693,12 +693,12 @@ input:disabled {
 
 .timeline-segment.is-played {
   height: 10px;
-  background: var(--ddf-green-hot);
+  background: var(--pxdf-green-hot);
 }
 
 .timeline-segment.is-cursor {
   height: 12px;
-  background: var(--ddf-green-glow);
+  background: var(--pxdf-green-glow);
   box-shadow: var(--glow-accent);
 }
 
@@ -846,7 +846,7 @@ input:disabled {
 .master-control input {
   width: 100%;
   margin: 0;
-  accent-color: var(--ddf-green-hot-hex);
+  accent-color: var(--pxdf-green-hot-hex);
 }
 
 .disabled-control small {
@@ -917,7 +917,7 @@ input:disabled {
 .crossfade-control input {
   width: 140px;
   margin: 0;
-  accent-color: var(--ddf-green-hot-hex);
+  accent-color: var(--pxdf-green-hot-hex);
 }
 
 .crossfade-control output {
@@ -1046,7 +1046,7 @@ select:focus-visible {
   top: 50%;
   display: block;
   border-radius: var(--r-cell);
-  background: var(--ddf-ink);
+  background: var(--pxdf-ink);
   image-rendering: pixelated;
   object-fit: contain;
   pointer-events: none;

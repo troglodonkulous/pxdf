@@ -24,7 +24,7 @@
  * generally believed to support, and it was wrong in the other direction: it
  * dropped Matroska, which this build decodes perfectly well. So the list is now
  * what a probe of *this* Electron build actually did — one clip per container,
- * authored with a codec natural to it, loaded through `ddf-media://` in the
+ * authored with a codec natural to it, loaded through `pxdf-media://` in the
  * running app. Re-run it with `node test/e2e/probe-containers.mjs`; the answer
  * is build-specific and an Electron upgrade can move it. Measured 2026-08-13:
  *
@@ -63,7 +63,7 @@
 export const PICKER_EXTENSIONS: readonly string[] = ['mp4', 'm4v', 'mov', 'webm', 'mkv'];
 
 /**
- * The `Content-Type` `ddf-media://` reports for a file, by extension.
+ * The `Content-Type` `pxdf-media://` reports for a file, by extension.
  *
  * ## Why the handler has to own this now
  *

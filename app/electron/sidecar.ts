@@ -27,9 +27,9 @@ export type SenderStatus = 'sending' | 'restarting' | 'stopped'
 /**
  * Note what is *not* here: address, port, local IP and the Python binary.
  *
- * Each had an optional field beside its `DDF_*` environment override, and no
+ * Each had an optional field beside its `PXDF_*` environment override, and no
  * caller ever set one — not `main.ts`, not `sidecar.test.ts`, not the wire
- * gate, which seeds `DDF_ADDRESS` and `DDF_PORT`. Two ways to configure one
+ * gate, which seeds `PXDF_ADDRESS` and `PXDF_PORT`. Two ways to configure one
  * value, one of them dead, is a coin-flip for whoever next needs to change it,
  * and the dead half is the one that reads more discoverable. The environment
  * path stays because it is the one the gate actually exercises.
@@ -349,15 +349,15 @@ export class Sidecar {
     // it, and is true on all three paths.
     this.options.onStatus('restarting')
 
-    const address = process.env.DDF_ADDRESS ??
+    const address = process.env.PXDF_ADDRESS ??
       (this.options.isPackaged ? '255.255.255.255' : '127.0.0.1')
-    const port = process.env.DDF_PORT ?? String(60_001)
-    const python = process.env.DDF_PYTHON ?? 'python3'
-    const localIp = process.env.DDF_LOCAL_IP
+    const port = process.env.PXDF_PORT ?? String(60_001)
+    const python = process.env.PXDF_PYTHON ?? 'python3'
+    const localIp = process.env.PXDF_LOCAL_IP
     // Opt-in only (D-02). Unset leaves `mapper`'s own default, `clock`, in
     // charge. `--emit-timing` is never passed: every stdout line is logged at
     // INFO below, and it prints one per frame.
-    const pacing = process.env.DDF_STREAM_PACING
+    const pacing = process.env.PXDF_STREAM_PACING
     const args = [
       '-m', 'mapper', 'stream',
       '--type', this.options.type,

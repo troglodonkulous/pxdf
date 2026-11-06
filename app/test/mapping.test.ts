@@ -36,7 +36,7 @@ import { floorGeometry, JOB_RIG, SHOP_RIG, TILE_PX } from '../src/render/geometr
 import type { ShowFloor } from '../src/player/show';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const PYTHON = process.env.DDF_PYTHON ?? 'python3';
+const PYTHON = process.env.PXDF_PYTHON ?? 'python3';
 
 /** `python -m mapper plan` for a geometry, verbatim. The only topology oracle. */
 function mapperPlan(type: string, cols: number, rows: number): string {

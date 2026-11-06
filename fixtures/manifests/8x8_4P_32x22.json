@@ -1,5 +1,5 @@
 {
-  "schema": "ddf-mapper-fixture/1",
+  "schema": "pxdf-mapper-fixture/1",
   "name": "8x8_4P_32x22",
   "why": "the maximum 4P floor \u2014 8 controllers",
   "config": {

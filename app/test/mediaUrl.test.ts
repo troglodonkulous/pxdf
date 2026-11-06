@@ -21,7 +21,7 @@ describe('the media URL round trip', () => {
     '/Users/rob/clips/ünïcode ✨ né.webm',
     '/Users/rob/clips/a&b=c;d.mp4',
     "/Users/rob/clips/it's [fine] (really).m4v",
-    '/var/folders/lc/5bhyvxbj4rn8426kp6g_bhsh0000gn/T/ddf-e2e-Xk9/red.mp4',
+    '/var/folders/lc/5bhyvxbj4rn8426kp6g_bhsh0000gn/T/pxdf-e2e-Xk9/red.mp4',
   ]
 
   it.each(paths)('survives %s', (path) => {

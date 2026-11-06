@@ -1,5 +1,5 @@
 {
-  "schema": "ddf-mapper-fixture/1",
+  "schema": "pxdf-mapper-fixture/1",
   "name": "8x8_8P_8x5",
   "why": "the 2026-08-06 capture rig \u2014 one controller, exactly full",
   "config": {

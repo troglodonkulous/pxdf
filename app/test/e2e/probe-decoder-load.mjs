@@ -20,7 +20,7 @@
  * ## The three arms
  *
  * 1. **App path, both fan-outs.** Adds the picked clips through the real
- *    `DDF_PICK_MEDIA` picker seam, then counts the cue rows that ended up with
+ *    `PXDF_PICK_MEDIA` picker seam, then counts the cue rows that ended up with
  *    a thumbnail *and* the cues that ended up with a Duration. Both are
  *    operator-visible consequences of a lost throwaway decoder, and they are
  *    separate channels: `PlayScreen` swallows a thumbnail rejection
@@ -28,7 +28,7 @@
  *    rejection into `mediaDurationMs: null`, which is an em dash in the
  *    inspector and a Loop that never advances. Grading one would pass a run in
  *    which the other lost every probe. It also reads the error banner.
- * 2. **Serial, then concurrent.** All six loaded through `ddf-media://` the way
+ * 2. **Serial, then concurrent.** All six loaded through `pxdf-media://` the way
  *    `captureThumbnail` loads them — `crossOrigin`, `src`, `loadedmetadata`,
  *    seek, `drawImage` — reporting the raw `MediaError` name and message rather
  *    than a generic failure. Serial runs first and is the positive control: if
@@ -39,7 +39,7 @@
  *    throwaway per cue. Deliberately synthetic: it exists to find the ceiling,
  *    not to describe normal use.
  * 4. **The decoder census**, read back out of the app's own heartbeat. The
- *    child is launched with `DDF_HEARTBEAT_SECONDS=5` and the log is read after
+ *    child is launched with `PXDF_HEARTBEAT_SECONDS=5` and the log is read after
  *    it exits, for the highest `peak=` it recorded — the most decoders the
  *    window held open at once while this run added its cues.
  *
@@ -72,7 +72,7 @@
  *
  * ## One cost, stated
  *
- * The log this reads is `~/Library/Logs/Electron/ddf.log`, the same file
+ * The log this reads is `~/Library/Logs/Electron/pxdf.log`, the same file
  * `wire.mjs` grades, and launching Electron rotates it. That was already true
  * of this probe before it read the file — any run of this rotates the log out
  * from under a concurrent `wire.mjs` — but it is worth saying now that it
@@ -112,11 +112,11 @@ const SIDECAR_PORT = 60_003
 const APP_DIR = resolve(import.meta.dirname, '..', '..')
 /**
  * `Test Clips/` is gitignored, so a git worktree of this branch does not have
- * it — only the checkout it was downloaded into does. `DDF_CLIP_DIR` points
+ * it — only the checkout it was downloaded into does. `PXDF_CLIP_DIR` points
  * this at that checkout rather than making the probe unrunnable off the main
  * clone.
  */
-const CLIP_DIR = process.env.DDF_CLIP_DIR ?? resolve(APP_DIR, '..', 'test-patterns', 'Test Clips')
+const CLIP_DIR = process.env.PXDF_CLIP_DIR ?? resolve(APP_DIR, '..', 'test-patterns', 'Test Clips')
 
 /**
  * The default six, named rather than globbed so the 2026-08-15 measurement
@@ -132,13 +132,13 @@ const DEFAULT_CLIPS = [
 ]
 
 /**
- * A pointed `DDF_CLIP_DIR` measures whatever is in that directory, not the six
+ * A pointed `PXDF_CLIP_DIR` measures whatever is in that directory, not the six
  * names above.
  *
  * The names were the whole of clip selection until 2026-09-03, and that made
  * the probe unable to measure the media it was most needed on: the twelve
  * clips in `test-patterns/Test Clips 3/` are the ones that produced
- * `MEDIA_ERR_DECODE` on the floor, and pointing the old `DDF_CLIP_DIR` at them
+ * `MEDIA_ERR_DECODE` on the floor, and pointing the old `PXDF_CLIP_DIR` at them
  * resolved six paths that do not exist there. The probe would have refused —
  * loudly, which is the one thing that stopped it becoming a measurement of the
  * wrong files — but "refuses on the media that matters" and "measures it" are
@@ -159,7 +159,7 @@ const DEFAULT_CLIPS = [
  */
 const PICKER_EXTENSIONS = ['.mp4', '.m4v', '.mov', '.webm', '.mkv']
 const skippedFiles = []
-const clipNames = process.env.DDF_CLIP_DIR === undefined
+const clipNames = process.env.PXDF_CLIP_DIR === undefined
   ? DEFAULT_CLIPS
   : readdirSync(CLIP_DIR).sort().filter((name) => {
     if (PICKER_EXTENSIONS.includes(extname(name).toLowerCase())) return true
@@ -211,7 +211,7 @@ function openPage(url) {
   })
 }
 
-const mediaUrl = (path) => `ddf-media://file${path.split('/').map(encodeURIComponent).join('/')}`
+const mediaUrl = (path) => `pxdf-media://file${path.split('/').map(encodeURIComponent).join('/')}`
 
 /** One clip, loaded and seeked the way `captureThumbnail` does, error kept. */
 const loadOne = (path) => `
@@ -283,33 +283,33 @@ try {
   }
 
   /**
-   * The child's environment, with `DDF_CUE_SEED` taken out rather than assumed
+   * The child's environment, with `PXDF_CUE_SEED` taken out rather than assumed
    * absent.
    *
    * The Duration arm below reads `clipDurationMs`, which is
    * `(trimEndMs ?? mediaDurationMs) - trimStartMs`. A seeded `trimEndMs` makes
    * that readout a number no matter what the duration probe did — so an
-   * inherited `DDF_CUE_SEED`, from a shell where the wire gate was being
+   * inherited `PXDF_CUE_SEED`, from a shell where the wire gate was being
    * driven by hand, would turn the check into one that cannot fail while still
    * printing timecodes that look like measurements. Clearing it is what makes
    * the arm's premise true; the previous version only stated it in a comment.
    */
   const childEnv = {
     ...process.env,
-    DDF_ADDRESS: '127.0.0.1',
-    DDF_PORT: String(SIDECAR_PORT),
-    DDF_PICK_MEDIA: PICKED.join(delimiter),
+    PXDF_ADDRESS: '127.0.0.1',
+    PXDF_PORT: String(SIDECAR_PORT),
+    PXDF_PICK_MEDIA: PICKED.join(delimiter),
     // Set, not inherited. The census arm needs a heartbeat to have landed
     // *after* the fan-out peaked, and the default is one a minute — a run
     // shorter than that would read no census at all and have to say so.
-    DDF_HEARTBEAT_SECONDS: '5',
+    PXDF_HEARTBEAT_SECONDS: '5',
   }
-  if (childEnv.DDF_CUE_SEED !== undefined) {
+  if (childEnv.PXDF_CUE_SEED !== undefined) {
     // Said out loud: a run that silently ignored something the operator set is
     // its own small silent failure.
-    console.log('note: DDF_CUE_SEED was set in this shell and is cleared for the probe — ' +
+    console.log('note: PXDF_CUE_SEED was set in this shell and is cleared for the probe — ' +
       'a seeded trimEndMs would make the Duration check unable to fail')
-    delete childEnv.DDF_CUE_SEED
+    delete childEnv.PXDF_CUE_SEED
   }
 
   electron = spawn(
@@ -326,7 +326,7 @@ try {
   )
 
   // Past this point the child has been launched, so it has rotated the old
-  // `ddf.log` away and whatever is in that file now belongs to this run. Set
+  // `pxdf.log` away and whatever is in that file now belongs to this run. Set
   // here and not in the `finally`: a run that threw before the spawn — no
   // build, a port already held — would otherwise grade the previous run's
   // census and call it this one's.
@@ -405,7 +405,7 @@ try {
    * is not cosmetic: `clipDurationMs` null makes `cueHoldMs` null, which the
    * engine reads as "never advance", so a Loop set on that cue does nothing.
    *
-   * The inspector's Duration readout is that null, rendered: `DDF_CUE_SEED` is
+   * The inspector's Duration readout is that null, rendered: `PXDF_CUE_SEED` is
    * cleared from the child's environment above, so `trimEndMs` is null and
    * `trimStartMs` is 0, and the readout is an em dash exactly when the probe
    * did not land. Selecting a cue is how the operator reads it, so the probe
@@ -514,7 +514,7 @@ try {
  * must not both come out as a clean exit.
  */
 if (censusExpected) {
-  const logPath = join(homedir(), 'Library', 'Logs', 'Electron', 'ddf.log')
+  const logPath = join(homedir(), 'Library', 'Logs', 'Electron', 'pxdf.log')
   const logText = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
   const peaks = [...logText.matchAll(/\bpeak=(\d+)/g)].map((match) => Number(match[1]))
   const opened = [...logText.matchAll(/\bopened=(\d+)/g)].map((match) => Number(match[1]))

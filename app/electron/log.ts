@@ -20,7 +20,7 @@
  * The cost is a synchronous write on the main process's thread, and it is
  * affordable because of what calls this: status transitions, error publishes, a
  * heartbeat once a minute, and sidecar output. It is never called per frame,
- * and `main.ts`'s `ddf:frame` handler must not start.
+ * and `main.ts`'s `pxdf:frame` handler must not start.
  *
  * ## What this does when it is broken
  *
@@ -74,7 +74,7 @@ const CONTINUATION = '    '
 export function createLogger(dir: string): Logger {
   mkdirSync(dir, { recursive: true })
 
-  const path = join(dir, 'ddf.log')
+  const path = join(dir, 'pxdf.log')
 
   // One rotation, at construction, and no size check.
   //
@@ -89,7 +89,7 @@ export function createLogger(dir: string): Logger {
   // the run it is starting; appending to the old file is strictly better than
   // not starting.
   try {
-    if (existsSync(path)) renameSync(path, join(dir, 'ddf.prev.log'))
+    if (existsSync(path)) renameSync(path, join(dir, 'pxdf.prev.log'))
   } catch {
     // Keep going, and append. The next write reports any real problem.
   }
@@ -114,7 +114,7 @@ export function createLogger(dir: string): Logger {
         // The one place in this file that writes somewhere else, and the reason
         // it is not silent: under `npm run dev` this is a real terminal, and it
         // is the only channel left once the intended one has failed.
-        process.stderr.write(`ddf: could not write to ${path}: ${writeError}\n${record}`)
+        process.stderr.write(`pxdf: could not write to ${path}: ${writeError}\n${record}`)
       }
     },
   }

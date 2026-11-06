@@ -125,7 +125,7 @@ path cuts 30-on-30 cadence errors from 9.4–21.2 % to 7.3–9.6 %, without the
 run-to-run bimodality; the residue is inferred to be the video-to-renderer
 handoff, since `arrival` forwards each renderer write once. Under `arrival`
 the renderer owns the clock and Python keeps only a ceiling and a liveness
-repeat. It is opt-in (`DDF_STREAM_PACING=arrival`); `clock` stays the default
+repeat. It is opt-in (`PXDF_STREAM_PACING=arrival`); `clock` stays the default
 until a floor capture (D-02). A second candidate, the same tick slept to in
 1 ms slices (`precise`), was built, graded and removed: still bimodal on the
 app path (2.1–9.8 %).
@@ -328,7 +328,7 @@ weeks behind open work.
   floor still owes a test.
 - A show runs `npm run dist` from a `floor-` tag. `dist` refuses a tree with
   uncommitted changes under `app/` or `mapper/` (`app/scripts/releaseTree.mjs`);
-  `DDF_ALLOW_DIRTY=1` overrides, and such a build logs a WARN at every launch.
+  `PXDF_ALLOW_DIRTY=1` overrides, and such a build logs a WARN at every launch.
   The launch line's `build:` field goes into the show's `docs/JOBS.md` record.
 - A failed floor session means fix forward or revert. The previous `floor-` tag
   is still there to run.

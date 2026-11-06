@@ -71,7 +71,7 @@
  *      own pacing in its opening line (`sending to … pacing <mode>, …`), which
  *      the sidecar logs. Every such line in the arm's log must name the arm's
  *      mode, and there must be at least one. The argv is not enough: it says
- *      what was asked for, and an inherited `DDF_STREAM_PACING` or a `mapper`
+ *      what was asked for, and an inherited `PXDF_STREAM_PACING` or a `mapper`
  *      that ignored the flag would grade one sender under another's name.
  *  7.  **The interval grade can see unevenness, and does not invent it.** Before
  *      any launch, a Python sender puts `mapper`'s own packetisation of a known
@@ -119,7 +119,7 @@
  *     FAIL_FAST=1 …   # stop after the first arm that fails a control, exit 2
  *
  * Each arm is one pacing mode × one source rate, launched with
- * `DDF_STREAM_PACING` set to the mode (`clock` launches with it *unset*, which
+ * `PXDF_STREAM_PACING` set to the mode (`clock` launches with it *unset*, which
  * is what ships). Arms run interleaved — every mode at one source rate, then
  * the next source, then the next repeat — so drift in machine load lands on
  * every mode alike rather than on whichever ran last. The capped renderer's
@@ -163,7 +163,7 @@
  *
  * ## One cost, stated
  *
- * Each arm launches Electron, which rotates `~/Library/Logs/Electron/ddf.log`.
+ * Each arm launches Electron, which rotates `~/Library/Logs/Electron/pxdf.log`.
  * Six arms per repeat, six rotations: **copy that log first** if it holds
  * anything you care about, and do not run this beside `wire.mjs` or another
  * probe. The probe reads each arm's log before launching the next.
@@ -183,8 +183,8 @@ const DEBUG_PORT = 9_339
 const SIDECAR_PORT = 60_004
 const APP_DIR = resolve(import.meta.dirname, '..', '..')
 const REPO_ROOT = resolve(APP_DIR, '..')
-const PYTHON = process.env.DDF_PYTHON ?? 'python3'
-const LOG_PATH = join(homedir(), 'Library', 'Logs', 'Electron', 'ddf.log')
+const PYTHON = process.env.PXDF_PYTHON ?? 'python3'
+const LOG_PATH = join(homedir(), 'Library', 'Logs', 'Electron', 'pxdf.log')
 
 const FLOOR = { type: '8x8_4P', cols: 10, rows: 10 }
 /** Floor pixels per tile for `8x8_4P`. The code tiles are whole floor tiles. */
@@ -665,7 +665,7 @@ const selectScript = (label, value) => `(() => {
  */
 const TRACE_RVFC = process.env.TRACE_RVFC !== '0'
 const TRACE_SCRIPT = `(() => {
-  if (window.__ddfTrace !== undefined) return 'already installed'
+  if (window.__pxdfTrace !== undefined) return 'already installed'
   const CAP = 40000
   const trace = { composes: [], frames: [], rafs: [], ids: new WeakMap(), latest: new WeakMap(), nextId: 1 }
   const idOf = (video) => {
@@ -690,15 +690,15 @@ const TRACE_SCRIPT = `(() => {
   CanvasRenderingContext2D.prototype.drawImage = function (image, ...rest) {
     if (image instanceof HTMLVideoElement && workSized(this.canvas)) {
       const meta = trace.latest.get(image)
-      this.__ddfDrawn = [idOf(image), performance.now(), image.currentTime,
+      this.__pxdfDrawn = [idOf(image), performance.now(), image.currentTime,
         meta === undefined ? -1 : meta.presentedFrames, meta === undefined ? -1 : meta.mediaTime]
     }
     return draw.call(this, image, ...rest)
   }
   CanvasRenderingContext2D.prototype.getImageData = function (...args) {
     const image = read.apply(this, args)
-    const drawn = this.__ddfDrawn
-    this.__ddfDrawn = undefined
+    const drawn = this.__pxdfDrawn
+    this.__pxdfDrawn = undefined
     if (drawn !== undefined && trace.composes.length < CAP && image.width === this.canvas.width) {
       const width = image.width
       const tile = width / 10
@@ -724,7 +724,7 @@ const TRACE_SCRIPT = `(() => {
     requestAnimationFrame(onRaf)
   }
   requestAnimationFrame(onRaf)
-  window.__ddfTrace = {
+  window.__pxdfTrace = {
     dump: () => ({ composes: trace.composes, frames: trace.frames, rafs: trace.rafs, capped: trace.composes.length >= CAP || trace.frames.length >= CAP }),
   }
   return 'installed'
@@ -1012,19 +1012,19 @@ async function runArm(arm, clip, layout, workspace, tap) {
 
     const env = {
       ...process.env,
-      DDF_ADDRESS: '127.0.0.1',
-      DDF_PORT: String(SIDECAR_PORT),
-      DDF_HEARTBEAT_SECONDS: String(HEARTBEAT_SECONDS),
-      DDF_PICK_MEDIA: clip.path,
+      PXDF_ADDRESS: '127.0.0.1',
+      PXDF_PORT: String(SIDECAR_PORT),
+      PXDF_HEARTBEAT_SECONDS: String(HEARTBEAT_SECONDS),
+      PXDF_PICK_MEDIA: clip.path,
       // Looping, untrimmed. `loop: null` holds the cue and still loops the clip
       // (`show.ts`); set explicitly rather than inherited from the shell.
-      DDF_CUE_SEED: JSON.stringify({ [clip.path]: { loop: null, trimStartMs: 0, trimEndMs: null } }),
+      PXDF_CUE_SEED: JSON.stringify({ [clip.path]: { loop: null, trimStartMs: 0, trimEndMs: null } }),
     }
     // `clock` is `mapper`'s default and what ships, so it runs with the
     // variable absent — never inherited from the shell. Control 1b checks the
     // sender agrees.
-    delete env.DDF_STREAM_PACING
-    if (arm.pacing !== 'clock') env.DDF_STREAM_PACING = arm.pacing
+    delete env.PXDF_STREAM_PACING
+    if (arm.pacing !== 'clock') env.PXDF_STREAM_PACING = arm.pacing
     electron = spawn(
       resolve(APP_DIR, 'node_modules', '.bin', 'electron'),
       [resolve(APP_DIR, 'dist', 'main.js'), `--remote-debugging-port=${DEBUG_PORT}`,
@@ -1110,7 +1110,7 @@ async function runArm(arm, clip, layout, workspace, tap) {
     tap.reset()
     const traceTo = await page.evaluate('performance.now()')
     frames = assembleFrames(packets, times, layout)
-    trace = { dump: await page.evaluate('window.__ddfTrace.dump()'), from: traceFrom, to: traceTo }
+    trace = { dump: await page.evaluate('window.__pxdfTrace.dump()'), from: traceFrom, to: traceTo }
     // A moment for a heartbeat stamped right at the window's end to reach the
     // log before the app is killed. Nothing from this tail is graded.
     await sleep(1_500)
@@ -1160,7 +1160,7 @@ const refusals = []
 const results = []
 let repeatDetectorGraded = false
 const controlLines = []
-const workspace = mkdtempSync(join(tmpdir(), 'ddf-render-rate-'))
+const workspace = mkdtempSync(join(tmpdir(), 'pxdf-render-rate-'))
 const tap = new WireTap()
 
 try {

@@ -315,7 +315,7 @@ export class VideoSource implements FrameSource {
       // starts, and setting `crossOrigin` afterwards would apply to the next
       // load rather than this one.
       //
-      // This is not optional and it is not hygiene. `ddf-media://` is a
+      // This is not optional and it is not hygiene. `pxdf-media://` is a
       // different origin from the page however the page was served, so without
       // a CORS-mode fetch the media taints any canvas it is drawn into and the
       // render loop's `getImageData` throws on every frame — see the long note

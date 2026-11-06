@@ -1,8 +1,8 @@
-/* @ds-bundle: {"format":4,"namespace":"DistinctiveDanceFloorDesignSystem_fee2c8","components":[{"name":"Segmented","sourcePath":"components/controls/Segmented.jsx"},{"name":"Select","sourcePath":"components/controls/Select.jsx"},{"name":"Slider","sourcePath":"components/controls/Slider.jsx"},{"name":"Stepper","sourcePath":"components/controls/Stepper.jsx"},{"name":"Switch","sourcePath":"components/controls/Switch.jsx"},{"name":"TextField","sourcePath":"components/controls/TextField.jsx"},{"name":"Badge","sourcePath":"components/core/Badge.jsx"},{"name":"Button","sourcePath":"components/core/Button.jsx"},{"name":"Icon","sourcePath":"components/core/Icon.jsx"},{"name":"IconButton","sourcePath":"components/core/IconButton.jsx"},{"name":"Panel","sourcePath":"components/core/Panel.jsx"},{"name":"SectionLabel","sourcePath":"components/core/SectionLabel.jsx"},{"name":"StatusPill","sourcePath":"components/core/StatusPill.jsx"},{"name":"KeyValue","sourcePath":"components/data/KeyValue.jsx"},{"name":"ListRow","sourcePath":"components/data/ListRow.jsx"},{"name":"StatReadout","sourcePath":"components/data/StatReadout.jsx"},{"name":"Timecode","sourcePath":"components/data/Timecode.jsx"},{"name":"ControllerChip","sourcePath":"components/floor/ControllerChip.jsx"},{"name":"FloorPreview","sourcePath":"components/floor/FloorPreview.jsx"},{"name":"TransportBar","sourcePath":"components/floor/TransportBar.jsx"}],"sourceHashes":{"components/controls/Segmented.jsx":"f6035999c8d7","components/controls/Select.jsx":"421eee160779","components/controls/Slider.jsx":"b9b8525a578c","components/controls/Stepper.jsx":"f99c5314b57e","components/controls/Switch.jsx":"dcb82a5e70ec","components/controls/TextField.jsx":"41f6c7b650f1","components/core/Badge.jsx":"1750d0737560","components/core/Button.jsx":"af691156c341","components/core/Icon.jsx":"f27767a573f2","components/core/IconButton.jsx":"93ec2a1f01bc","components/core/Panel.jsx":"0364f53b7c36","components/core/SectionLabel.jsx":"f0bc9205a180","components/core/StatusPill.jsx":"acd6d790133b","components/data/KeyValue.jsx":"655ebc837a42","components/data/ListRow.jsx":"3f2bcfb60d03","components/data/StatReadout.jsx":"0fc43ff4927b","components/data/Timecode.jsx":"68205cde2fdc","components/floor/ControllerChip.jsx":"7f2fe0c617ce","components/floor/FloorPreview.jsx":"39f8439f6f05","components/floor/TransportBar.jsx":"9d6f1da911fe","ui_kits/ddf-mac/edit.jsx":"b4e3e8438ab9","ui_kits/ddf-mac/mapping.jsx":"5323281b3034","ui_kits/ddf-mac/play.jsx":"605bd649bb62"},"inlinedExternals":[],"unexposedExports":[]} */
+/* @ds-bundle: {"format":4,"namespace":"PxdfDesignSystem_fee2c8","components":[{"name":"Segmented","sourcePath":"components/controls/Segmented.jsx"},{"name":"Select","sourcePath":"components/controls/Select.jsx"},{"name":"Slider","sourcePath":"components/controls/Slider.jsx"},{"name":"Stepper","sourcePath":"components/controls/Stepper.jsx"},{"name":"Switch","sourcePath":"components/controls/Switch.jsx"},{"name":"TextField","sourcePath":"components/controls/TextField.jsx"},{"name":"Badge","sourcePath":"components/core/Badge.jsx"},{"name":"Button","sourcePath":"components/core/Button.jsx"},{"name":"Icon","sourcePath":"components/core/Icon.jsx"},{"name":"IconButton","sourcePath":"components/core/IconButton.jsx"},{"name":"Panel","sourcePath":"components/core/Panel.jsx"},{"name":"SectionLabel","sourcePath":"components/core/SectionLabel.jsx"},{"name":"StatusPill","sourcePath":"components/core/StatusPill.jsx"},{"name":"KeyValue","sourcePath":"components/data/KeyValue.jsx"},{"name":"ListRow","sourcePath":"components/data/ListRow.jsx"},{"name":"StatReadout","sourcePath":"components/data/StatReadout.jsx"},{"name":"Timecode","sourcePath":"components/data/Timecode.jsx"},{"name":"ControllerChip","sourcePath":"components/floor/ControllerChip.jsx"},{"name":"FloorPreview","sourcePath":"components/floor/FloorPreview.jsx"},{"name":"TransportBar","sourcePath":"components/floor/TransportBar.jsx"}],"sourceHashes":{"components/controls/Segmented.jsx":"f6035999c8d7","components/controls/Select.jsx":"421eee160779","components/controls/Slider.jsx":"b9b8525a578c","components/controls/Stepper.jsx":"f99c5314b57e","components/controls/Switch.jsx":"dcb82a5e70ec","components/controls/TextField.jsx":"41f6c7b650f1","components/core/Badge.jsx":"1750d0737560","components/core/Button.jsx":"af691156c341","components/core/Icon.jsx":"f27767a573f2","components/core/IconButton.jsx":"93ec2a1f01bc","components/core/Panel.jsx":"0364f53b7c36","components/core/SectionLabel.jsx":"f0bc9205a180","components/core/StatusPill.jsx":"acd6d790133b","components/data/KeyValue.jsx":"655ebc837a42","components/data/ListRow.jsx":"3f2bcfb60d03","components/data/StatReadout.jsx":"0fc43ff4927b","components/data/Timecode.jsx":"68205cde2fdc","components/floor/ControllerChip.jsx":"7f2fe0c617ce","components/floor/FloorPreview.jsx":"39f8439f6f05","components/floor/TransportBar.jsx":"9d6f1da911fe","ui_kits/ddf-mac/edit.jsx":"b4e3e8438ab9","ui_kits/ddf-mac/mapping.jsx":"5323281b3034","ui_kits/ddf-mac/play.jsx":"605bd649bb62"},"inlinedExternals":[],"unexposedExports":[]} */
 
 (() => {
 
-const __ds_ns = (window.DistinctiveDanceFloorDesignSystem_fee2c8 = window.DistinctiveDanceFloorDesignSystem_fee2c8 || {});
+const __ds_ns = (window.PxdfDesignSystem_fee2c8 = window.PxdfDesignSystem_fee2c8 || {});
 
 const __ds_scope = {};
 
@@ -46,7 +46,7 @@ function Segmented({
         width: 5,
         height: 5,
         borderRadius: '50%',
-        background: active ? 'var(--ddf-green-hot)' : 'var(--n-6)',
+        background: active ? 'var(--pxdf-green-hot)' : 'var(--n-6)',
         boxShadow: active ? 'var(--glow-accent)' : 'none',
         transition: 'background var(--dur-fast) var(--ease-out)'
       }
@@ -63,7 +63,7 @@ function ensureCss() {
   if (cssDone || typeof document === 'undefined') return;
   cssDone = true;
   const s = document.createElement('style');
-  s.textContent = '.ddf-slider::-webkit-slider-thumb{-webkit-appearance:none;width:8px;height:18px;border-radius:3px;background:var(--n-11);box-shadow:0 1px 3px rgba(0,0,0,.5);cursor:pointer}.ddf-slider::-moz-range-thumb{width:8px;height:18px;border:none;border-radius:3px;background:var(--n-11);cursor:pointer}.ddf-slider.acc::-webkit-slider-thumb{background:var(--ddf-green-glow);box-shadow:0 0 10px oklch(0.82 0.20 148 / 0.65)}.ddf-slider.acc::-moz-range-thumb{background:var(--ddf-green-glow)}';
+  s.textContent = '.pxdf-slider::-webkit-slider-thumb{-webkit-appearance:none;width:8px;height:18px;border-radius:3px;background:var(--n-11);box-shadow:0 1px 3px rgba(0,0,0,.5);cursor:pointer}.pxdf-slider::-moz-range-thumb{width:8px;height:18px;border:none;border-radius:3px;background:var(--n-11);cursor:pointer}.pxdf-slider.acc::-webkit-slider-thumb{background:var(--pxdf-green-glow);box-shadow:0 0 10px oklch(0.82 0.20 148 / 0.65)}.pxdf-slider.acc::-moz-range-thumb{background:var(--pxdf-green-glow)}';
   document.head.appendChild(s);
 }
 // Segmented LED fader — the track is a strip of lit cells, console-style.
@@ -79,10 +79,10 @@ function Slider({
 }) {
   ensureCss();
   const pct = (value - min) / (max - min) * 100;
-  const fill = accent ? 'var(--ddf-green-hot)' : 'var(--n-10)';
+  const fill = accent ? 'var(--pxdf-green-hot)' : 'var(--n-10)';
   return React.createElement('input', {
     type: 'range',
-    className: 'ddf-slider' + (accent ? ' acc' : ''),
+    className: 'pxdf-slider' + (accent ? ' acc' : ''),
     value,
     min,
     max,
@@ -120,7 +120,7 @@ function Switch({
       border: 'none',
       padding: 2,
       cursor: disabled ? 'default' : 'pointer',
-      background: checked ? 'var(--ddf-green-hot)' : 'var(--n-5)',
+      background: checked ? 'var(--pxdf-green-hot)' : 'var(--n-5)',
       opacity: disabled ? 0.4 : 1,
       display: 'inline-flex',
       boxShadow: checked ? '0 0 10px oklch(0.82 0.20 148 / 0.40)' : 'none',
@@ -188,7 +188,7 @@ function Badge({
   style
 }) {
   const t = tone === 'accent' ? {
-    background: 'var(--ddf-green-hot)',
+    background: 'var(--pxdf-green-hot)',
     color: 'var(--text-on-accent)',
     boxShadow: '0 0 12px oklch(0.82 0.20 148 / 0.35)'
   } : {
@@ -223,7 +223,7 @@ function Button({
   const [prs, setPrs] = React.useState(false);
   const v = {
     primary: {
-      background: hov && !disabled ? 'oklch(0.85 0.20 148)' : 'var(--ddf-green-hot)',
+      background: hov && !disabled ? 'oklch(0.85 0.20 148)' : 'var(--pxdf-green-hot)',
       color: 'var(--text-on-accent)',
       fontWeight: 600
     },
@@ -445,7 +445,7 @@ function IconButton({
       border: 'none',
       borderRadius: size === 'lg' ? 'var(--r-2xl)' : 'var(--r-lg)',
       cursor: disabled ? 'default' : 'pointer',
-      background: primary ? hov ? 'oklch(0.85 0.20 148)' : 'var(--ddf-green-hot)' : hov && !disabled ? 'var(--n-5)' : 'var(--surface-raised)',
+      background: primary ? hov ? 'oklch(0.85 0.20 148)' : 'var(--pxdf-green-hot)' : hov && !disabled ? 'var(--n-5)' : 'var(--surface-raised)',
       color: primary ? 'var(--text-on-accent)' : hov ? 'var(--text-primary)' : 'var(--text-secondary)',
       boxShadow: primary ? 'var(--glow-accent-lg)' : 'none',
       opacity: disabled ? 0.4 : 1,
@@ -515,7 +515,7 @@ function ensureCss() {
   if (cssDone || typeof document === 'undefined') return;
   cssDone = true;
   const s = document.createElement('style');
-  s.textContent = '@keyframes ddfPulse{0%,100%{opacity:1}50%{opacity:0.45}}';
+  s.textContent = '@keyframes pxdfPulse{0%,100%{opacity:1}50%{opacity:0.45}}';
   document.head.appendChild(s);
 }
 function StatusPill({
@@ -529,7 +529,7 @@ function StatusPill({
     ok: {
       bg: 'var(--surface-accent-soft)',
       fg: 'oklch(0.86 0.16 148)',
-      dot: 'var(--ddf-green-glow)'
+      dot: 'var(--pxdf-green-glow)'
     },
     warn: {
       bg: 'oklch(0.30 0.06 85)',
@@ -568,7 +568,7 @@ function StatusPill({
       borderRadius: '50%',
       background: tones.dot,
       boxShadow: glow && tone !== 'idle' ? '0 0 8px ' + tones.dot : 'none',
-      animation: glow && tone !== 'idle' ? 'ddfPulse 2.4s var(--ease-inout) infinite' : 'none'
+      animation: glow && tone !== 'idle' ? 'pxdfPulse 2.4s var(--ease-inout) infinite' : 'none'
     }
   }), label);
 }
@@ -612,7 +612,7 @@ function ensureCss() {
   if (cssDone || typeof document === 'undefined') return;
   cssDone = true;
   const s = document.createElement('style');
-  s.textContent = '@keyframes ddfEq{0%,100%{transform:scaleY(0.25)}50%{transform:scaleY(1)}}';
+  s.textContent = '@keyframes pxdfEq{0%,100%{transform:scaleY(0.25)}50%{transform:scaleY(1)}}';
   document.head.appendChild(s);
 }
 function ListRow({
@@ -666,7 +666,7 @@ function ListRow({
       alignItems: 'flex-end',
       gap: 2,
       height: 12,
-      color: selected ? 'var(--text-on-accent)' : 'var(--ddf-green-hot)'
+      color: selected ? 'var(--text-on-accent)' : 'var(--pxdf-green-hot)'
     }
   }, [0, 1, 2].map(i => React.createElement('span', {
     key: i,
@@ -676,7 +676,7 @@ function ListRow({
       background: 'currentColor',
       borderRadius: 1,
       transformOrigin: 'bottom',
-      animation: 'ddfEq ' + (0.7 + i * 0.13) + 's var(--ease-inout) ' + i * 0.18 + 's infinite'
+      animation: 'pxdfEq ' + (0.7 + i * 0.13) + 's var(--ease-inout) ' + i * 0.18 + 's infinite'
     }
   }))) : null, meta != null ? React.createElement('span', {
     style: {
@@ -715,7 +715,7 @@ function StatReadout({
       fontFamily: 'var(--font-mono)',
       fontSize: 'var(--fs-readout)',
       fontWeight: 500,
-      color: accent ? 'var(--ddf-green-hot)' : 'var(--text-numeric)'
+      color: accent ? 'var(--pxdf-green-hot)' : 'var(--text-numeric)'
     }
   }, value, unit ? React.createElement('span', {
     style: {
@@ -768,8 +768,8 @@ function ControllerChip({
         width: 11,
         height: 9,
         borderRadius: 2,
-        background: on ? 'var(--ddf-green-hot)' : 'transparent',
-        border: '1.5px solid ' + (on ? 'var(--ddf-green-hot)' : 'var(--n-6)'),
+        background: on ? 'var(--pxdf-green-hot)' : 'transparent',
+        border: '1.5px solid ' + (on ? 'var(--pxdf-green-hot)' : 'var(--n-6)'),
         boxShadow: on ? 'var(--glow-accent)' : 'none',
         boxSizing: 'border-box'
       }
@@ -909,7 +909,7 @@ function TransportBar({
         height: head ? 12 : on ? 10 : 6,
         borderRadius: 1,
         alignSelf: 'center',
-        background: head ? 'var(--ddf-green-glow)' : on ? 'var(--ddf-green-hot)' : 'var(--led-cell-off)',
+        background: head ? 'var(--pxdf-green-glow)' : on ? 'var(--pxdf-green-hot)' : 'var(--led-cell-off)',
         boxShadow: head ? 'var(--glow-accent)' : 'none',
         transition: 'height var(--dur-fast) var(--ease-out)'
       }
@@ -997,7 +997,7 @@ function EditScreen({
     KeyValue,
     FloorPreview,
     Timecode
-  } = window.DistinctiveDanceFloorDesignSystem_fee2c8;
+  } = window.PxdfDesignSystem_fee2c8;
   const tools = ['mouse-pointer', 'hand', 'zoom-in', '|', 'crop', 'move', 'maximize', '|', 'square', 'pen-tool', 'type', '|', 'brush', 'stamp', 'eraser', '|', 'wand-2', 'pin'];
   const [tool, setTool] = React.useState('mouse-pointer');
   const files = ['firefly.mp4', 'sparkles.mp4', 'blobs.mov', 'snowflakes.avi'];
@@ -1069,7 +1069,7 @@ function EditScreen({
       borderRadius: 'var(--r-sm)',
       cursor: 'pointer',
       background: tool === t ? 'var(--surface-raised)' : 'transparent',
-      color: tool === t ? 'var(--ddf-green-hot)' : 'var(--text-secondary)'
+      color: tool === t ? 'var(--pxdf-green-hot)' : 'var(--text-secondary)'
     }
   }, /*#__PURE__*/React.createElement(Icon, {
     name: t,
@@ -1152,7 +1152,7 @@ function EditScreen({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "folder-open",
     size: 13
-  }), " DDF Media"), files.map((f, i) => /*#__PURE__*/React.createElement("div", {
+  }), " PXDF Media"), files.map((f, i) => /*#__PURE__*/React.createElement("div", {
     key: f,
     onClick: () => setFile(i),
     style: {
@@ -1389,7 +1389,7 @@ function MappingScreen() {
     Select,
     ControllerChip,
     Badge
-  } = window.DistinctiveDanceFloorDesignSystem_fee2c8;
+  } = window.PxdfDesignSystem_fee2c8;
   const [type, setType] = React.useState('8x8_4P');
   const [cols, setCols] = React.useState('10');
   const [rows, setRows] = React.useState('5');
@@ -1420,7 +1420,7 @@ function MappingScreen() {
       style: {
         fontFamily: 'var(--font-mono)',
         fontSize: 9,
-        color: hov === k ? 'var(--ddf-green-hot)' : 'var(--n-6)'
+        color: hov === k ? 'var(--pxdf-green-hot)' : 'var(--n-6)'
       }
     }, 'C' + (ctrl + 1) + '·' + port)));
   }
@@ -1580,7 +1580,7 @@ function PlayScreen({
     FloorPreview,
     TransportBar,
     Timecode
-  } = window.DistinctiveDanceFloorDesignSystem_fee2c8;
+  } = window.PxdfDesignSystem_fee2c8;
   const cues = [['01', 'Doors / Warm', '2:00'], ['02', 'Cocktail Wash', '—'], ['03', 'Grand Entrance', '0:45'], ['04', 'First Dance', '4:36'], ['05', 'Open Floor', '∞'], ['06', 'Last Call', '3:10']];
   const [sel, setSel] = React.useState(3);
   const [mode, setMode] = React.useState('Live');
@@ -1741,7 +1741,7 @@ function PlayScreen({
     style: {
       fontFamily: 'var(--font-mono)',
       fontSize: 13,
-      color: forever ? 'var(--ddf-green-hot)' : 'var(--text-muted)'
+      color: forever ? 'var(--pxdf-green-hot)' : 'var(--text-muted)'
     }
   }, "\u221E"), /*#__PURE__*/React.createElement(Switch, {
     checked: forever,
@@ -1812,7 +1812,7 @@ function PlayScreen({
     }
   }, /*#__PURE__*/React.createElement(KeyValue, {
     label: "Controller",
-    value: "DDF-01"
+    value: "PXDF-01"
   }), /*#__PURE__*/React.createElement(KeyValue, {
     label: "Uptime",
     value: "01:12:38"

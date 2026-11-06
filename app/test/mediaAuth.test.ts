@@ -2,7 +2,7 @@
  * `electron/mediaAuth.ts`, graded against a real filesystem — real
  * directories, real files, real symlinks.
  *
- * This is the module that decides whether widening `ddf-media://` from
+ * This is the module that decides whether widening `pxdf-media://` from
  * "individually opened files" to "a whole picked folder" hands the renderer
  * anything it should not have. `CLAUDE.md`'s rule is to check provenance, not
  * plausibility, and a security boundary is exactly the kind of claim that
@@ -31,7 +31,7 @@ beforeEach(() => {
   // asserting against an authorizedDir that violates its own precondition,
   // and every comparison inside the function would fail for a reason that has
   // nothing to do with the property under test.
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'ddf-mediaauth-test-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'pxdf-mediaauth-test-')))
   library = join(root, 'library')
   outside = join(root, 'outside')
   mkdirSync(library)

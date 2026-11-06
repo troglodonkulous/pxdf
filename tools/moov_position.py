@@ -9,7 +9,7 @@ The 2026-09-05/06 job produced 105 `DEMUXER_ERROR_COULD_NOT_OPEN` errors across
 seven clips that `ffprobe` opens without complaint. The discriminator turned out
 to be the position of the `moov` atom: an MP4 that carries `moov` *after* `mdat`
 requires the demuxer to read the tail of the file before anything is buffered,
-which requires a working `Range` request. `ddf-media://` could not answer one
+which requires a working `Range` request. `pxdf-media://` could not answer one
 with a `206` until it was fixed, so those reads silently got byte 0 of a
 full-file `200`, every offset was wrong, and the container never opened.
 

@@ -1,5 +1,5 @@
 /**
- * `src/player/mediaRange.ts`, which decides what `ddf-media://` does with a
+ * `src/player/mediaRange.ts`, which decides what `pxdf-media://` does with a
  * `Range` header.
  *
  * ## Why this is graded here and not only in `wire.mjs`
