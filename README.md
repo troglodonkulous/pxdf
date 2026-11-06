@@ -17,7 +17,9 @@ It is two parts:
 
 Everything below runs without the floor. See [Try it yourself](#try-it-yourself).
 
-https://github.com/user-attachments/assets/0a8ceace-bec8-4cd1-9aac-7c9842fb74a0
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/0a8ceace-bec8-4cd1-9aac-7c9842fb74a0"></video>
+</div>
 
 ## The problem
 
