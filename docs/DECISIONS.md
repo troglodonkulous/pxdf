@@ -152,7 +152,7 @@ sidecar-death handling. The digests would grade a port byte for byte.
 Reopen if: the sidecar boundary blocks a fix that an opt-in `stream` change
 under D-02 cannot deliver, or packaging Python becomes a recurring show risk.
 
-### D-05 — `mapper/` uses the Python 3.12 standard library only
+### D-05 — `mapper/` uses the Python standard library only
 Protects: a sender that runs on any machine with Python and nothing installed.
 Evidence: reasoning only. The rule is scoped to `mapper/`; `app/` is an ordinary
 Node project. ffmpeg is a prerequisite of `tools/make_clip.py` alone.

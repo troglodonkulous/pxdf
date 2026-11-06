@@ -4,8 +4,9 @@ Python implementation of `docs/PROTOCOL.md` for **any** legal floor: any floor
 type, any tile-column count, any tile-row count. The PowerShell sender works for
 exactly one layout; this works for all 2,400.
 
-No dependencies. Python 3.12. On the Windows machine, `python3` is the Microsoft
-Store stub and will fail — use `python` or `py`.
+No dependencies. Python 3.11 or newer (tested on 3.11, 3.12, 3.13). On the
+Windows machine, `python3` is the Microsoft Store stub and will fail — use
+`python` or `py`.
 
 ## Use
 

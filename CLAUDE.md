@@ -28,7 +28,7 @@ When an observation disagrees with a prediction, stop and diagnose. Do not ratio
 
 ## Environment
 
-- **Python 3.12, standard library only, in `mapper/`** (D-05). The rule is scoped to `mapper/` and always was; `app/` is an Electron project with ordinary `node_modules`. ffmpeg is a prerequisite of `tools/make_clip.py` only.
+- **Python 3.11+ (tested 3.11–3.13), standard library only, in `mapper/`** (D-05). The rule is scoped to `mapper/` and always was; `app/` is an Electron project with ordinary `node_modules`. ffmpeg is a prerequisite of `tools/make_clip.py` only.
 - **On the Windows machine, `python3` is the Microsoft Store stub and fails.** Use `python` or `py`. That and the ffmpeg path below are facts about the Windows machine. App work happens on the Mac, where `python3` works and ffmpeg is on `PATH`.
 - **On macOS the oracle suite reports `(skipped=1)`.** The skip is `no powershell/pwsh on PATH`, expected there and not a defect. The `(skipped=1)` to worry about is the *mapper* suite's, below.
 - **No pytest.** The suites use stdlib `unittest`.

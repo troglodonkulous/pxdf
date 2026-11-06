@@ -171,7 +171,7 @@ discipline around them:
 No floor is needed. In development the app sends to `127.0.0.1`, never to the
 network broadcast address.
 
-**Prerequisites:** macOS, Node.js with npm, and Python 3.12. ffmpeg is needed
+**Prerequisites:** macOS, Node.js with npm, and Python 3.11 or newer. ffmpeg is needed
 only for `tools/make_clip.py`.
 
 ### Run the app in dev mode
