@@ -7,7 +7,7 @@ screenshots of them.
 
 **These are a superset of what ships.** Direction (Fwd / Rev / Bounce), Custom
 layout and `Calibrate…` all appear in the mockups and are all shelved or
-scrapped. `docs/REQUIREMENTS-v1.pdf` wins where the two disagree, and
+scrapped. The operator's requirements (`docs/REQUIREMENTS-v1.pdf`, not published) win where the two disagree, and
 `docs/APP-PLAN.md` records what is cut and why.
 
 | Path | What it is |

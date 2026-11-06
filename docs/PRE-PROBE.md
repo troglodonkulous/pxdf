@@ -112,7 +112,7 @@ the vendor's own media folder. The operator changed it deliberately, after the
 captures were taken, while exploring the stock media — nothing drifted on its
 own and nothing about the captures is affected. But it is persisted
 (`LedMapper_Closing` and `LedPalyer_Closing` both call `config.Save()`,
-`LedSet.decompiled.cs:1186` and `:2770`), so the change outlives the session
+`LedSet.decompiled.cs:1186` and `:2770`, decompiler output, not published), so the change outlives the session
 that made it. **Read the live file at the start of every session** rather than
 trusting this table or `captures/configure-ini-dump.txt`, and re-stage the clip
 if it points somewhere else. `MapperPath` was unaffected.
@@ -362,7 +362,7 @@ Struck through where gate 2 settled them.
 - **`ComboText`'s empty read** — §6. Before gate 4, not during it.
 - **The wiring-diagram generator** — parked per decision 16, and the argument
   for reimplementing rather than screenshotting it is in handoff 4 §5. The
-  Ledset screenshot sweep is archived under `reference/ledset-diagrams/` as its
+  Ledset screenshot sweep is archived under `reference/ledset-diagrams/` (not published) as its
   fixture set.
 - **Merge to `main`** — nothing lands until the *floor* confirms it, and gate 2
   confirmed the wire, not the floor. Gate 4 is still the condition.

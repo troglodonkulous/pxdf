@@ -11,7 +11,7 @@ surface. A second form of a plan is a second plan. The artifact at
 `https://claude.ai/code/artifact/fea97194-eb00-4547-9611-bca522935813` is stale
 and is not maintained.
 
-Feature scope comes from `docs/REQUIREMENTS-v1.pdf`. Visual scope comes from
+Feature scope comes from the operator's requirements (`docs/REQUIREMENTS-v1.pdf`, not published), recorded in this plan. Visual scope comes from
 `design/mockups.html`. **The requirements document wins where the two disagree**
 — the mockups render a superset, including Direction and Custom layout, which
 this plan shelves.
@@ -930,7 +930,7 @@ Named so they do not creep back in.
 
 | | |
 |---|---|
-| `docs/REQUIREMENTS-v1.pdf` | Feature scope, with the operator's inline annotations. Wins over the mockups. |
+| `docs/REQUIREMENTS-v1.pdf` (not published) | Feature scope, with the operator's inline annotations. Wins over the mockups. |
 | `design/mockups.html` | The three MVP surfaces, rendered. Loads `support.js` and `design-system/` from this repo; only the Lucide icon CDN is remote, so offline the layout is right and the glyphs are missing. |
 | `design/design-system/` | Tokens, the design-system spec, and 20 components as readable `React.createElement` source. |
 | `tools/dancefloor-loops.html` | The generator the app's eleven patterns port. |

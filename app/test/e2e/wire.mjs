@@ -149,7 +149,7 @@ function makeSplitClip(directory, segments) {
 /**
  * A clip Chromium cannot open, in the form this repo actually ships.
  *
- * Rawvideo in AVI: `test-patterns/09-gradient24-8x8_4P-10x5.avi` is this, and
+ * Rawvideo in AVI: `tools/oracle/media/09-gradient24-8x8_4P-10x5.avi` is this, and
  * it is the file the cutover digest is graded on — so it is the first thing
  * anyone reaches for to try the player on, and the one the player cannot play.
  * Measured in `mediaFormats.ts`: `DEMUXER_ERROR_COULD_NOT_OPEN`.

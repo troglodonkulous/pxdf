@@ -97,7 +97,7 @@ connector 2 = ports 2, 3).
 floor bus distributes 24 V, not 5 V.
 
 This kills the "shared 5 V rail droops across the floor" model recorded as a
-hypothesis in the session diary (`.remember`, 2026-08-10 12:19 — that entry was
+hypothesis in the session diary (`.remember`, not published, 2026-08-10 12:19 — that entry was
 never committed, so the hypothesis survives only as stated here). The suspect rail is roughly
 20 mm of copper on one tile's own board, downstream of that tile's own buck
 converter. That is *consistent* with, not contradicted by, the tile-swap finding

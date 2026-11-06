@@ -48,7 +48,7 @@ python -m tools.oracle.harness run --configs tools/oracle/configs.acceptance.jso
 python -m tools.oracle.harness run --configs tools/oracle/configs.appendix.json
 
 # the cutover's whole grade — these two must print the same digest
-python -m mapper play test-patterns/09-gradient24-8x8_4P-10x5.avi \
+python -m mapper play tools/oracle/media/09-gradient24-8x8_4P-10x5.avi \
     --type 8x8_4P --cols 10 --rows 5 --dry-run | tail -1
 python -m mapper send --type 8x8_4P --cols 10 --rows 5 --pattern gradient24 --dry-run | tail -1
 #   -> 10cfd968b0b3436c6b50717f4c6cf69459b545b5c665c5d8003b268a561f8057
@@ -112,13 +112,13 @@ The full entries — what each protects, its evidence, and what reopens it — a
 
 ## Traps
 
-- **Most test patterns are the wrong size.** `01`–`08`, including `08-sweep.avi`, are **64 × 40**, authored for the old 8 × 5 rig, and `play` rejects them on this floor. Only `09-gradient24-8x8_4P-10x5.avi` and `10-sweep-8x8_4P-10x5.avi` are 80 × 40.
+- **Most test patterns are the wrong size.** `01`–`08`, including `08-sweep.avi`, are **64 × 40**, authored for the old 8 × 5 rig, and `play` rejects them on this floor. Only `tools/oracle/media/09-gradient24-8x8_4P-10x5.avi` and `test-patterns/10-sweep-8x8_4P-10x5.avi` are 80 × 40.
 - **`gradient24`'s red channel wraps once at tile index 37**, which looks like a floor anomaly on hardware. It is not — `docs/RUNSHEET-10x5-4P.md` §10, V4 row.
 - **`oracle.harness --live` only captures for a config row whose `capture` is `null`.** On a row that already has one, it refuses with exit 2 rather than silently re-grading the stored file. To measure a new sender, add a *new* row with a new name and a null capture — see `tools/oracle/configs.appendix.json`.
 - **A clip sent at a rate it was not authored for plays at the wrong speed, and no byte comparison in this project can see it** — every individual frame is correct; only the spacing between them is wrong. The same blindness hides cadence judder (D-03).
 - **`max_tolerated` budgets are measured per capture window and clip length.** Re-derive them if either changes; a budget carried over from a different capture is exactly the unbounded tolerance the field exists to remove.
 - **Stopping the send does not black the floor.** In Master/IR mode controller 1 reverts to local content ~5 s later; in slave mode it holds its last frame, as 2 and 3 always do. Either way nothing blacks the floor on its own, so the app's BLACKOUT, cue gaps and idle must all send *black frames*. The socket opens with the show file and never closes.
-- **`design/mockups.html` renders a superset of what ships.** Direction (Fwd/Rev/Bounce), Custom layout, Calibrate… all appear in it, and all were shelved or scrapped. `docs/REQUIREMENTS-v1.pdf` wins over the mockups, and `docs/APP-PLAN.md` says what was cut and why.
+- **`design/mockups.html` renders a superset of what ships.** Direction (Fwd/Rev/Bounce), Custom layout, Calibrate… all appear in it, and all were shelved or scrapped. The operator's requirements (`docs/REQUIREMENTS-v1.pdf`, not published) win over the mockups, and `docs/APP-PLAN.md` says what was cut and why.
 - **Grab the log before relaunching after a fault.** It is `~/Library/Logs/DDF Sender/ddf.log`
   packaged and `~/Library/Logs/Electron/ddf.log` unpackaged — macOS derives that folder from
   the app name, not from `--user-data-dir`. Launch rotates it to `ddf.prev.log`, so one
@@ -163,13 +163,13 @@ Large media (`test-patterns/Test Clips/`, ~188 MB) and `tools/oracle/out/` are g
 | **Writing app code** — any of it | `docs/APP-PLAN.md`, **the app's only plan**. `docs/app-plan.html` was deleted 2026-08-12; two forms of one plan drifted on load-bearing scope once already, so do not recreate it |
 | **Anything about a specific show** — what geometry it ran, what it was cabled into, what its log says | `docs/JOBS.md`. Also where a job's numbers go; they do not come back to this file |
 | Reading or adding a measurement | `captures/measurements/README.md` |
-| Deciding whether a feature is in scope | `docs/REQUIREMENTS-v1.pdf`, operator-annotated, wins over the mockups |
+| Deciding whether a feature is in scope | `docs/APP-PLAN.md` records scope from the operator's requirements (`docs/REQUIREMENTS-v1.pdf`, not published), which win over the mockups |
 | Building any UI | `design/mockups.html`, opened from disk — it loads `support.js` and `design-system/` from this repo |
 | Touching the wire format or mapping | `docs/PROTOCOL.md`, §3–§4 closed |
 | Citing anything measured on hardware | `docs/RUNSHEET-10x5-4P.md` §10 gate-4 tables, §11 Phase 4 media |
 | Running or extending a mapper suite | `mapper/README.md` |
-| Changing the Mapping surface | `docs/MAPPING-DIAGRAM.md`, so nobody re-reads `decompiled/` for it |
+| Changing the Mapping surface | `docs/MAPPING-DIAGRAM.md` records the diagram; `decompiled/` is not published |
 | Planning a hardware session | `docs/PRE-PROBE.md` |
 | Anyone raises the orange tiles again | `docs/HARDWARE-TILE-DEFECT.md`, §1–§3 findings, §4 onward unverified |
 
-Do not re-read the decompiled Ledset source under `decompiled/` unless something specifically requires it; it is archaeology and has misled this project before.
+The decompiler output is not in this repository. `docs/MAPPING-DIAGRAM.md`, `docs/DECOMP_FINDINGS.md` and `docs/PROTOCOL.md` are the written record of what it showed; work from them, not from memory of the source, which has misled this project before.

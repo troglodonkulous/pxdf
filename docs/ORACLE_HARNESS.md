@@ -71,7 +71,7 @@ five, and implementing it literally passed a misassigned port.
 Decision 5: writing a mapper XML to the file Ledset already reads its
 geometry from, then restarting Ledset, loads the geometry with **no UI
 automation at all**. This session confirmed the mechanism precisely, read
-directly from `decompiled/LedSet.decompiled.cs`:
+directly from `decompiled/LedSet.decompiled.cs` (decompiler output, not published):
 
 - `App()` constructor -> `Config = new Configuration(WorkingPath + "Configure.ini"); Config.Read()`
   (line 674-677) reads `Configure.ini`'s `MapperPath=` key
@@ -92,7 +92,7 @@ preview sizing, not the floor protocol.
 
 ```
 $ python -m mapper xml --type 8x8_8P --cols 8 --rows 5 --out generated-test3.xml
-$ diff reference/Test3.mapper.xml generated-test3.xml
+$ diff fixtures/Test3.mapper.xml generated-test3.xml
 (no output -- byte-identical)
 ```
 
@@ -129,7 +129,7 @@ implements it: write the candidate XML to the file `Configure.ini`'s
 `MapperPath` already points at, `CloseMainWindow()` on the running LedSet
 process (its own `Closing` handler stops the send timer -- `PipeMsgSend.SetTimer(isSet:
 false)` -- before `Application.Current.Shutdown()`, per
-`decompiled/LedSet.decompiled.cs:2770-2801`), relaunch, then **read-only**
+`decompiled/LedSet.decompiled.cs:2770-2801`, decompiler output, not published), relaunch, then **read-only**
 UI Automation (`SelectionPattern.GetSelection()`, no `Select()`/`Invoke()`
 anywhere in the script) to confirm `cbo_Type`/`cbo_FeetOfWidth`/`cbo_FeetOfHeight`
 and the drawn controller count match. It restores the target file's original

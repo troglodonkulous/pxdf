@@ -104,7 +104,7 @@ class OverwriteGuard(unittest.TestCase):
 
 class MapperXmlRoundTrip(unittest.TestCase):
     def test_matches_the_vendor_file_byte_for_byte(self):
-        reference = Path(__file__).resolve().parents[2] / "reference" / "Test3.mapper.xml"
+        reference = Path(__file__).resolve().parents[2] / "fixtures" / "Test3.mapper.xml"
         expected = reference.read_text(encoding="utf-8").replace("\r\n", "\n").rstrip("\n")
         self.assertEqual(mapper_xml.to_xml(FloorConfig.of("8x8_8P", 8, 5)), expected)
 
@@ -114,7 +114,7 @@ class MapperXmlRoundTrip(unittest.TestCase):
                 self.assertEqual(mapper_xml.from_xml(mapper_xml.to_xml(config)), config)
 
     def test_reads_the_vendor_file(self):
-        reference = Path(__file__).resolve().parents[2] / "reference" / "Test3.mapper.xml"
+        reference = Path(__file__).resolve().parents[2] / "fixtures" / "Test3.mapper.xml"
         self.assertEqual(mapper_xml.read(reference), FloorConfig.of("8x8_8P", 8, 5))
 
     def test_rejects_a_contradictory_file(self):

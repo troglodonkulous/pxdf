@@ -27,7 +27,7 @@ contradiction had nowhere to go, and the channel that now carries it.
 
 ## 512-byte packet
 
-**Concluded** (`WINDOWS_BRIEF.md` line 20, 2026-08-05): a frame packet is 512
+**Concluded** (`WINDOWS_BRIEF.md` line 20 (not published), 2026-08-05): a frame packet is 512
 bytes, a 5-byte header plus a 507-byte body.
 
 **Disproof already in hand:** the captures. Half of every frame is 458 bytes —

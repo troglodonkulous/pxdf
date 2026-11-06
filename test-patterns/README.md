@@ -9,7 +9,7 @@ Two independent constraints, both read out of the vendor's code and then
 confirmed against the real DLL:
 
 **1. Only video extensions are listed.**
-`MediaListProcessor.CheckIfVideoFile` (`decompiled/LedSet.decompiled.cs:3578`)
+`MediaListProcessor.CheckIfVideoFile` (`decompiled/LedSet.decompiled.cs:3578`, decompiler output, not published)
 compares the file extension against exactly:
 
 ```

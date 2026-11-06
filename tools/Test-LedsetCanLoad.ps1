@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Reproduces the two gates a file has to pass to appear and play in Ledset's
-    media list. Both are taken from decompiled/LedSet.decompiled.cs:
+    media list. Both are taken from decompiled/LedSet.decompiled.cs (decompiler output, not published):
 
       1. Extension filter -- MediaListProcessor.CheckIfVideoFile (line 3578)
          accepts only .MP4 .AVI .FLV .MOV .WMV .MPG. Anything else, including

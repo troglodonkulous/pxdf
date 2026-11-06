@@ -7,7 +7,7 @@ import { mediaContentType, PICKER_EXTENSIONS, UNKNOWN_CONTENT_TYPE } from '../sr
  * `DEMUXER_ERROR_COULD_NOT_OPEN`, so the picker must never offer them.
  *
  * `avi` is the one that matters and the one most likely to come back. Every test
- * pattern in this repo is an AVI — `test-patterns/09-gradient24-8x8_4P-10x5.avi`
+ * pattern in this repo is an AVI — `tools/oracle/media/09-gradient24-8x8_4P-10x5.avi`
  * is the file the whole cutover digest is graded on — so anyone reaching for a
  * clip to try the player on finds an AVI first, discovers the picker will not
  * show it, and fixes the picker. That is the wrong fix: `mapper play` decodes

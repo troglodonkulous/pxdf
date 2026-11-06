@@ -2,12 +2,13 @@
 
 **What this is.** A written specification of how the vendor's mapper window
 renders its controller/power/floor diagram, recovered from
-`decompiled/LedSet.decompiled.cs` on 2026-08-12. It exists so PR 3 can build the
+`decompiled/LedSet.decompiled.cs` (decompiler output, not published) on 2026-08-12. It exists so PR 3 can build the
 same diagram without reinventing its layout, and without anyone re-reading the
 decompiler output.
 
-**The rule this file obeys.** `decompiled/README.md` says decompiler output is
-reference only and that nothing may be pasted from it into a deliverable —
+**The rule this file obeys.** The decompiler output is not in this repository. This file, `docs/DECOMP_FINDINGS.md` and
+`docs/PROTOCOL.md` are the written record of what it showed. It is
+reference only and nothing may be pasted from it into a deliverable —
 describe behaviour instead, which is what `docs/DECOMP_FINDINGS.md` does for the
 wire protocol. This file does the same for the diagram. Every number below is a
 measurement of observed behaviour, written down; none of it is transliterated
@@ -46,7 +47,7 @@ Two runs are drawn per cable, each with its own stagger:
 | Controller → floor edge | `70 + 10i` — so 70, 80, 90, 100 |
 
 Ledset writes the index as `i % 4` over its edge list
-(`LedSet.decompiled.cs:1548-1559`), which within one controller *is* the jack
+(`LedSet.decompiled.cs:1548-1559`, decompiler output, not published), which within one controller *is* the jack
 index, because it never draws more than four sockets on a box. Ours indexes by
 jack directly. Taking `% 4` of a *port* index instead — which the first build did
 — gives ports 0 and 4 of an `_8P` controller the same colour and the same drop
@@ -130,7 +131,7 @@ that mode, reverts to vendor content when packets stop (it can also run in
 slave mode, in which case it holds its last frame instead, same as 2 and 3).
 
 **How many edges Ledset draws depends on the type, and for `_4P` it is wrong.**
-`GetEdgeList()` (`LedSet.decompiled.cs:1692-1703`) branches on the floor-type
+`GetEdgeList()` (`LedSet.decompiled.cs:1692-1703`, decompiler output, not published) branches on the floor-type
 enum: `Pixel6x6_4` and `Pixel8x8_4` get one *small* edge per tile column, and
 everything else gets wide edges covering two columns each, with an odd trailing
 column taking a small one. So the vendor draws its `_4P` diagram port-wise — one
@@ -148,8 +149,8 @@ many of them can carry chains — two at `_4P`, four at `_8P`.
 `_8P` path applied uniformly: `jack = floor(port / 2)`, one cable per used jack,
 each landing on a wide edge spanning its two columns, and a lone trailing column
 taking a small edge. Decided with the operator 2026-08-13; a deliberate
-departure from Ledset, recorded here and in `diagramLayout.ts` so nobody
-"corrects" it back by re-reading `decompiled/`.
+departure from Ledset, recorded here and in `diagramLayout.ts` so nobody "corrects" it back toward
+the vendor's drawing.
 
 An earlier version of this section stated the vendor's `_4P` branch as fact
 about the floor rather than about the vendor, and `app/src/mapping/diagramLayout.ts`

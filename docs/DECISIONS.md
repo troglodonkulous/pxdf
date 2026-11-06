@@ -258,7 +258,7 @@ cables, not 10.
 Evidence: decided 2026-08-13 from the floor's gate-4 findings,
 `docs/PROTOCOL.md` §1 gate 4, and the cable trace at
 `docs/RUNSHEET-10x5-4P.md:1546-1560`. Ledset draws `_4P` port-wise and is wrong
-on this; do not "fix" it back from `decompiled/`. Port-to-column stays 1:1 in
+on this; do not "fix" it back toward the vendor's drawing. Port-to-column stays 1:1 in
 `mapper/`; the jack layer lives only in the app diagram.
 Reopen if: a controller model with a different jack-to-port wiring is used.
 

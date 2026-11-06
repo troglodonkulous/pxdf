@@ -34,7 +34,7 @@ python -m mapper send --type 8x8_4P --cols 10 --rows 5 \
 # play a video. The clip must already be an uncompressed 24-bit AVI at the
 # floor's exact resolution — `python -m tools.make_clip` converts anything else.
 # With no time flag this plays the clip exactly once.
-python -m mapper play test-patterns/09-gradient24-8x8_4P-10x5.avi \
+python -m mapper play tools/oracle/media/09-gradient24-8x8_4P-10x5.avi \
     --type 8x8_4P --cols 10 --rows 5
 
 # how long to send: three mutually exclusive ways, and one full pass by default.

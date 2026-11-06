@@ -121,7 +121,7 @@ const PORTS_PER_JACK = 2;
  * as many cables. That is what the vendor's own 90x12 `LargePowerEdgeElement`
  * is for.
  *
- * Note this deliberately departs from Ledset at `_4P`. `LedSet.decompiled.cs`
+ * Note this deliberately departs from Ledset at `_4P`. `LedSet.decompiled.cs` (decompiler output, not published)
  * `GetEdgeList()` branches on the floor-type enum and hands the two `_4P` types
  * one narrow edge per column — the vendor draws its `_4P` diagram port-wise,
  * which does not match the floor its own hardware ships. The cable trace wins.

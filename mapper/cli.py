@@ -8,7 +8,7 @@
                               --pattern white
     python -m mapper send     --type 8x8_4P --cols 10 --rows 5 --pattern gradient24 \\
                               --duration 5 --dry-run
-    python -m mapper play     test-patterns/09-gradient24-8x8_4P-10x5.avi \\
+    python -m mapper play     tools/oracle/media/09-gradient24-8x8_4P-10x5.avi \\
                               --type 8x8_4P --cols 10 --rows 5 --duration 30
     python -m mapper stream   --type 8x8_4P --cols 10 --rows 12 < frames.rgb
 """

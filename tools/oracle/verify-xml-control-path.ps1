@@ -23,7 +23,7 @@ terminal gets focus back at the end -- not Ledset.
 Requires LedSet.exe already running: this script closes and relaunches
 that instance. It does not cold-start one, and `OnlyRunOneInstance()` in
 the vendor code means a second instance cannot coexist with the first
-anyway (decompiled/LedSet.decompiled.cs:696).
+anyway (decompiled/LedSet.decompiled.cs:696; decompiler output, not published).
 
 Must be run attended -- it takes the foreground and briefly closes Ledset.
 
@@ -129,7 +129,7 @@ try {
 
         # cbo_Type's ListBoxItem.Name is the shared class ToString() for all four
         # entries (Handoff 1 S2.3) -- only the rendered combo TEXT distinguishes,
-        # because cbo_Type.DisplayMemberPath = "DisplayName" (LedSet.decompiled.cs:1217,
+        # because cbo_Type.DisplayMemberPath = "DisplayName" (LedSet.decompiled.cs:1217; decompiler output, not published;
         # FloorTypeSet(FloorType) ctor around line 2241 sets DisplayName = "8x8_4P" etc).
         #
         # A closed cbo_Type has ZERO Text descendants -- confirmed live 2026-08-08 by
