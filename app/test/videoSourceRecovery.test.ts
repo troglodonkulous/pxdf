@@ -795,6 +795,21 @@ describe('recovery 5: pause intent and trim survive a reload', () => {
     expect(second.currentTime).toBeCloseTo(1.2, 3)
   })
 
+  /**
+   * Added after review of the first build, which loaded the replacement and
+   * waited for it to report a frame without ever calling `play()`. Every
+   * element any floor has run was started straight after `load()`; a paused,
+   * detached, `preload=auto` element decoding a first frame on its own is an
+   * unmeasured Chromium path, and if it does not fire `loadeddata` every
+   * recovery times out into an 8 s frozen hold and then black.
+   */
+  it('starts the replacement at once when the transport is running', () => {
+    const r = playingRig()
+    decodeError(r.elements[0] as FakeVideoElement)
+    expectReloading(r)
+    expect(r.current().playing).toBe(true)
+  })
+
   it('stays paused when PAUSE was pressed during the reload', () => {
     const r = playingRig()
     decodeError(r.elements[0] as FakeVideoElement)

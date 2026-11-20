@@ -5,7 +5,7 @@ import { applyFloorSelection } from './mapping/floorSelection.js'
 import { PlayScreen } from './PlayScreen.js'
 import { composeFrame } from './player/compose.js'
 import { decoderCensus } from './player/decoderCensus.js'
-import { PlayerEngine, type EngineSnapshot } from './player/engine.js'
+import { formatRecoveryEvent, PlayerEngine, type EngineSnapshot } from './player/engine.js'
 import { emptyShow, type Show, type ShowFloor } from './player/show.js'
 import { VideoSource } from './player/videoSource.js'
 import { ZOOM_FIT, zoomIn, zoomOut } from './player/zoom.js'
@@ -43,6 +43,10 @@ export function App() {
   if (engineRef.current === null) {
     engineRef.current = new PlayerEngine({
       show: INITIAL_SHOW,
+      onRecoveryEvent: (event) => {
+        const line = formatRecoveryEvent(event)
+        window.pxdf.log(line.level, 'player', line.message)
+      },
       createSource: (cue) => new VideoSource(cue.source.path, cue.rotation, { trimStartMs: cue.trimStartMs, trimEndMs: cue.trimEndMs }),
     })
   }

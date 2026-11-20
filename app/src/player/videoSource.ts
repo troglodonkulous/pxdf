@@ -1,8 +1,42 @@
 import { openDecoder } from './decoderCensus'
-import type { FrameSource } from './engine'
+import type { FrameSource, RecoveryEvent } from './engine'
 import { mediaUrl } from './mediaUrl'
 import { SourceReadiness } from './sourceReadiness'
 import type { Rotation } from '../render/geometry'
+
+export const RECOVERY_ATTEMPT_TIMEOUT_MS = 3_000
+export const RECOVERY_EPISODE_DEADLINE_MS = 8_000
+export const RECOVERY_MAX_ATTEMPTS = 3
+export const RECOVERY_WINDOW_MS = 30_000
+
+export type SnapshotSurface = { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D }
+
+export interface VideoSourceOptions {
+  createElement?(): HTMLVideoElement
+  createCanvas?(): SnapshotSurface | null
+  now?(): number
+  setTimer?(fn: () => void, ms: number): unknown
+  clearTimer?(handle: unknown): void
+}
+
+const defaults: Required<VideoSourceOptions> = {
+  createElement: () => document.createElement('video'),
+  createCanvas: () => {
+    if (typeof document === 'undefined') return null
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    return context === null ? null : { canvas, context }
+  },
+  now: () => performance.now(),
+  setTimer: (fn, ms) => setTimeout(fn, ms),
+  clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+}
+
+interface RecoveryEpisode {
+  readonly start: number
+  readonly originalError: string
+  attempt: number
+}
 
 export interface DrawRect {
   readonly x: number
@@ -125,7 +159,17 @@ function thrownReason(prefix: string, error: unknown): string {
 
 /** A detached, muted video decoder that satisfies the player's frame-source contract. */
 export class VideoSource implements FrameSource {
-  private readonly video: HTMLVideoElement
+  private video: HTMLVideoElement
+  private readonly options: Required<VideoSourceOptions>
+  private readonly listeners: Array<[string, EventListener]> = []
+  private episode: RecoveryEpisode | null = null
+  private attemptStarts: number[] = []
+  private timer: unknown = null
+  private events: RecoveryEvent[] = []
+  // undefined until a frame has actually been drawn, null if the surface is unavailable.
+  private snapshot: SnapshotSurface | null | undefined
+  private hasSnapshot = false
+  private snapshotWarningReported = false
   /**
    * Mutable, unlike `path`. A decoder stays bound to its file for its whole
    * lifetime (see `PlayerEngine.reseat`'s "same decoder, new metadata"), but
@@ -171,7 +215,19 @@ export class VideoSource implements FrameSource {
   private paused = false
 
   private readonly onError = (): void => {
-    this.state.fail(mediaErrorReason(this.video.error))
+    const error = this.video.error
+    const reason = mediaErrorReason(error)
+    if (error?.code !== 3 || !this.ready || this.failed || this.state.disposed) {
+      this.fail(reason)
+      return
+    }
+
+    // load() resets the old element's playhead and duration. Resolve the trim
+    // here, while both still describe the clip that raised the error.
+    const position = this.positionMs
+    const resumeMs = trimWrapPoint(position, this.trimStartMs, this.trimEndMs ?? this.mediaDurationMs) ?? position
+    this.episode ??= { start: this.options.now(), originalError: reason, attempt: 0 }
+    this.startAttempt(this.episode, resumeMs)
   }
 
   // The mid-run channel, and the only one the element gives us for it.
@@ -264,7 +320,7 @@ export class VideoSource implements FrameSource {
   // seeking a source the operator already has a banner about would move the
   // playhead of a cue nothing is showing.
   private readonly onEnded = (): void => {
-    if (this.state.failed || this.paused) return
+    if (this.state.failed || this.paused || this.episode !== null) return
     this.video.currentTime = this.trimStartMs / 1_000
     this.play()
   }
@@ -279,15 +335,34 @@ export class VideoSource implements FrameSource {
    *        it on hardware, which is where it went ungraded in the first place.
    */
   constructor(
-    path: string,
+    private readonly path: string,
     rotation: Rotation = 0,
     trim: { trimStartMs: number; trimEndMs: number | null } = { trimStartMs: 0, trimEndMs: null },
     element: HTMLVideoElement = document.createElement('video'),
+    options: VideoSourceOptions = {},
   ) {
     this.rotation = rotation
     this.trimStartMs = trim.trimStartMs
     this.trimEndMs = trim.trimEndMs
     this.video = element
+    this.options = { ...defaults, ...options }
+    try {
+      this.loadElement(this.trimStartMs)
+    } catch (error) {
+      this.fail(thrownReason('could not start loading the media', error))
+    }
+  }
+
+  private listen(type: string, handle: EventListener): void {
+    const element = this.video
+    const listener: EventListener = (event) => {
+      if (element === this.video && !this.state.disposed) handle(event)
+    }
+    element.addEventListener(type, listener)
+    this.listeners.push([type, listener])
+  }
+
+  private loadElement(positionMs: number): void {
     this.video.muted = true
     this.video.playsInline = true
     // Deliberately false, and not the obvious way to make a clip loop. See
@@ -295,47 +370,55 @@ export class VideoSource implements FrameSource {
     // an in-point, so it would replay the head of every trimmed cue.
     this.video.loop = false
     this.video.preload = 'auto'
-    this.video.addEventListener('error', this.onError)
-    this.video.addEventListener('ended', this.onEnded)
-    this.video.addEventListener('loadeddata', this.onData)
-    this.video.addEventListener('canplay', this.onData)
-    this.video.addEventListener('stalled', this.onStalled)
-    this.video.addEventListener('waiting', this.onWaiting)
-    this.video.addEventListener('progress', this.onProgress)
-    this.video.addEventListener('playing', this.onResumed)
-    this.video.addEventListener('canplay', this.onResumed)
+    this.listen('error', this.onError)
+    this.listen('ended', this.onEnded)
+    this.listen('loadeddata', this.onData)
+    this.listen('canplay', this.onData)
+    this.listen('seeked', this.onData)
+    this.listen('stalled', this.onStalled)
+    this.listen('waiting', this.onWaiting)
+    this.listen('progress', this.onProgress)
+    this.listen('playing', this.onResumed)
+    this.listen('canplay', this.onResumed)
 
-    if (path.trim().length === 0) {
-      this.state.fail('no media path on this cue')
+    if (this.path.trim().length === 0) {
+      this.fail('no media path on this cue')
       return
     }
 
-    try {
-      // Before `src`, not after: the request mode is fixed when the load
-      // starts, and setting `crossOrigin` afterwards would apply to the next
-      // load rather than this one.
-      //
-      // This is not optional and it is not hygiene. `pxdf-media://` is a
-      // different origin from the page however the page was served, so without
-      // a CORS-mode fetch the media taints any canvas it is drawn into and the
-      // render loop's `getImageData` throws on every frame — see the long note
-      // in `electron/main.ts`. It only works paired with `corsEnabled` on the
-      // scheme; alone it makes the element fail to load at all.
-      this.video.crossOrigin = 'anonymous'
-      // Never `file://`. The page is served over `file://` when packaged and
-      // over `http://` under the dev server, and Chromium blocks a `file://`
-      // subresource from the second — see `mediaUrl.ts`.
-      this.video.src = mediaUrl(path)
-      this.video.load()
-      if (trim.trimStartMs > 0) this.video.currentTime = trim.trimStartMs / 1_000
-      this.requestDecodedFrame()
-    } catch (error) {
-      this.state.fail(thrownReason('could not start loading the media', error))
-    }
+    // Before `src`, not after: the request mode is fixed when the load
+    // starts, and setting `crossOrigin` afterwards would apply to the next
+    // load rather than this one. Every reload element needs it too, or the
+    // replacement taints the shared work canvas.
+    //
+    // This is not optional and it is not hygiene. `pxdf-media://` is a
+    // different origin from the page however the page was served, so without
+    // a CORS-mode fetch the media taints any canvas it is drawn into and the
+    // render loop's `getImageData` throws on every frame — see the long note
+    // in `electron/main.ts`. It only works paired with `corsEnabled` on the
+    // scheme; alone it makes the element fail to load at all.
+    this.video.crossOrigin = 'anonymous'
+    // Never `file://`. The page is served over `file://` when packaged and
+    // over `http://` under the dev server, and Chromium blocks a `file://`
+    // subresource from the second — see `mediaUrl.ts`.
+    this.video.src = mediaUrl(this.path)
+    this.video.load()
+    if (positionMs > 0) this.video.currentTime = positionMs / 1_000
+    this.requestDecodedFrame()
   }
 
   get ready(): boolean {
     return this.state.ready
+  }
+
+  get drawable(): boolean {
+    return this.ready && !this.failed && !this.state.disposed && this.episode === null
+  }
+
+  takeRecoveryEvents(): RecoveryEvent[] {
+    const events = this.events
+    this.events = []
+    return events
   }
 
   get failed(): boolean {
@@ -347,7 +430,7 @@ export class VideoSource implements FrameSource {
   }
 
   get stallReason(): string | null {
-    return this.state.stallReason
+    return this.episode === null ? this.state.stallReason : 'is recovering from a decode error'
   }
 
   /**
@@ -372,7 +455,66 @@ export class VideoSource implements FrameSource {
    * between suspecting the clip and suspecting `corsEnabled`.
    */
   fail(reason: string): void {
+    this.endEpisode()
     this.state.fail(reason)
+  }
+
+  private clearAttemptTimer(): void {
+    if (this.timer !== null) this.options.clearTimer(this.timer)
+    this.timer = null
+  }
+
+  private endEpisode(): void {
+    this.clearAttemptTimer()
+    this.episode = null
+  }
+
+  private recordRecovery(kind: RecoveryEvent['kind'], episode: RecoveryEpisode): void {
+    this.events.push({
+      kind,
+      attempt: episode.attempt,
+      elapsedMs: this.options.now() - episode.start,
+      originalError: episode.originalError,
+    })
+  }
+
+  private startAttempt(episode: RecoveryEpisode, resumeMs: number): void {
+    this.clearAttemptTimer()
+    const now = this.options.now()
+    const deadline = episode.start + RECOVERY_EPISODE_DEADLINE_MS
+    this.attemptStarts = this.attemptStarts.filter((start) => now - start < RECOVERY_WINDOW_MS)
+    if (now >= deadline || this.attemptStarts.length >= RECOVERY_MAX_ATTEMPTS) {
+      this.fail(episode.originalError)
+      return
+    }
+
+    this.attemptStarts.push(now)
+    episode.attempt++
+    try {
+      this.releaseElement()
+      this.video = this.options.createElement()
+      this.loadElement(resumeMs)
+      // Started now, not at completion, when the transport is running. Every
+      // element this app has ever put on the floor was `play()`ed straight
+      // after `load()` (`PlayerEngine.arm`), and that is the only path any
+      // floor has exercised. Waiting for a paused, detached, `preload=auto`
+      // element to decode a first frame on its own is a different Chromium
+      // path that nothing here has measured; if it never fires `loadeddata`,
+      // every recovery times out and the floor holds a frozen frame for 8 s
+      // before going black — worse than no recovery at all.
+      if (!this.paused) this.startPlayback()
+      this.recordRecovery('attempt', episode)
+
+      // One wakeup serves both bounds. The final attempt gets only the time
+      // left in this episode, even if a previous timeout itself arrived late.
+      const element = this.video
+      const remaining = Math.min(now + RECOVERY_ATTEMPT_TIMEOUT_MS, deadline) - this.options.now()
+      this.timer = this.options.setTimer(() => {
+        if (this.episode === episode && this.video === element) this.startAttempt(episode, resumeMs)
+      }, Math.max(0, remaining))
+    } catch (error) {
+      this.fail(thrownReason(`${episode.originalError} — could not reload the media`, error))
+    }
   }
 
   /** Called by `PlayerEngine.reseat` when the cue's rotation changes under an already-armed source. */
@@ -393,6 +535,13 @@ export class VideoSource implements FrameSource {
   play(): void {
     if (this.state.disposed || this.state.failed) return
     this.paused = false
+    // During a reload the replacement has only just been seeked to the resume
+    // point and has no duration yet, so the wrap below has nothing to judge;
+    // it runs again from `markReadyFromElement` once the attempt has a frame.
+    if (this.episode !== null) {
+      this.startPlayback()
+      return
+    }
     // Before `video.play()`, and this ordering is the whole point.
     //
     // The element parks at EOF whenever the transport paused there — the guard
@@ -409,18 +558,29 @@ export class VideoSource implements FrameSource {
     // Seeking first makes the element's own rule inapplicable — the playback
     // position is no longer the end of the resource — rather than racing it.
     this.wrapIfSpent()
-    void this.video.play().catch((error: unknown) => {
+    this.startPlayback()
+  }
+
+  /**
+   * Hand control to the current element, ignoring a rejection that belongs to
+   * an element since replaced by a reload — that promise is about a decoder
+   * this source no longer has.
+   */
+  private startPlayback(): void {
+    const element = this.video
+    void element.play().catch((error: unknown) => {
       // An `AbortError` means a newer load or pause superseded this play, which
       // is ordinary during a cue change and not a failure. `state.fail()`
       // ignores everything after teardown on its own.
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      this.state.fail(thrownReason('playback was refused', error))
+      if (element !== this.video || (error instanceof DOMException && error.name === 'AbortError')) return
+      this.fail(thrownReason('playback was refused', error))
     })
   }
 
   pause(): void {
     // Set before the disposed guard, and unconditionally: a source nobody is
     // going to play again is the last one that should be able to restart itself.
+    // Reaches the element during a reload too, because the reload started it.
     this.paused = true
     if (!this.state.disposed) this.video.pause()
   }
@@ -432,20 +592,24 @@ export class VideoSource implements FrameSource {
     // that stops decrementing the moment something else goes wrong would report
     // an exhaustion that never happened.
     this.closeCensusEntry()
+    this.endEpisode()
+    this.events = []
+    this.snapshot = null
+    this.hasSnapshot = false
+    this.releaseElement()
+  }
 
+  private releaseElement(): void {
     if (this.frameCallbackId !== null && this.hasVideoFrameCallbacks()) {
       this.video.cancelVideoFrameCallback(this.frameCallbackId)
       this.frameCallbackId = null
     }
-    this.video.removeEventListener('error', this.onError)
-    this.video.removeEventListener('ended', this.onEnded)
-    this.video.removeEventListener('loadeddata', this.onData)
-    this.video.removeEventListener('canplay', this.onData)
-    this.video.removeEventListener('stalled', this.onStalled)
-    this.video.removeEventListener('waiting', this.onWaiting)
-    this.video.removeEventListener('progress', this.onProgress)
-    this.video.removeEventListener('playing', this.onResumed)
-    this.video.removeEventListener('canplay', this.onResumed)
+    for (const [type, listener] of this.listeners) this.video.removeEventListener(type, listener)
+    this.listeners.length = 0
+    // A new element has its own fetch and playback conditions. The old
+    // element can no longer deliver the progress event that cleared its stall.
+    this.state.clearStall('fetch')
+    this.state.clearStall('playback')
     this.video.pause()
     this.video.removeAttribute('src')
     this.video.load()
@@ -459,7 +623,9 @@ export class VideoSource implements FrameSource {
     context.fillStyle = '#000000'
     context.fillRect(0, 0, width, height)
 
-    if (this.state.ready && !this.state.failed) {
+    // Live and preview share this work context. Both paths repaint it from
+    // black, including a reload before the source ever had a frame drawn.
+    if (this.drawable) {
       // Gated on the transport and nothing else. The out-point of an untrimmed
       // cue is the media's own length, not "there isn't one" — gating this on
       // `trimEndMs !== null`, as it was, meant the only clips that could ever
@@ -472,27 +638,62 @@ export class VideoSource implements FrameSource {
       // to its in-point by the very next composite, and PAUSE would jump the
       // floor instead of holding it.
       if (!this.paused) this.wrapIfSpent()
-      const target = rotatedTargetSize(width, height, this.rotation)
-      const rect = coverRect(this.video.videoWidth, this.video.videoHeight, target.width, target.height)
-      if (rect.width > 0 && rect.height > 0) {
-        context.save()
-        context.translate(width / 2, height / 2)
-        context.rotate((this.rotation * Math.PI) / 180)
-        try {
-          context.drawImage(
-            this.video,
-            rect.x - target.width / 2,
-            rect.y - target.height / 2,
-            rect.width,
-            rect.height,
-          )
-        } catch (error) {
-          this.state.fail(thrownReason('the decoded frame could not be drawn', error))
-        }
-        context.restore()
-      }
+      const rect = this.paintFrame(context, width, height, this.video, this.video.videoWidth, this.video.videoHeight)
+      if (rect !== null) this.captureSnapshot(rect)
+    } else if (this.episode !== null && this.hasSnapshot && this.snapshot) {
+      const { canvas } = this.snapshot
+      this.paintFrame(context, width, height, canvas, canvas.width, canvas.height)
     }
     context.restore()
+  }
+
+  private paintFrame(
+    context: CanvasRenderingContext2D, width: number, height: number,
+    image: CanvasImageSource, srcW: number, srcH: number,
+  ): DrawRect | null {
+    const target = rotatedTargetSize(width, height, this.rotation)
+    const rect = coverRect(srcW, srcH, target.width, target.height)
+    if (rect.width === 0 || rect.height === 0) return null
+    context.translate(width / 2, height / 2)
+    context.rotate((this.rotation * Math.PI) / 180)
+    try {
+      context.drawImage(image, rect.x - target.width / 2, rect.y - target.height / 2, rect.width, rect.height)
+      return rect
+    } catch (error) {
+      this.fail(thrownReason('the decoded frame could not be drawn', error))
+      return null
+    }
+  }
+
+  private captureSnapshot(rect: DrawRect): void {
+    try {
+      if (this.snapshot === undefined) {
+        // Remember even a failed allocation. Repeating it every render tick
+        // would spend the frame budget on a surface the renderer cannot supply.
+        this.snapshot = null
+        this.snapshot = this.options.createCanvas()
+      }
+      if (this.snapshot === null) return
+      const { canvas, context } = this.snapshot
+      const w = Math.max(1, Math.round(rect.width))
+      const h = Math.max(1, Math.round(rect.height))
+      // Resizing clears a canvas, even when assigned its existing size.
+      if (canvas.width !== w || canvas.height !== h) {
+        this.hasSnapshot = false
+        canvas.width = w
+        canvas.height = h
+      }
+      // A transparent pixel in this frame must replace the previous pixel.
+      // The black backing is applied on the work canvas when the hold is drawn.
+      context.globalCompositeOperation = 'copy'
+      context.drawImage(this.video, 0, 0, w, h)
+      this.hasSnapshot = true
+    } catch (error) {
+      // The work canvas already has its frame. Preserve a previous copy if
+      // it survived resizing, and keep an optional hold from killing playback.
+      if (!this.snapshotWarningReported) console.warn('Could not capture player recovery frame', error)
+      this.snapshotWarningReported = true
+    }
   }
 
   /**
@@ -543,11 +744,13 @@ export class VideoSource implements FrameSource {
    * callback (gating the render loop on `presentedFrames`) was built and
    * graded too, and measured no better than this alone (same entry).
    *
-   * The callback's own work is one readiness check; only `dispose` ends it.
+   * Releasing the element ends its chain. A replacement arms its own.
    */
   private requestDecodedFrame(): void {
     if (!this.hasVideoFrameCallbacks() || this.state.disposed) return
-    this.frameCallbackId = this.video.requestVideoFrameCallback(() => {
+    const element = this.video
+    this.frameCallbackId = element.requestVideoFrameCallback(() => {
+      if (element !== this.video || this.state.disposed) return
       this.frameCallbackId = null
       this.markReadyFromElement()
       this.requestDecodedFrame()
@@ -560,7 +763,21 @@ export class VideoSource implements FrameSource {
    * it. `HAVE_CURRENT_DATA` means there is decoded data for the current
    * position, which is exactly what `draw` needs — the floor, not the ceiling.
    */
-  private markReadyFromElement(): boolean {
-    return this.state.observe(this.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)
+  private markReadyFromElement(): void {
+    if (!this.state.observe(this.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)) return
+    const episode = this.episode
+    if (episode === null) return
+    // A throttled timer can still be queued when a media event is dispatched.
+    // Check the actual clock before claiming the episode recovered in time.
+    if (this.options.now() - episode.start >= RECOVERY_EPISODE_DEADLINE_MS) {
+      this.fail(episode.originalError)
+      return
+    }
+    this.recordRecovery('recovered', episode)
+    this.endEpisode()
+    this.state.clearStall('fetch')
+    this.state.clearStall('playback')
+    if (this.paused) this.video.pause()
+    else this.play()
   }
 }
