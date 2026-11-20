@@ -22,7 +22,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { PlayerEngine, type FrameSource, type Target } from '../src/player/engine';
+import {
+  PlayerEngine,
+  formatRecoveryEvent,
+  type FrameSource,
+  type RecoveryEvent,
+  type SlotRecoveryEvent,
+  type Target,
+} from '../src/player/engine';
 import type { Cue, Show } from '../src/player/show';
 import { SHOW_FILE_VERSION } from '../src/player/show';
 import type { Rotation } from '../src/render/geometry';
@@ -36,6 +43,23 @@ import type { Rotation } from '../src/render/geometry';
  */
 class FakeSource implements FrameSource {
   ready = false;
+  /**
+   * Null means "drawable whenever ready", which is what every source that is
+   * not mid-recovery is — and what keeps the ~90 tests that only set `ready`
+   * promoting exactly as they did. A recovery test sets it to `false` to model
+   * a source that latched `ready` once and is now reloading with no frame.
+   */
+  drawableOverride: boolean | null = null;
+  get drawable(): boolean {
+    return this.ready && (this.drawableOverride ?? true);
+  }
+  /** Queued by a test, drained by the engine through `takeRecoveryEvents`. */
+  recoveryEvents: RecoveryEvent[] = [];
+  takeRecoveryEvents(): RecoveryEvent[] {
+    const events = this.recoveryEvents;
+    this.recoveryEvents = [];
+    return events;
+  }
   failed = false;
   /**
    * Defaulted rather than required so the ~30 tests that only care that a
@@ -1436,5 +1460,221 @@ describe('the log line carries the path the banner has no room for', () => {
     expect(rig.engine.snapshot().lastError).toContain('Cue a');
     expect(rig.engine.snapshot().lastErrorLog).toContain('/media/a.mp4');
     expect(rig.engine.snapshot().lastErrorLog).not.toContain('/media/b.mp4');
+  });
+});
+
+/**
+ * Decode recovery, as the engine sees it: promotion gated on a *fresh* frame,
+ * and recovery events reaching a log channel of their own.
+ *
+ * ## Why promotion reads `drawable` and not `ready`
+ *
+ * `ready` latches. A pending source that decoded one frame, then hit a decode
+ * error and started reloading, still reads `ready === true` — so promoting on
+ * `ready` would put a source with no current frame on the wire and release the
+ * healthy outgoing cue to do it. That is the shape Codex's QC flagged
+ * (2026-11-20, finding 3). `drawable` is "this attempt has a frame now"; the
+ * outgoing cue stays on the wire until the incoming one has one.
+ *
+ * ## Why recovery events are not `lastErrorLog`
+ *
+ * `lastErrorLog` is a sampled *terminal* error string: the App logs it on
+ * change, at ERROR, four times a second at most. A recovery is neither
+ * terminal nor an error the operator must act on, and two attempts inside one
+ * sample would collapse into one line. Each attempt and each recovery is its
+ * own event, carried with the slot and cue it happened on — which only the
+ * engine knows, because a source does not know whether it is pending or live.
+ */
+describe('decode recovery: gated promotion and its own log channel', () => {
+  function rig(...cues: Cue[]) {
+    const sources = new Map<string, FakeSource>();
+    const events: SlotRecoveryEvent[] = [];
+    const engine = new PlayerEngine<FakeSource>({
+      show: show(...cues),
+      now: () => 0,
+      createSource: (c) => {
+        const source = new FakeSource(c.id);
+        sources.set(c.id, source);
+        return source;
+      },
+      onRecoveryEvent: (event) => events.push(event),
+    });
+    const source = (id: string): FakeSource => {
+      const found = sources.get(id);
+      if (found === undefined) throw new Error(`no source for ${id}`);
+      return found;
+    };
+    return { engine, source, events };
+  }
+
+  const attempt = (n: number, elapsedMs = 0): RecoveryEvent => ({
+    kind: 'attempt',
+    attempt: n,
+    elapsedMs,
+    originalError: 'MEDIA_ERR_DECODE (code 3): PIPELINE_ERROR_DECODE',
+  });
+
+  it('does not promote a pending source that is ready but not drawable', () => {
+    const { engine, source } = rig(cue('a'), cue('b'));
+    engine.goTo('a');
+    source('a').ready = true;
+    engine.tick();
+    expect(engine.snapshot().liveCueId).toBe('a');
+
+    engine.goTo('b');
+    source('b').ready = true;
+    source('b').drawableOverride = false;
+    for (let i = 0; i < 5; i += 1) {
+      // The outgoing cue is still the one on the wire, and it was not released.
+      expect(engine.tick().wire).toEqual({ kind: 'source', source: source('a') });
+    }
+    expect(engine.snapshot().liveCueId).toBe('a');
+    expect(engine.snapshot().pendingCueId).toBe('b');
+    expect(source('a').disposed).toBe(false);
+
+    source('b').drawableOverride = null;
+    expect(engine.tick().wire).toEqual({ kind: 'source', source: source('b') });
+    expect(source('a').disposed).toBe(true);
+  });
+
+  it('positive control: a drawable pending source still promotes on the first tick', () => {
+    // Without this the test above passes against an engine that never promotes.
+    const { engine, source } = rig(cue('a'));
+    engine.goTo('a');
+    source('a').ready = true;
+    expect(engine.tick().wire).toEqual({ kind: 'source', source: source('a') });
+  });
+
+  it('keeps a recovering live source on the wire rather than blacking the floor', () => {
+    // The source paints its own last-good frame while reloading (graded in
+    // videoSourceRecovery.test.ts). The engine's half is not to take it off.
+    const { engine, source } = rig(cue('a'));
+    engine.goTo('a');
+    source('a').ready = true;
+    engine.tick();
+    source('a').drawableOverride = false;
+    source('a').recoveryEvents.push(attempt(1));
+    expect(engine.tick().wire).toEqual({ kind: 'source', source: source('a') });
+    expect(engine.snapshot().lastError).toBe(null);
+    expect(engine.snapshot().lastErrorLog).toBe(null);
+  });
+
+  it.each([
+    ['live', true],
+    ['pending', false],
+  ] as const)('tags a %s source\'s recovery event with its slot and cue', (slot, promote) => {
+    const { engine, source, events } = rig(cue('a'), cue('b'));
+    engine.goTo('a');
+    source('a').ready = true;
+    engine.tick();
+    let id = 'a';
+    if (!promote) {
+      engine.goTo('b');
+      id = 'b';
+    }
+    source(id).recoveryEvents.push(attempt(1, 0));
+    engine.tick();
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      slot,
+      cueId: id,
+      cueName: `Cue ${id}`,
+      path: `/media/${id}.mp4`,
+      kind: 'attempt',
+      attempt: 1,
+      originalError: 'MEDIA_ERR_DECODE (code 3): PIPELINE_ERROR_DECODE',
+    });
+  });
+
+  it('tags a preview source\'s recovery event as preview', () => {
+    const { engine, source, events } = rig(cue('a'));
+    engine.setMode('preview');
+    engine.selectCue('a');
+    source('a').ready = true;
+    source('a').recoveryEvents.push(attempt(1));
+    engine.tick();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ slot: 'preview', cueId: 'a' });
+  });
+
+  it('emits each event once, in order, and drains the source', () => {
+    const { engine, source, events } = rig(cue('a'));
+    engine.goTo('a');
+    source('a').ready = true;
+    engine.tick();
+    source('a').recoveryEvents.push(attempt(1, 0), attempt(2, 3_000));
+    engine.tick();
+    engine.tick();
+    expect(events.map((e) => e.attempt)).toEqual([1, 2]);
+    expect(source('a').recoveryEvents).toHaveLength(0);
+  });
+
+  it('emits a dying source\'s events before releasing it', () => {
+    // A source that exhausts recovery reports its last attempt and fails on the
+    // same frame. Draining after `reapFailures` would read a disposed source
+    // and lose the line that explains the black floor.
+    const { engine, source, events } = rig(cue('a'));
+    engine.goTo('a');
+    source('a').ready = true;
+    engine.tick();
+    source('a').recoveryEvents.push(attempt(3, 6_000));
+    source('a').failed = true;
+    source('a').failureReason = 'MEDIA_ERR_DECODE (code 3): PIPELINE_ERROR_DECODE';
+    engine.tick();
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ slot: 'live', attempt: 3 });
+    expect(engine.tick().wire).toEqual({ kind: 'black' });
+    expect(engine.snapshot().lastError).toContain('stopped playing');
+    expect(engine.snapshot().lastError).toContain('MEDIA_ERR_DECODE');
+  });
+
+  it('runs without an onRecoveryEvent listener', () => {
+    // The option is optional; a source with events and no listener must not throw.
+    const { engine, source } = build(show(cue('a')));
+    engine.goTo('a');
+    source('a').ready = true;
+    source('a').recoveryEvents.push(attempt(1));
+    expect(() => engine.tick()).not.toThrow();
+  });
+});
+
+describe('formatRecoveryEvent', () => {
+  const base: SlotRecoveryEvent = {
+    kind: 'attempt',
+    attempt: 2,
+    elapsedMs: 3_000,
+    originalError: 'MEDIA_ERR_DECODE (code 3): PIPELINE_ERROR_DECODE: VideoToolbox',
+    slot: 'live',
+    cueId: 'c7',
+    cueName: 'Color Fireflys',
+    path: '/Users/op/Downloads/LEAH_ddf/fireflys.mp4',
+  };
+
+  it('logs an attempt at WARN with everything an investigator needs', () => {
+    const line = formatRecoveryEvent(base);
+    expect(line.level).toBe('WARN');
+    expect(line.message).toContain('"Color Fireflys"');
+    expect(line.message).toContain('/Users/op/Downloads/LEAH_ddf/fireflys.mp4');
+    expect(line.message).toContain('live');
+    expect(line.message).toContain('attempt 2');
+    expect(line.message).toContain('3000 ms');
+    expect(line.message).toContain('PIPELINE_ERROR_DECODE: VideoToolbox');
+  });
+
+  it('logs a recovery at INFO, and says recovered', () => {
+    const line = formatRecoveryEvent({ ...base, kind: 'recovered', elapsedMs: 3_412, slot: 'pending' });
+    expect(line.level).toBe('INFO');
+    expect(line.message).toContain('recovered');
+    expect(line.message).toContain('pending');
+    expect(line.message).toContain('3412 ms');
+    expect(line.message).toContain('"Color Fireflys"');
+    expect(line.message).toContain('PIPELINE_ERROR_DECODE');
+  });
+
+  it('does not say recovered for an attempt', () => {
+    // The word is the operator-facing claim; it must not appear before a frame.
+    expect(formatRecoveryEvent(base).message).not.toMatch(/recovered/i);
   });
 });
