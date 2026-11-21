@@ -51,6 +51,7 @@ import {
   rotatedTargetSize,
   type SnapshotSurface,
 } from '../src/player/videoSource'
+import { DecodeFault, INJECTED_DECODE_MESSAGE } from '../src/player/decodeFault'
 import { decoderCensus } from '../src/player/decoderCensus'
 import { PlayerEngine, type SlotRecoveryEvent } from '../src/player/engine'
 import { SHOW_FILE_VERSION, type Cue, type Show } from '../src/player/show'
@@ -133,6 +134,12 @@ class FakeVideoElement {
 
   emit(type: string): void {
     for (const handler of [...(this.listeners.get(type) ?? [])]) handler({ type } as Event)
+  }
+
+  /** What the decode-fault seam calls; delivered the same way as `emit`. */
+  dispatchEvent(event: Event): boolean {
+    this.emit(event.type)
+    return true
   }
 
   listenerCount(): number {
@@ -1088,5 +1095,96 @@ describe('recovery through the engine, with real VideoSources', () => {
     r.clock.advance(60_000)
     expect(r.clock.pending()).toBe(0)
     expect(r.events.map((e) => [e.slot, e.cueId, e.kind])).toEqual([['preview', 'a', 'attempt']])
+  })
+})
+
+// ------------------------------------------------- 8. the decode-fault seam
+
+/**
+ * `PXDF_FAULT_DECODE` (`player/decodeFault.ts`) is how the wire gates grade
+ * this branch, so the seam has to reach the real recovery path from end to
+ * end, the way `App.tsx` wires it: one factory as the first element *and* as
+ * `createElement` for the replacements. `once` must be one recovered episode;
+ * `persistent` must exhaust to today's terminal failure, carrying the
+ * injected reason.
+ */
+describe('recovery 8: driven by the decode-fault seam, as App wires it', () => {
+  function seamRig(mode: 'once' | 'persistent'): {
+    source: VideoSource
+    fault: DecodeFault
+    clock: FakeClock
+    elements: FakeVideoElement[]
+  } {
+    const clock = new FakeClock()
+    const elements: FakeVideoElement[] = []
+    const fault = new DecodeFault({ match: 'Dice', afterMs: 500, mode }, () => {}, clock, () => {
+      const element = new FakeVideoElement()
+      elements.push(element)
+      return element as unknown as HTMLVideoElement
+    })
+    const make = fault.elementsFor('/media/Animated Dice Retro.mp4')
+    expect(make).not.toBe(null)
+    const source = new VideoSource(
+      '/media/Animated Dice Retro.mp4',
+      0,
+      { trimStartMs: 0, trimEndMs: null },
+      make!(),
+      {
+        createElement: make!,
+        createCanvas: () => ({ canvas: new FakeCanvas(), context: new RecordingContext() }) as unknown as SnapshotSurface,
+        now: clock.now,
+        setTimer: clock.setTimer,
+        clearTimer: clock.clearTimer,
+      },
+    )
+    return { source, fault, clock, elements }
+  }
+
+  /** The newest element decodes a frame and starts playing, as a real one does. */
+  function present(elements: FakeVideoElement[], source: VideoSource): void {
+    const element = elements[elements.length - 1] as FakeVideoElement
+    decodeFrame(element, element.currentTime + 1)
+    element.emit('playing')
+    draw(source)
+  }
+
+  it('once: one injected error is one recovered episode, and the replacement plays clean', () => {
+    const r = seamRig('once')
+    r.source.play()
+    present(r.elements, r.source)
+    expect(r.source.ready).toBe(true)
+
+    r.clock.advance(500)
+    expect(r.fault.injected).toBe(1)
+    expect(r.elements).toHaveLength(2)
+    expect(r.source.failed).toBe(false)
+    expect(r.source.drawable).toBe(false)
+
+    present(r.elements, r.source)
+    r.clock.advance(60_000)
+    expect(r.fault.injected).toBe(1)
+    expect(r.elements).toHaveLength(2)
+    expect(r.source.drawable).toBe(true)
+
+    const events = r.source.takeRecoveryEvents()
+    expect(events.map((e) => e.kind)).toEqual(['attempt', 'recovered'])
+    expect(events.every((e) => e.originalError.includes(INJECTED_DECODE_MESSAGE))).toBe(true)
+  })
+
+  it('persistent: a fault that follows every replacement exhausts to the terminal failure', () => {
+    const r = seamRig('persistent')
+    r.source.play()
+    for (let i = 0; i < 10 && !r.source.failed; i += 1) {
+      present(r.elements, r.source)
+      r.clock.advance(500)
+    }
+    expect(r.source.failed).toBe(true)
+    expect(r.source.failureReason).toContain(INJECTED_DECODE_MESSAGE)
+    // It reloaded before it gave up -- stock main fails on the first fault
+    // with the same reason, so without this the test passes with no recovery.
+    expect(r.elements.length).toBeGreaterThan(1)
+    // One fault per element, and the budget bounds the elements.
+    expect(r.fault.injected).toBe(r.elements.length)
+    expect(r.elements.length).toBeLessThanOrEqual(RECOVERY_MAX_ATTEMPTS + 1)
   })
 })

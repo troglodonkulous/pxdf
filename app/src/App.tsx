@@ -4,6 +4,7 @@ import { MappingScreen, type NetworkInterface } from './mapping/MappingScreen.js
 import { applyFloorSelection } from './mapping/floorSelection.js'
 import { PlayScreen } from './PlayScreen.js'
 import { composeFrame } from './player/compose.js'
+import { DecodeFault } from './player/decodeFault.js'
 import { decoderCensus } from './player/decoderCensus.js'
 import { formatRecoveryEvent, PlayerEngine, type EngineSnapshot } from './player/engine.js'
 import { emptyShow, type Show, type ShowFloor } from './player/show.js'
@@ -39,6 +40,10 @@ function rgbToPreview(rgb: Uint8Array, image: ImageData): void {
 }
 
 export function App() {
+  // The decode-fault test seam (`player/decodeFault.ts`). Null in every run a
+  // gate did not ask for one, and the main process never hands one to a
+  // packaged build; unmatched cues get `VideoSource`'s own element either way.
+  const decodeFaultRef = useRef<DecodeFault | null>(null)
   const engineRef = useRef<PlayerEngine<VideoSource> | null>(null)
   if (engineRef.current === null) {
     engineRef.current = new PlayerEngine({
@@ -47,7 +52,20 @@ export function App() {
         const line = formatRecoveryEvent(event)
         window.pxdf.log(line.level, 'player', line.message)
       },
-      createSource: (cue) => new VideoSource(cue.source.path, cue.rotation, { trimStartMs: cue.trimStartMs, trimEndMs: cue.trimEndMs }),
+      createSource: (cue) => {
+        const elements = decodeFaultRef.current?.elementsFor(cue.source.path) ?? null
+        // The factory goes in twice: once for the first element, and as
+        // `createElement` for the replacements a decode recovery makes, so a
+        // `persistent` fault follows the clip across reloads and a `once`
+        // fault is spent on the first.
+        return new VideoSource(
+          cue.source.path,
+          cue.rotation,
+          { trimStartMs: cue.trimStartMs, trimEndMs: cue.trimEndMs },
+          elements?.() ?? undefined,
+          elements === null ? {} : { createElement: elements },
+        )
+      },
     })
   }
   const engine = engineRef.current
@@ -118,6 +136,24 @@ export function App() {
    * two lines in the file for one event and make a crash loop read as twice
    * the crash loop it is.
    */
+  useEffect(() => {
+    // Fetched once. Cues armed before it lands play unfaulted; a gate waits for
+    // the "armed" line before its first GO, so that window never decides a
+    // result. Each injection is its own line, so the gate counts what landed
+    // rather than trusting that it asked.
+    let cancelled = false
+    void window.pxdf.decodeFault().then((spec) => {
+      if (cancelled || spec === null) return
+      decodeFaultRef.current = new DecodeFault(spec, (path) => {
+        window.pxdf.log('WARN', 'fault', `injected decode error into ${path}`)
+      })
+      window.pxdf.log('WARN', 'fault', `decode fault armed in the renderer: ${JSON.stringify(spec)}`)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   useEffect(() => {
     // `lastErrorLog`, not `lastError`. The banner and the log line used to be
     // the same string, which meant the log inherited a constraint that belongs
