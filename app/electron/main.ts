@@ -6,6 +6,7 @@ import { networkInterfaces } from 'node:os'
 import { app, BrowserWindow, dialog, ipcMain, powerSaveBlocker, protocol, shell } from 'electron'
 import { floorGeometry, SHOP_RIG } from '../src/render/geometry.js'
 import { blackFrame } from '../src/render/onePass.js'
+import { DECODE_FAULT_ENV, parseDecodeFault, type DecodeFaultSpec } from '../src/player/decodeFault.js'
 import { mediaContentType, PICKER_EXTENSIONS } from '../src/player/mediaFormats.js'
 import {
   contentRangeHeader,
@@ -628,6 +629,36 @@ ipcMain.handle('pxdf:cue-seed', (): Record<string, Pick<Cue, 'loop' | 'trimStart
 })
 
 /**
+ * The decode-fault test seam's spec, resolved once at launch (see
+ * `src/player/decodeFault.ts`). `null` unless `PXDF_FAULT_DECODE` is set, well
+ * formed, and this is not a packaged build — a show runs a packaged build, and
+ * a fault left on there would black a live cue.
+ */
+let decodeFaultSpec: DecodeFaultSpec | null = null
+
+ipcMain.handle('pxdf:decode-fault', (): DecodeFaultSpec | null => decodeFaultSpec)
+
+/**
+ * Resolve the seam and say what became of it. Every outcome but "unset" is a
+ * log line: on, it is a WARN a show log cannot hide; refused or ignored, the
+ * gate that set it can see why it is not getting the faults it asked for.
+ */
+function resolveDecodeFault(): void {
+  const parsed = parseDecodeFault(process.env[DECODE_FAULT_ENV])
+  if (!parsed.ok) {
+    logLine('ERROR', 'fault', parsed.reason)
+    return
+  }
+  if (parsed.spec === null) return
+  if (app.isPackaged) {
+    logLine('WARN', 'fault', `${DECODE_FAULT_ENV} is set and ignored: this is a packaged build`)
+    return
+  }
+  decodeFaultSpec = parsed.spec
+  logLine('WARN', 'fault', `decode fault injection ACTIVE: ${JSON.stringify(parsed.spec)} — test seam, never for a show`)
+}
+
+/**
  * A chosen path in exactly the form the handler will see it come back.
  *
  * The membership test has to be an equality check on the same value, not a
@@ -919,6 +950,7 @@ void app.whenReady().then(() => {
   // operator, before the session that was going to rely on it. The watchdog
   // tick asks the same question every second afterwards.
   checkLogHealth()
+  resolveDecodeFault()
 
   sidecar = new Sidecar({
     isPackaged: app.isPackaged,

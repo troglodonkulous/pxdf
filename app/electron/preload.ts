@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { RenderSample } from './renderStats.js'
 import type { SenderStatus } from './sidecar.js'
+import type { DecodeFaultSpec } from '../src/player/decodeFault.js'
 import type { Cue } from '../src/player/show.js'
 
 export interface PxdfApi {
@@ -23,6 +24,8 @@ export interface PxdfApi {
   pickMedia(): Promise<string[]>
   listMediaDir(): Promise<{ dir: string; files: string[] } | null>
   cueSeed(): Promise<Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>>>
+  /** The decode-fault test seam's spec, or null; `src/player/decodeFault.ts`. */
+  decodeFault(): Promise<DecodeFaultSpec | null>
   mapperPlan(type: string, cols: number, rows: number): Promise<string>
   listInterfaces(): Promise<{ name: string; address: string }[]>
   getLocalIp(): Promise<string>
@@ -138,6 +141,9 @@ const api: PxdfApi = {
   },
   cueSeed() {
     return ipcRenderer.invoke('pxdf:cue-seed') as Promise<Record<string, Pick<Cue, 'loop' | 'trimStartMs' | 'trimEndMs'>>>
+  },
+  decodeFault() {
+    return ipcRenderer.invoke('pxdf:decode-fault') as Promise<DecodeFaultSpec | null>
   },
   mapperPlan(type, cols, rows) {
     return ipcRenderer.invoke('pxdf:mapper-plan', type, cols, rows) as Promise<string>
