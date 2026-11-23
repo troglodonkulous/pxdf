@@ -794,7 +794,7 @@ try {
   }
   // A floor on motion, not a target. A renderer composing fewer fresh frames
   // than 30 a second repeats indices, and that is a result (`moving`, graded
-  // by `--compare`), not a broken instrument. MEASURED 2026-11-20: this was
+  // by `--compare`), not a broken instrument. MEASURED 2026-11-22: this was
   // `< 0.5`, and it refused a stock arm reading 47.3 % and threw its data away.
   if (result.moved < 0.1 || result.distinctCues < 3) {
     refuse(`5. index advanced on ${(result.moved * 100).toFixed(1)} % of steps; ${result.distinctCues} distinct cues on the wire`)
