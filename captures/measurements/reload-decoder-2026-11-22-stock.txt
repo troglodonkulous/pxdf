@@ -1,0 +1,38 @@
+# command: node app/test/e2e/probe-reload-decoder.mjs
+# tree: app-fault-seam@be9ef20 (stock main + seam: the control arm)
+# show Mac, i7-9750H, Electron 43.4.0, 2026-11-22 PST
+
+
+== h264 default
+  went live true · injected 1 · recovery started 0 · recovered 0 · still live false
+  banner: cue "reload-h264" stopped playing — MEDIA_ERR_DECODE (code 3): PIPELINE_ERROR_DECODE: injected by PXDF_FAULT_DECODE
+  players of the clip: 3 (0 alive at the end)
+    5ED7F86A  decoder VideoToolboxVideoDecoder  played  destroyed
+    A800A526  decoder VideoToolboxVideoDecoder  played  destroyed
+    075E0F32  decoder VideoToolboxVideoDecoder  played  destroyed
+
+== h264 --disable-accelerated-video-decode
+  went live true · injected 1 · recovery started 0 · recovered 0 · still live false
+  banner: cue "reload-h264" stopped playing — MEDIA_ERR_DECODE (code 3): PIPELINE_ERROR_DECODE: injected by PXDF_FAULT_DECODE
+  players of the clip: 3 (0 alive at the end)
+    F487C782  decoder FFmpegVideoDecoder  played  destroyed
+    F3BBA0BF  decoder FFmpegVideoDecoder  played  destroyed
+    341D670E  decoder FFmpegVideoDecoder  played  destroyed
+
+== hevc default
+  went live true · injected 1 · recovery started 0 · recovered 0 · still live false
+  banner: cue "reload-hevc" stopped playing — MEDIA_ERR_DECODE (code 3): PIPELINE_ERROR_DECODE: injected by PXDF_FAULT_DECODE
+  players of the clip: 3 (0 alive at the end)
+    032E0355  decoder VideoToolboxVideoDecoder  played  destroyed
+    86E9566B  decoder VideoToolboxVideoDecoder  played  destroyed
+    D891C705  decoder VideoToolboxVideoDecoder  played  destroyed
+
+== hevc --disable-accelerated-video-decode
+  note: no decoder for this clip on this arm: every player raised PipelineStatus::DEMUXER_ERROR_NO_SUPPORTED_STREAMS:14
+  went live false · injected 0 · recovery started 0 · recovered 0 · still live false
+  banner: cue "reload-hevc" failed to play — MEDIA_ERR_SRC_NOT_SUPPORTED (code 4): PipelineStatus::DEMUXER_ERROR_NO_SUPPORTED_STREAMS: FFmpegDemuxer: no supported streams
+  players of the clip: 3 (0 alive at the end)
+    22FC0260  decoder (none)  never played  destroyed  errors PipelineStatus::DEMUXER_ERROR_NO_SUPPORTED_STREAMS:14
+    F1A73379  decoder (none)  never played  destroyed  errors PipelineStatus::DEMUXER_ERROR_NO_SUPPORTED_STREAMS:14
+    07B2DCB3  decoder (none)  never played  destroyed  errors PipelineStatus::DEMUXER_ERROR_NO_SUPPORTED_STREAMS:14
+exit 0

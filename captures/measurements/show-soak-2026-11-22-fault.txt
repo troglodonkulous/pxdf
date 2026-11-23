@@ -1,0 +1,70 @@
+# command: SOAK_SECONDS=180 SEED=1 SOAK_FAULT='{"match":"soak-cue1","afterMs":2000,"mode":"once"}' node app/test/e2e/probe-show-soak.mjs, per tree, then --compare
+# stock arm: app-fault-seam@e22d37f · exit 0 ; branch arm: app-decode-recovery@02ad5fe · exit 0 ; compare exit 0
+# also in this file: the first 480 s attempt, stock REFUSED (exit 2) on the old control 5 (< 50 % moving), and the branch arm of that attempt
+
+arm app-fault-seam@e22d37f · seed 1 · soak 480 s · fixtures in $TMPDIR/pxdf-soak-Yoz1gr
+
+REFUSED — the instrument is broken; no result written:
+  - 5. index advanced on 47.3 % of steps; 6 distinct cues on the wire
+main exit 2
+arm app-decode-recovery@02ad5fe · seed 1 · soak 480 s · fixtures in $TMPDIR/pxdf-soak-w5eQZV
+
+14520 wire frames over 484 s, 82.9 % of steps moving, 6 cues seen
+controls: 7 BLACKOUTs all read black · 17 PAUSEs all read as freezes
+GOs 60: 0 late or missed (> 2000 ms), 0 with a stray cue, 0 wrong-cue frames, 0 without Standby shown, median latency 116 ms
+unplanned black: 0 runs, longest 0 ms
+freezes > 500 ms: 0, longest 0 ms
+undecoded frames: 0
+draw, median of heartbeat averages: 2160² 60.22 ms · 768² 16.64 ms
+
+result: $SCRATCH/soak-branch.json
+log:    $SCRATCH/soak-branch.log
+branch exit 0
+arm app-fault-seam@e22d37f · seed 1 · soak 180 s · fixtures in $TMPDIR/pxdf-soak-yTiRRm
+
+5579 wire frames over 186 s, 79.8 % of steps moving, 6 cues seen
+controls: 1 BLACKOUTs all read black · 3 PAUSEs all read as freezes
+GOs 22: 0 late or missed (> 2000 ms), 0 with a stray cue, 0 wrong-cue frames, 0 without Standby shown, median latency 124 ms
+unplanned black: 1 runs, longest 4600 ms
+freezes > 500 ms: 0, longest 0 ms
+undecoded frames: 0
+draw, median of heartbeat averages: 2160² 56.36 ms · 768² 15.1 ms
+  black: 4600 ms at +50985 ms
+
+result: $SCRATCH/soak-main-fault.json
+log:    $SCRATCH/soak-main-fault.log
+main-fault exit 0
+arm app-decode-recovery@02ad5fe · seed 1 · soak 180 s · fixtures in $TMPDIR/pxdf-soak-VLoXQY
+
+5577 wire frames over 186 s, 86.9 % of steps moving, 6 cues seen
+controls: 1 BLACKOUTs all read black · 3 PAUSEs all read as freezes
+GOs 22: 0 late or missed (> 2000 ms), 0 with a stray cue, 0 wrong-cue frames, 0 without Standby shown, median latency 105 ms
+unplanned black: 0 runs, longest 0 ms
+freezes > 500 ms: 0, longest 0 ms
+undecoded frames: 0
+draw, median of heartbeat averages: 2160² 57.34 ms · 768² 16.58 ms
+
+result: $SCRATCH/soak-branch-fault.json
+log:    $SCRATCH/soak-branch-fault.log
+branch-fault exit 0
+==== COMPARE clean
+
+
+compare exit 1
+==== COMPARE fault
+arm                              app-fault-seam@e22d37f app-decode-recovery@02ad5fe
+seed / soak s                                   1 / 180                1 / 180
+injected fault                   {"match":"soak-cue1","afterMs":2000,"mode":"once"} {"match":"soak-cue1","afterMs":2000,"mode":"once"}
+GOs late or missed                                    0                      0
+GOs with a stray cue                                  0                      0
+frames of a wrong cue                                 0                      0
+unplanned black runs                                  1                      0
+unplanned black, longest ms                        4600                      0
+freezes > 500 ms                                      0                      0
+freeze, longest ms                                    0                      0
+undecoded frames                                      0                      0
+draw ms, 2160² clip (median)                      56.36                  57.34
+draw ms, 768² clip (median)                        15.1                  16.58
+
+app-decode-recovery@02ad5fe is no worse than app-fault-seam@e22d37f on any graded consequence.
+compare exit 0

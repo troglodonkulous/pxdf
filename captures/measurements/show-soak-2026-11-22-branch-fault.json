@@ -1,0 +1,425 @@
+{
+ "arm": "app-decode-recovery@02ad5fe",
+ "seed": 1,
+ "soakSeconds": 180,
+ "fault": "{\"match\":\"soak-cue1\",\"afterMs\":2000,\"mode\":\"once\"}",
+ "summary": {
+  "gos": 22,
+  "late": 0,
+  "standbyMissed": 0,
+  "stray": 0,
+  "wrong": 0,
+  "blackRuns": 0,
+  "blackLongestMs": 0,
+  "freezes": 0,
+  "freezeLongestMs": 0,
+  "undecoded": 0,
+  "latencyMedianMs": 105,
+  "drawHeavy": 57.34,
+  "drawBaseline": 16.58
+ },
+ "result": {
+  "frames": 5577,
+  "complete": 5577,
+  "undecoded": 0,
+  "distinctCues": 6,
+  "moved": 0.8691714836223506,
+  "promotions": [
+   {
+    "cue": 5,
+    "standby": true,
+    "latencyMs": 234,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 0,
+    "standby": true,
+    "latencyMs": 108,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 3,
+    "standby": true,
+    "latencyMs": 89,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 1,
+    "standby": true,
+    "latencyMs": 69,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 2,
+    "standby": true,
+    "latencyMs": 99,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 0,
+    "standby": true,
+    "latencyMs": 66,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 2,
+    "standby": true,
+    "latencyMs": 85,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 4,
+    "standby": true,
+    "latencyMs": 100,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 3,
+    "standby": true,
+    "latencyMs": 83,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 1,
+    "standby": true,
+    "latencyMs": 91,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 4,
+    "standby": true,
+    "latencyMs": 119,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 2,
+    "standby": true,
+    "latencyMs": 94,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 1,
+    "standby": true,
+    "latencyMs": 110,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 2,
+    "standby": true,
+    "latencyMs": 101,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 3,
+    "standby": true,
+    "latencyMs": 110,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 0,
+    "standby": true,
+    "latencyMs": 111,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 1,
+    "standby": true,
+    "latencyMs": 105,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 2,
+    "standby": true,
+    "latencyMs": 115,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 5,
+    "standby": true,
+    "latencyMs": 100,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 0,
+    "standby": true,
+    "latencyMs": 114,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 1,
+    "standby": true,
+    "latencyMs": 126,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 5,
+    "standby": true,
+    "latencyMs": 205,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   }
+  ],
+  "blackRuns": [],
+  "freezeRuns": [],
+  "plannedBlackSeen": [
+   75
+  ],
+  "plannedFreezeLongest": [
+   2538,
+   2570,
+   2529
+  ]
+ },
+ "actions": [
+  {
+   "at": 0,
+   "kind": "go",
+   "cue": 5,
+   "segment": "heavy",
+   "t": 1795406051416,
+   "standby": true,
+   "outgoing": null
+  },
+  {
+   "at": 20000,
+   "kind": "go",
+   "cue": 0,
+   "segment": "baseline",
+   "t": 1795406071476,
+   "standby": true,
+   "outgoing": 5
+  },
+  {
+   "at": 40000,
+   "kind": "go",
+   "cue": 3,
+   "t": 1795406091428,
+   "standby": true,
+   "outgoing": 0
+  },
+  {
+   "at": 48886,
+   "kind": "go",
+   "cue": 1,
+   "t": 1795406100315,
+   "standby": true,
+   "outgoing": 3
+  },
+  {
+   "at": 55563,
+   "kind": "go",
+   "cue": 2,
+   "t": 1795406106986,
+   "standby": true,
+   "outgoing": 1
+  },
+  {
+   "at": 64531,
+   "kind": "go",
+   "cue": 0,
+   "t": 1795406115949,
+   "standby": true,
+   "outgoing": 2
+  },
+  {
+   "at": 69953,
+   "kind": "go",
+   "cue": 2,
+   "t": 1795406121369,
+   "standby": true,
+   "outgoing": 0
+  },
+  {
+   "at": 73357,
+   "kind": "go",
+   "cue": 4,
+   "t": 1795406124777,
+   "standby": true,
+   "outgoing": 2
+  },
+  {
+   "at": 78072,
+   "kind": "pause",
+   "holdMs": 2500,
+   "t": 1795406129496,
+   "tOff": 1795406132007
+  },
+  {
+   "at": 82572,
+   "kind": "blackout",
+   "holdMs": 2500,
+   "t": 1795406133989,
+   "tOff": 1795406136512
+  },
+  {
+   "at": 87072,
+   "kind": "go",
+   "cue": 3,
+   "t": 1795406138491,
+   "standby": true,
+   "outgoing": 4
+  },
+  {
+   "at": 94864,
+   "kind": "go",
+   "cue": 1,
+   "t": 1795406146288,
+   "standby": true,
+   "outgoing": 3
+  },
+  {
+   "at": 101812,
+   "kind": "go",
+   "cue": 4,
+   "t": 1795406153232,
+   "standby": true,
+   "outgoing": 1
+  },
+  {
+   "at": 105968,
+   "kind": "go",
+   "cue": 2,
+   "t": 1795406157388,
+   "standby": true,
+   "outgoing": 4
+  },
+  {
+   "at": 113590,
+   "kind": "go",
+   "cue": 1,
+   "t": 1795406165011,
+   "standby": true,
+   "outgoing": 2
+  },
+  {
+   "at": 121132,
+   "kind": "pause",
+   "holdMs": 2500,
+   "t": 1795406172547,
+   "tOff": 1795406175052
+  },
+  {
+   "at": 125632,
+   "kind": "go",
+   "cue": 2,
+   "t": 1795406177051,
+   "standby": true,
+   "outgoing": 1
+  },
+  {
+   "at": 130127,
+   "kind": "pause",
+   "holdMs": 2500,
+   "t": 1795406181541,
+   "tOff": 1795406184050
+  },
+  {
+   "at": 134627,
+   "kind": "go",
+   "cue": 3,
+   "t": 1795406186043,
+   "standby": true,
+   "outgoing": 2
+  },
+  {
+   "at": 138390,
+   "kind": "go",
+   "cue": 0,
+   "t": 1795406189810,
+   "standby": true,
+   "outgoing": 3
+  },
+  {
+   "at": 145123,
+   "kind": "go",
+   "cue": 1,
+   "t": 1795406196548,
+   "standby": true,
+   "outgoing": 0
+  },
+  {
+   "at": 154059,
+   "kind": "go",
+   "cue": 2,
+   "t": 1795406205476,
+   "standby": true,
+   "outgoing": 1
+  },
+  {
+   "at": 158873,
+   "kind": "go",
+   "cue": 5,
+   "t": 1795406210290,
+   "standby": true,
+   "outgoing": 2
+  },
+  {
+   "at": 167412,
+   "kind": "go",
+   "cue": 0,
+   "t": 1795406218836,
+   "standby": true,
+   "outgoing": 5
+  },
+  {
+   "at": 170648,
+   "kind": "go",
+   "cue": 1,
+   "t": 1795406222065,
+   "standby": true,
+   "outgoing": 0
+  },
+  {
+   "at": 178935,
+   "kind": "go",
+   "cue": 5,
+   "t": 1795406230350,
+   "standby": true,
+   "outgoing": 1
+  }
+ ],
+ "log": "$SCRATCH/soak-branch-fault.log"
+}

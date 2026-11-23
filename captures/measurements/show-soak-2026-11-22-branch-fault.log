@@ -1,0 +1,98 @@
+2026-11-23T03:54:06.602Z  INFO   launch  Electron 43.4.0 · electron 43.4.0 · darwin x64
+    build: floor-2026-11-20-8-gb01c3b2-dirty
+    packaged=false
+    mapper cwd: /Users/USER/dev/pxdf/.claude/worktrees/app-decode-recovery
+    python: "python3"
+    PATH: /Users/USER/.bun/bin:/Users/USER/.local/bin:/opt/miniconda3/bin:/opt/miniconda3/condabin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Applications/VMware Fusion.app/Contents/Public:/Applications/Postgres.app/Contents/Versions/latest/bin:/usr/local/sbin:/Library/Frameworks/Python.framework/Versions/3.10/bin:/Library/Frameworks/Python.framework/Versions/3.7/bin:/Users/USER/.local/bin
+    floor: 8x8_4P 10x5
+    local ip: (default route)
+    log: /Users/USER/Library/Logs/Electron/pxdf.log
+    heartbeat: every 5s · draw/readback/pass are avg/max ms per composed frame · decoders=open now, peak=high-water mark, opened=total this page
+2026-11-23T03:54:06.605Z  WARN   fault  decode fault injection ACTIVE: {"match":"soak-cue1","afterMs":2000,"mode":"once"} — test seam, never for a show
+2026-11-23T03:54:06.606Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 10 --rows 5 --fps 30 --address 127.0.0.1 --port 60006
+2026-11-23T03:54:06.754Z  INFO   nic  interfaces: en0=192.168.1.74 utun4=100.112.2.52 utun7=100.102.190.64
+2026-11-23T03:54:06.934Z  INFO   sidecar  stdout: 8x8_4P 10x5 tiles = 80x40 px, 3 controller(s), 20 packets/frame, 9700 bytes/frame
+2026-11-23T03:54:06.934Z  INFO   sidecar  stdout: orientation: identity   source: stdin (9600 bytes/frame)
+2026-11-23T03:54:06.934Z  INFO   sidecar  stdout: sending to 127.0.0.1:60006 at 30 fps, pacing clock, until stdin ends
+2026-11-23T03:54:07.073Z  INFO   window  renderer loaded
+2026-11-23T03:54:07.151Z  INFO   player  live: (none)
+2026-11-23T03:54:07.153Z  WARN   fault  decode fault armed in the renderer: {"match":"soak-cue1","afterMs":2000,"mode":"once"}
+2026-11-23T03:54:07.157Z  INFO   sender  status restarting -> sending
+2026-11-23T03:54:07.561Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-23T03:54:07.584Z  INFO   sidecar  stdout: sent 540 packets
+2026-11-23T03:54:07.596Z  INFO   sender  status sending -> restarting
+2026-11-23T03:54:07.597Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 5 --fps 30 --address 127.0.0.1 --port 60006
+2026-11-23T03:54:07.695Z  INFO   sidecar  stdout: 8x8_4P 8x5 tiles = 64x40 px, 2 controller(s), 16 packets/frame, 7760 bytes/frame
+2026-11-23T03:54:07.695Z  INFO   sidecar  stdout: orientation: identity   source: stdin (7680 bytes/frame)
+2026-11-23T03:54:07.696Z  INFO   sidecar  stdout: sending to 127.0.0.1:60006 at 30 fps, pacing clock, until stdin ends
+2026-11-23T03:54:07.864Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-23T03:54:07.872Z  INFO   sidecar  stdout: sent 96 packets
+2026-11-23T03:54:07.881Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 8 --fps 30 --address 127.0.0.1 --port 60006
+2026-11-23T03:54:07.975Z  INFO   sidecar  stdout: 8x8_4P 8x8 tiles = 64x64 px, 2 controller(s), 32 packets/frame, 12448 bytes/frame
+2026-11-23T03:54:07.975Z  INFO   sidecar  stdout: orientation: identity   source: stdin (12288 bytes/frame)
+2026-11-23T03:54:07.975Z  INFO   sidecar  stdout: sending to 127.0.0.1:60006 at 30 fps, pacing clock, until stdin ends
+2026-11-23T03:54:08.283Z  INFO   sender  status restarting -> sending
+2026-11-23T03:54:11.761Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=131/5s renderer=live age=0.0s composes=3 draw=78.07/144.70ms readback=1.03/1.10ms pass=2.30/4.50ms decoders=1 peak=8 opened=13
+2026-11-23T03:54:11.796Z  INFO   player  live: "soak-cue5-2160-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue5-2160-h264.mp4
+2026-11-23T03:54:12.885Z  INFO   sidecar  stable for 5000ms; retry ladder reset, banner cleared
+2026-11-23T03:54:16.765Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=82/5s renderer=live age=0.2s composes=80 draw=56.70/81.70ms readback=1.14/3.50ms pass=1.33/3.30ms decoders=1 peak=8 opened=13
+2026-11-23T03:54:21.771Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=82/5s renderer=live age=0.1s composes=82 draw=57.34/77.90ms readback=1.12/2.10ms pass=1.29/1.60ms decoders=1 peak=8 opened=13
+2026-11-23T03:54:26.774Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=87/5s renderer=live age=0.3s composes=85 draw=52.84/70.40ms readback=1.10/1.70ms pass=1.27/1.90ms decoders=1 peak=8 opened=13
+2026-11-23T03:54:31.728Z  INFO   player  live: "soak-cue0-768-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue0-768-h264.mp4
+2026-11-23T03:54:31.778Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=83/5s renderer=live age=0.1s composes=86 draw=56.11/84.40ms readback=1.11/1.20ms pass=1.27/1.60ms decoders=1 peak=8 opened=14
+2026-11-23T03:54:36.783Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=149/5s renderer=live age=0.1s composes=149 draw=15.18/48.80ms readback=1.07/1.60ms pass=1.18/1.30ms decoders=1 peak=8 opened=14
+2026-11-23T03:54:41.785Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.3s composes=144 draw=16.58/46.60ms readback=1.07/1.40ms pass=1.17/1.50ms decoders=1 peak=8 opened=14
+2026-11-23T03:54:46.788Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.2s composes=152 draw=16.33/48.40ms readback=1.06/1.40ms pass=1.18/1.50ms decoders=1 peak=8 opened=14
+2026-11-23T03:54:51.659Z  INFO   player  live: "soak-cue3-768-hevc" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue3-768-hevc.mp4
+2026-11-23T03:54:51.791Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=149/5s renderer=live age=0.1s composes=150 draw=17.97/50.60ms readback=1.08/1.50ms pass=1.17/1.40ms decoders=1 peak=8 opened=15
+2026-11-23T03:54:56.795Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=149/5s renderer=live age=0.1s composes=152 draw=16.13/49.00ms readback=1.07/1.30ms pass=1.18/1.40ms decoders=1 peak=8 opened=15
+2026-11-23T03:55:00.469Z  INFO   player  live: "soak-cue1-768-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue1-768-h264.mp4
+2026-11-23T03:55:01.800Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.2s composes=144 draw=16.40/45.90ms readback=1.06/1.50ms pass=1.17/1.30ms decoders=1 peak=8 opened=16
+2026-11-23T03:55:02.393Z  WARN   fault  injected decode error into $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue1-768-h264.mp4
+2026-11-23T03:55:02.406Z  WARN   player  live cue "soak-cue1-768-h264" ($TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue1-768-h264.mp4) starting recovery attempt 1 at 0 ms — MEDIA_ERR_DECODE (code 3): PIPELINE_ERROR_DECODE: injected by PXDF_FAULT_DECODE
+2026-11-23T03:55:02.438Z  INFO   player  live cue "soak-cue1-768-h264" ($TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue1-768-h264.mp4) recovered on attempt 1 at 30 ms — MEDIA_ERR_DECODE (code 3): PIPELINE_ERROR_DECODE: injected by PXDF_FAULT_DECODE
+2026-11-23T03:55:06.806Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.2s composes=152 draw=3.13/39.20ms readback=8.59/32.10ms pass=1.32/1.70ms decoders=1 peak=8 opened=16
+2026-11-23T03:55:07.148Z  INFO   player  live: "soak-cue2-640-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue2-640-h264.mp4
+2026-11-23T03:55:11.810Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=144/5s renderer=live age=0.1s composes=146 draw=0.39/12.30ms readback=10.63/99.60ms pass=1.27/14.60ms decoders=1 peak=8 opened=17
+2026-11-23T03:55:16.211Z  INFO   player  live: "soak-cue0-768-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue0-768-h264.mp4
+2026-11-23T03:55:16.813Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.1s composes=152 draw=0.31/0.60ms readback=9.98/45.10ms pass=1.21/1.80ms decoders=1 peak=8 opened=18
+2026-11-23T03:55:21.564Z  INFO   player  live: "soak-cue2-640-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue2-640-h264.mp4
+2026-11-23T03:55:21.818Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=144/5s renderer=live age=0.3s composes=138 draw=0.34/1.00ms readback=11.05/69.10ms pass=1.45/14.70ms decoders=1 peak=8 opened=19
+2026-11-23T03:55:25.048Z  INFO   player  live: "soak-cue4-1080-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue4-1080-h264.mp4
+2026-11-23T03:55:26.839Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=147/5s renderer=live age=0.2s composes=152 draw=0.32/0.80ms readback=10.13/45.20ms pass=1.23/1.60ms decoders=1 peak=8 opened=20
+2026-11-23T03:55:31.854Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=147/5s renderer=live age=0.0s composes=149 draw=0.26/1.40ms readback=10.20/84.40ms pass=1.64/24.20ms decoders=1 peak=8 opened=20
+2026-11-23T03:55:36.864Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.2s composes=69 draw=0.35/0.80ms readback=9.98/17.30ms pass=1.29/1.50ms decoders=1 peak=8 opened=20
+2026-11-23T03:55:38.769Z  INFO   player  live: "soak-cue3-768-hevc" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue3-768-hevc.mp4
+2026-11-23T03:55:41.872Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.2s composes=152 draw=0.31/0.70ms readback=9.00/47.20ms pass=1.17/1.80ms decoders=1 peak=8 opened=21
+2026-11-23T03:55:46.513Z  INFO   player  live: "soak-cue1-768-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue1-768-h264.mp4
+2026-11-23T03:55:46.879Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.1s composes=152 draw=0.34/0.60ms readback=9.62/36.30ms pass=1.24/1.60ms decoders=1 peak=8 opened=22
+2026-11-23T03:55:51.885Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.0s composes=152 draw=0.37/0.70ms readback=8.85/25.90ms pass=1.30/1.50ms decoders=1 peak=8 opened=22
+2026-11-23T03:55:53.469Z  INFO   player  live: "soak-cue4-1080-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue4-1080-h264.mp4
+2026-11-23T03:55:56.892Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.2s composes=143 draw=0.34/0.60ms readback=11.36/53.50ms pass=1.28/1.60ms decoders=1 peak=8 opened=23
+2026-11-23T03:55:57.491Z  INFO   player  live: "soak-cue2-640-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue2-640-h264.mp4
+2026-11-23T03:56:01.896Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=145/5s renderer=live age=0.2s composes=148 draw=0.36/0.90ms readback=11.97/50.30ms pass=1.37/4.40ms decoders=1 peak=8 opened=24
+2026-11-23T03:56:05.199Z  INFO   player  live: "soak-cue1-768-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue1-768-h264.mp4
+2026-11-23T03:56:06.900Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.1s composes=152 draw=0.31/0.60ms readback=10.44/44.50ms pass=1.23/1.70ms decoders=1 peak=8 opened=25
+2026-11-23T03:56:11.906Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=144/5s renderer=live age=0.2s composes=140 draw=0.32/0.90ms readback=10.36/117.20ms pass=1.29/14.70ms decoders=1 peak=8 opened=25
+2026-11-23T03:56:16.912Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.1s composes=152 draw=0.24/0.70ms readback=7.85/19.00ms pass=1.26/1.80ms decoders=1 peak=8 opened=25
+2026-11-23T03:56:17.303Z  INFO   player  live: "soak-cue2-640-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue2-640-h264.mp4
+2026-11-23T03:56:21.916Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.1s composes=152 draw=0.34/0.70ms readback=10.07/40.70ms pass=1.24/1.60ms decoders=1 peak=8 opened=26
+2026-11-23T03:56:26.153Z  INFO   player  live: "soak-cue3-768-hevc" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue3-768-hevc.mp4
+2026-11-23T03:56:26.921Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.0s composes=152 draw=0.27/0.70ms readback=7.67/43.60ms pass=1.31/1.60ms decoders=1 peak=8 opened=27
+2026-11-23T03:56:30.123Z  INFO   player  live: "soak-cue0-768-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue0-768-h264.mp4
+2026-11-23T03:56:31.923Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=149/5s renderer=live age=0.2s composes=144 draw=0.39/0.70ms readback=9.85/50.70ms pass=1.34/1.80ms decoders=1 peak=8 opened=28
+2026-11-23T03:56:36.788Z  INFO   player  live: "soak-cue1-768-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue1-768-h264.mp4
+2026-11-23T03:56:36.926Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=149/5s renderer=live age=0.1s composes=151 draw=0.36/0.70ms readback=9.65/51.20ms pass=1.29/1.70ms decoders=1 peak=8 opened=29
+2026-11-23T03:56:41.928Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=145/5s renderer=live age=0.1s composes=146 draw=0.32/1.00ms readback=10.38/52.00ms pass=1.30/4.50ms decoders=1 peak=8 opened=29
+2026-11-23T03:56:45.563Z  INFO   player  live: "soak-cue2-640-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue2-640-h264.mp4
+2026-11-23T03:56:46.932Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.1s composes=151 draw=0.32/0.60ms readback=9.54/55.70ms pass=1.23/1.60ms decoders=1 peak=8 opened=30
+2026-11-23T03:56:50.394Z  INFO   player  live: "soak-cue5-2160-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue5-2160-h264.mp4
+2026-11-23T03:56:51.935Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.0s composes=151 draw=0.33/0.60ms readback=11.31/46.70ms pass=1.27/1.70ms decoders=1 peak=8 opened=31
+2026-11-23T03:56:56.938Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.2s composes=144 draw=0.34/0.60ms readback=13.60/27.20ms pass=1.31/1.60ms decoders=1 peak=8 opened=31
+2026-11-23T03:56:59.127Z  INFO   player  live: "soak-cue0-768-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue0-768-h264.mp4
+2026-11-23T03:57:01.943Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.2s composes=152 draw=0.41/0.80ms readback=11.82/43.40ms pass=1.34/1.70ms decoders=1 peak=8 opened=32
+2026-11-23T03:57:02.310Z  INFO   player  live: "soak-cue1-768-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue1-768-h264.mp4
+2026-11-23T03:57:06.946Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=148/5s renderer=live age=0.1s composes=150 draw=0.41/0.80ms readback=10.86/57.40ms pass=1.32/1.70ms decoders=1 peak=8 opened=33
+2026-11-23T03:57:10.631Z  INFO   player  live: "soak-cue5-2160-h264" $TMPDIR/pxdf-soak-VLoXQY/clips/soak-cue5-2160-h264.mp4
+2026-11-23T03:57:11.951Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=145/5s renderer=live age=0.0s composes=147 draw=0.32/1.00ms readback=12.45/59.80ms pass=1.44/14.70ms decoders=1 peak=8 opened=34
+2026-11-23T03:57:16.959Z  INFO   heartbeat  status=sending nic=default floor=8x8_4P 8x8 frames=150/5s renderer=live age=0.2s composes=144 draw=0.32/0.70ms readback=14.74/27.10ms pass=1.27/1.70ms decoders=1 peak=8 opened=34
