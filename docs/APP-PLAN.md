@@ -851,6 +851,15 @@ Two rules keep the renderer replaceable, and cost nothing today:
   night's job 105 failed cues. Normalisation remains worth doing for the
   reasons above; it is no longer the thing standing in for ranges.
 
+- **A still image converted to video costs what its pixel count costs, every
+  frame.** The app draws the decoded frame into the work canvas 30 times a
+  second whether it changes or not. At 2160 × 2160 that measured 50–53 ms
+  average `draw` on the show Mac, against about 9 ms for 768² content, or
+  about 17 fps. The source is `captures/floor-2026-11-20-main-b.log`, 16:30–16:37
+  PST, with `WHITE_1` live; see `docs/JOBS.md` 2026-11-20. Until stills are
+  native cues, convert them to H.264 near the work-canvas size (768²), not at
+  source resolution.
+
 ## Shelved
 
 Named so they do not creep back in.
