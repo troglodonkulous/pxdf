@@ -52,6 +52,11 @@ is a third shape, and the first job on two controllers, not three.
 | 2 | `captures/floor-2026-11-20-main-b.log` | 16:21–18:24 | qualification and doors, to the NIC loss. Clean quit |
 | 3 | `captures/floor-2026-11-20-show.log` | 18:24–22:05 | the show. Clean quit (`app quitting`, then the black frame) |
 
+They are redacted as September's was: the home directory reads `/Users/USER`,
+and folder and file names carrying a person's or the client's name are
+replaced by role (`Operator's Picks`, `Operator Transfers`, `CLIP_ddf_more`,
+`pxdf-client`, `CLIENT`). Nothing else was changed.
+
 Graded with `grade_floor_log.py --nic 192.168.1.100`. That grader is not in
 this repo yet, so the numbers below are re-derivable from the logs by `grep`,
 which is the standard they are held to.
