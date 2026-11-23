@@ -1,0 +1,430 @@
+{
+ "arm": "app-fault-seam@e22d37f",
+ "seed": 1,
+ "soakSeconds": 180,
+ "fault": "{\"match\":\"soak-cue1\",\"afterMs\":2000,\"mode\":\"once\"}",
+ "summary": {
+  "gos": 22,
+  "late": 0,
+  "standbyMissed": 0,
+  "stray": 0,
+  "wrong": 0,
+  "blackRuns": 1,
+  "blackLongestMs": 4600,
+  "freezes": 0,
+  "freezeLongestMs": 0,
+  "undecoded": 0,
+  "latencyMedianMs": 124,
+  "drawHeavy": 56.36,
+  "drawBaseline": 15.1
+ },
+ "result": {
+  "frames": 5579,
+  "complete": 5579,
+  "undecoded": 0,
+  "distinctCues": 6,
+  "moved": 0.7982977038796516,
+  "promotions": [
+   {
+    "cue": 5,
+    "standby": true,
+    "latencyMs": 218,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 0,
+    "standby": true,
+    "latencyMs": 374,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 3,
+    "standby": true,
+    "latencyMs": 90,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 1,
+    "standby": true,
+    "latencyMs": 137,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 2,
+    "standby": true,
+    "latencyMs": 57,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 0,
+    "standby": true,
+    "latencyMs": 134,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 2,
+    "standby": true,
+    "latencyMs": 95,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 4,
+    "standby": true,
+    "latencyMs": 124,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 3,
+    "standby": true,
+    "latencyMs": 118,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 1,
+    "standby": true,
+    "latencyMs": 110,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 4,
+    "standby": true,
+    "latencyMs": 129,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 2,
+    "standby": true,
+    "latencyMs": 81,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 1,
+    "standby": true,
+    "latencyMs": 88,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 2,
+    "standby": true,
+    "latencyMs": 139,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 3,
+    "standby": true,
+    "latencyMs": 81,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 0,
+    "standby": true,
+    "latencyMs": 117,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 1,
+    "standby": true,
+    "latencyMs": 104,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 2,
+    "standby": true,
+    "latencyMs": 126,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 5,
+    "standby": true,
+    "latencyMs": 204,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 0,
+    "standby": true,
+    "latencyMs": 491,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 1,
+    "standby": true,
+    "latencyMs": 103,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   },
+   {
+    "cue": 5,
+    "standby": true,
+    "latencyMs": 186,
+    "late": false,
+    "strayBefore": 0,
+    "wrongAfter": 0
+   }
+  ],
+  "blackRuns": [
+   {
+    "from": 1795405897623,
+    "ms": 4600
+   }
+  ],
+  "freezeRuns": [],
+  "plannedBlackSeen": [
+   76
+  ],
+  "plannedFreezeLongest": [
+   2533,
+   2500,
+   2561
+  ]
+ },
+ "actions": [
+  {
+   "at": 0,
+   "kind": "go",
+   "cue": 5,
+   "segment": "heavy",
+   "t": 1795405846642,
+   "standby": true,
+   "outgoing": null
+  },
+  {
+   "at": 20000,
+   "kind": "go",
+   "cue": 0,
+   "segment": "baseline",
+   "t": 1795405866753,
+   "standby": true,
+   "outgoing": 5
+  },
+  {
+   "at": 40000,
+   "kind": "go",
+   "cue": 3,
+   "t": 1795405886642,
+   "standby": true,
+   "outgoing": 0
+  },
+  {
+   "at": 48886,
+   "kind": "go",
+   "cue": 1,
+   "t": 1795405895528,
+   "standby": true,
+   "outgoing": 3
+  },
+  {
+   "at": 55563,
+   "kind": "go",
+   "cue": 2,
+   "t": 1795405902205,
+   "standby": true,
+   "outgoing": 1
+  },
+  {
+   "at": 64531,
+   "kind": "go",
+   "cue": 0,
+   "t": 1795405911191,
+   "standby": true,
+   "outgoing": 2
+  },
+  {
+   "at": 69953,
+   "kind": "go",
+   "cue": 2,
+   "t": 1795405916597,
+   "standby": true,
+   "outgoing": 0
+  },
+  {
+   "at": 73357,
+   "kind": "go",
+   "cue": 4,
+   "t": 1795405920001,
+   "standby": true,
+   "outgoing": 2
+  },
+  {
+   "at": 78072,
+   "kind": "pause",
+   "holdMs": 2500,
+   "t": 1795405924711,
+   "tOff": 1795405927257
+  },
+  {
+   "at": 82572,
+   "kind": "blackout",
+   "holdMs": 2500,
+   "t": 1795405929210,
+   "tOff": 1795405931718
+  },
+  {
+   "at": 87072,
+   "kind": "go",
+   "cue": 3,
+   "t": 1795405933713,
+   "standby": true,
+   "outgoing": 4
+  },
+  {
+   "at": 94864,
+   "kind": "go",
+   "cue": 1,
+   "t": 1795405941522,
+   "standby": true,
+   "outgoing": 3
+  },
+  {
+   "at": 101812,
+   "kind": "go",
+   "cue": 4,
+   "t": 1795405948495,
+   "standby": true,
+   "outgoing": 1
+  },
+  {
+   "at": 105968,
+   "kind": "go",
+   "cue": 2,
+   "t": 1795405952615,
+   "standby": true,
+   "outgoing": 4
+  },
+  {
+   "at": 113590,
+   "kind": "go",
+   "cue": 1,
+   "t": 1795405960244,
+   "standby": true,
+   "outgoing": 2
+  },
+  {
+   "at": 121132,
+   "kind": "pause",
+   "holdMs": 2500,
+   "t": 1795405967770,
+   "tOff": 1795405970286
+  },
+  {
+   "at": 125632,
+   "kind": "go",
+   "cue": 2,
+   "t": 1795405972294,
+   "standby": true,
+   "outgoing": 1
+  },
+  {
+   "at": 130127,
+   "kind": "pause",
+   "holdMs": 2500,
+   "t": 1795405976766,
+   "tOff": 1795405979284
+  },
+  {
+   "at": 134627,
+   "kind": "go",
+   "cue": 3,
+   "t": 1795405981276,
+   "standby": true,
+   "outgoing": 2
+  },
+  {
+   "at": 138390,
+   "kind": "go",
+   "cue": 0,
+   "t": 1795405985048,
+   "standby": true,
+   "outgoing": 3
+  },
+  {
+   "at": 145123,
+   "kind": "go",
+   "cue": 1,
+   "t": 1795405991826,
+   "standby": true,
+   "outgoing": 0
+  },
+  {
+   "at": 154059,
+   "kind": "go",
+   "cue": 2,
+   "t": 1795406000703,
+   "standby": true,
+   "outgoing": 1
+  },
+  {
+   "at": 158873,
+   "kind": "go",
+   "cue": 5,
+   "t": 1795406005526,
+   "standby": true,
+   "outgoing": 2
+  },
+  {
+   "at": 167412,
+   "kind": "go",
+   "cue": 0,
+   "t": 1795406014232,
+   "standby": true,
+   "outgoing": 5
+  },
+  {
+   "at": 170648,
+   "kind": "go",
+   "cue": 1,
+   "t": 1795406017296,
+   "standby": true,
+   "outgoing": 0
+  },
+  {
+   "at": 178935,
+   "kind": "go",
+   "cue": 5,
+   "t": 1795406025578,
+   "standby": true,
+   "outgoing": 1
+  }
+ ],
+ "log": "$SCRATCH/soak-main-fault.log"
+}

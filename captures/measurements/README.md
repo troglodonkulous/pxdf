@@ -10,6 +10,78 @@ can re-run it and compare rather than trust the transcript.
 
 ---
 
+## `show-soak-2026-11-22` and `reload-decoder-2026-11-22`: decode recovery, off-floor
+
+The grade `app-decode-recovery` needed before a floor test. Every run here
+compares two trees on the show Mac (i7-9750H, x64 Electron 43.4.0):
+- **stock:** `app-fault-seam`, which is `main` plus the `PXDF_FAULT_DECODE` seam;
+- **branch:** `app-decode-recovery`.
+
+Run 2026-11-22 PST. Some commit messages on the seam branch say 2026-11-20,
+which is the show's date, not the date of these runs.
+
+`app/test/e2e/probe-show-soak.mjs`, an 8 × 8 floor, seed 1, the same trace on both trees:
+
+| | stock clean | branch clean | stock + fault | branch + fault |
+|---|---|---|---|---|
+| soak | 480 s | 480 s | 180 s | 180 s |
+| GOs (late, stray cue, wrong-cue frames) | 60 (0, 0, 0) | 60 (0, 0, 0) | 22 (0, 0, 0) | 22 (0, 0, 0) |
+| unplanned black | 0 | 0 | **1 run, 4,600 ms** | **0** |
+| freezes > 500 ms | 0 | 0 | 0 | 0 |
+| % of steps moving | 89.1 | 92.0 | 79.8 | 86.9 |
+| draw ms, 2160² clip (median of heartbeats) | 55.96 | 61.02 | 56.36 | 57.34 |
+| draw ms, 768² clip | 17.42 | 8.66 | 15.1 | 16.58 |
+
+The fault is `{"match":"soak-cue1","afterMs":2000,"mode":"once"}`. Every run's
+controls passed:
+- every planned BLACKOUT read black (7, 7, 1, 1);
+- every planned PAUSE read as a freeze (17, 17, 3, 3).
+
+The clean pair is in `show-soak-2026-11-22-clean.txt` and the fault pair in
+`-fault.txt`. Each arm's result JSON and `pxdf.log` are beside them, with
+paths redacted.
+
+- **The branch costs nothing on a night with no decode errors.** Its
+  promotions, black and freezes are the same as stock's, and its share of
+  moving frames is no lower.
+- **With one decode error, stock blacks the floor for 4.6 s and the branch
+  does not black it at all.** The 4.6 s is not a recovery time. It runs until
+  the next GO in the trace.
+- **The snapshot-draw gate passes, but the margin is not sharp.** Draw cost
+  on the 2160² clip read 55.96 against 61.02 ms on the clean pair (+9 %), and
+  56.36 against 57.34 ms on the fault pair. `--compare`'s limit is ×1.15 + 1 ms.
+  Run to run, the 768² baseline moved from 8.7 to 17.4 ms on the same tree, so
+  noise is of the same order as the effect. Repeat the pair before reading a
+  few milliseconds either way as signal.
+- **The first 480 s stock attempt refused,** recorded in `-fault.txt`.
+  Control 5 then required 50 % of steps moving, the stock arm read 47.3 %, and
+  the run was discarded. The rerun of the same tree read 89.1 %.
+  - The control was wrong: fewer fresh frames is judder, a result. It now
+    refuses below 10 % only.
+  - What made that run slow was not identified.
+
+`app/test/e2e/probe-reload-decoder.mjs` puts a 768² clip live and injects one
+fault. It reports every player that loaded the clip, its `kVideoDecoderName`,
+and whether it was destroyed (`reload-decoder-2026-11-22-{stock,branch}.txt`):
+
+| arm | stock | branch |
+|---|---|---|
+| H.264, default | 3 players, 0 alive, cue off the floor | 4 players, 1 alive (the reload); VideoToolbox throughout |
+| H.264, `--disable-accelerated-video-decode` | as above | 4, 1 alive; FFmpegVideoDecoder throughout |
+| HEVC, default | as above | 4, 1 alive; VideoToolbox throughout |
+| HEVC, switch | never plays: `DEMUXER_ERROR_NO_SUPPORTED_STREAMS` | same |
+
+- **A reload is a new player, and the faulted one is destroyed.** A recovery
+  does not leak a decoder session.
+- **A reload selects the decoder the first load did.** This Electron has no
+  software HEVC decoder, so an HEVC reload is VideoToolbox again. Recovery is
+  a bet that a VideoToolbox failure is transient. September supports that bet
+  (116 errors over 38 clips, none of them every time) but does not prove it.
+- H.264 has a software path under the switch. That is an option for content,
+  such as transcoding HEVC to H.264, not something recovery does.
+
+---
+
 ## `render-rate-video-frames-2026-09-29` — the video-to-renderer handoff, measured at the renderer, and fixed
 
 `app/test/e2e/probe-render-rate.mjs` with its new renderer trace (933b6a6):

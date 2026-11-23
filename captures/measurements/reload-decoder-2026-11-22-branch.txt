@@ -1,0 +1,38 @@
+# command: node app/test/e2e/probe-reload-decoder.mjs
+# tree: app-decode-recovery@49aa952
+# show Mac, i7-9750H, Electron 43.4.0, 2026-11-22 PST
+
+
+== h264 default
+  went live true · injected 1 · recovery started 1 · recovered 1 · still live true
+  players of the clip: 4 (1 alive at the end)
+    F7685E70  decoder VideoToolboxVideoDecoder  played  destroyed
+    C0CF1791  decoder VideoToolboxVideoDecoder  played  destroyed
+    930633DB  decoder VideoToolboxVideoDecoder  played  destroyed
+    5B8E5D97  decoder VideoToolboxVideoDecoder  played  ALIVE
+
+== h264 --disable-accelerated-video-decode
+  went live true · injected 1 · recovery started 1 · recovered 1 · still live true
+  players of the clip: 4 (1 alive at the end)
+    67BB58BE  decoder FFmpegVideoDecoder  played  destroyed
+    CB4BA08E  decoder FFmpegVideoDecoder  played  destroyed
+    C5492EF5  decoder FFmpegVideoDecoder  played  destroyed
+    365E8917  decoder FFmpegVideoDecoder  played  ALIVE
+
+== hevc default
+  went live true · injected 1 · recovery started 1 · recovered 1 · still live true
+  players of the clip: 4 (1 alive at the end)
+    550DA6E9  decoder VideoToolboxVideoDecoder  played  destroyed
+    D94A96CD  decoder VideoToolboxVideoDecoder  played  destroyed
+    D7ADBA77  decoder VideoToolboxVideoDecoder  played  destroyed
+    CF29E088  decoder VideoToolboxVideoDecoder  played  ALIVE
+
+== hevc --disable-accelerated-video-decode
+  note: no decoder for this clip on this arm: every player raised PipelineStatus::DEMUXER_ERROR_NO_SUPPORTED_STREAMS:14
+  went live false · injected 0 · recovery started 0 · recovered 0 · still live false
+  banner: cue "reload-hevc" failed to play — MEDIA_ERR_SRC_NOT_SUPPORTED (code 4): PipelineStatus::DEMUXER_ERROR_NO_SUPPORTED_STREAMS: FFmpegDemuxer: no supported streams
+  players of the clip: 3 (0 alive at the end)
+    8BB01B7E  decoder (none)  never played  destroyed  errors PipelineStatus::DEMUXER_ERROR_NO_SUPPORTED_STREAMS:14
+    4A7D12BD  decoder (none)  never played  destroyed  errors PipelineStatus::DEMUXER_ERROR_NO_SUPPORTED_STREAMS:14
+    766AC23E  decoder (none)  never played  destroyed  errors PipelineStatus::DEMUXER_ERROR_NO_SUPPORTED_STREAMS:14
+exit 0

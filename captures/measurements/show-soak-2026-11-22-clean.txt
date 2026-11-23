@@ -1,0 +1,49 @@
+# command: SOAK_SECONDS=480 SEED=1 node app/test/e2e/probe-show-soak.mjs, once per tree, then --compare
+# stock arm: app-fault-seam@bec0516 (main + seam) · exit 0
+# branch arm: app-decode-recovery@7be4d1c · exit 0 · compare exit 0
+# show Mac, i7-9750H, Electron 43.4.0, 2026-11-22 PST
+
+arm app-fault-seam@bec0516 · seed 1 · soak 480 s · fixtures in $TMPDIR/pxdf-soak-tYgGiJ
+
+14520 wire frames over 484 s, 89.1 % of steps moving, 6 cues seen
+controls: 7 BLACKOUTs all read black · 17 PAUSEs all read as freezes
+GOs 60: 0 late or missed (> 2000 ms), 0 with a stray cue, 0 wrong-cue frames, 0 without Standby shown, median latency 112 ms
+unplanned black: 0 runs, longest 0 ms
+freezes > 500 ms: 0, longest 0 ms
+undecoded frames: 0
+draw, median of heartbeat averages: 2160² 55.96 ms · 768² 17.42 ms
+
+result: $SCRATCH/soak-main.json
+log:    $SCRATCH/soak-main.log
+main exit 0
+arm app-decode-recovery@7be4d1c · seed 1 · soak 480 s · fixtures in $TMPDIR/pxdf-soak-5VzlrF
+
+14519 wire frames over 484 s, 92.0 % of steps moving, 6 cues seen
+controls: 7 BLACKOUTs all read black · 17 PAUSEs all read as freezes
+GOs 60: 0 late or missed (> 2000 ms), 0 with a stray cue, 0 wrong-cue frames, 0 without Standby shown, median latency 110 ms
+unplanned black: 0 runs, longest 0 ms
+freezes > 500 ms: 0, longest 0 ms
+undecoded frames: 0
+draw, median of heartbeat averages: 2160² 61.02 ms · 768² 8.66 ms
+
+result: $SCRATCH/soak-branch.json
+log:    $SCRATCH/soak-branch.log
+branch exit 0
+==== COMPARE clean
+arm                              app-fault-seam@bec0516 app-decode-recovery@7be4d1c
+seed / soak s                                   1 / 480                1 / 480
+injected fault                                     none                   none
+GOs late or missed                                    0                      0
+GOs with a stray cue                                  0                      0
+frames of a wrong cue                                 0                      0
+unplanned black runs                                  0                      0
+unplanned black, longest ms                           0                      0
+freezes > 500 ms                                      0                      0
+freeze, longest ms                                    0                      0
+undecoded frames                                      0                      0
+% of steps moving                                  89.1                     92
+draw ms, 2160² clip (median)                      55.96                  61.02
+draw ms, 768² clip (median)                       17.42                   8.66
+
+app-decode-recovery@7be4d1c is no worse than app-fault-seam@bec0516 on any graded consequence.
+compare exit 0

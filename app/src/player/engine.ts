@@ -43,6 +43,31 @@
 import type { Rotation } from '../render/geometry';
 import { cueHoldMs, type Cue, type Show } from './show';
 
+export interface RecoveryEvent {
+  readonly kind: 'attempt' | 'recovered';
+  readonly attempt: number;
+  readonly elapsedMs: number;
+  readonly originalError: string;
+}
+
+export type SourceSlot = 'live' | 'pending' | 'preview';
+export type SlotRecoveryEvent = RecoveryEvent & {
+  readonly slot: SourceSlot;
+  readonly cueId: string;
+  readonly cueName: string;
+  readonly path: string;
+};
+
+export function formatRecoveryEvent(event: SlotRecoveryEvent): { level: 'WARN' | 'INFO'; message: string } {
+  const recovered = event.kind === 'recovered';
+  const cue = `${event.slot} cue ${JSON.stringify(event.cueName)} (${event.path})`;
+  const attempt = `attempt ${event.attempt} at ${Math.round(event.elapsedMs)} ms`;
+  return {
+    level: recovered ? 'INFO' : 'WARN',
+    message: `${cue} ${recovered ? 'recovered on' : 'starting recovery'} ${attempt} — ${event.originalError}`,
+  };
+}
+
 /**
  * One playable piece of media, as the engine needs to see it.
  *
@@ -56,8 +81,22 @@ export interface FrameSource {
    * True once a first frame is decoded and the source can go on the wire
    * without showing black. This is the whole of invariant 2 — everything else
    * is bookkeeping around it.
+   *
+   * Latched: once any element for this source has decoded a frame, it stays
+   * true through a decode-recovery reload. That is why promotion reads
+   * `drawable` instead.
    */
   readonly ready: boolean;
+  /**
+   * Ready *and* the current reload attempt, if any, has a frame. Promotion
+   * gates on this: a pending source that latched `ready` and then started
+   * reloading has nothing current to draw, and promoting it would release a
+   * healthy outgoing cue for a held snapshot or black. A live source may be
+   * non-drawable — it paints its own last-good frame while it reloads.
+   */
+  readonly drawable: boolean;
+  /** Recovery attempts and outcomes since the last call, for the engine to tag with a slot. */
+  takeRecoveryEvents(): readonly RecoveryEvent[];
   /** Terminal: the media will never play. A missing file, a codec, a decode error. */
   readonly failed: boolean;
   /**
@@ -197,6 +236,7 @@ export interface EngineOptions<S extends FrameSource> {
   readonly createSource: (cue: Cue) => S;
   /** Injected so tests can drive time. Defaults to `performance.now`. */
   readonly now?: () => number;
+  readonly onRecoveryEvent?: (event: SlotRecoveryEvent) => void;
 }
 
 interface Slot<S extends FrameSource> {
@@ -258,6 +298,7 @@ export class PlayerEngine<S extends FrameSource> {
   private show: Show;
   private readonly createSource: (cue: Cue) => S;
   private readonly now: () => number;
+  private readonly onRecoveryEvent: EngineOptions<S>['onRecoveryEvent'];
 
   private live: Slot<S> | null = null;
   private pending: Slot<S> | null = null;
@@ -308,6 +349,7 @@ export class PlayerEngine<S extends FrameSource> {
   constructor(options: EngineOptions<S>) {
     this.show = options.show;
     this.createSource = options.createSource;
+    this.onRecoveryEvent = options.onRecoveryEvent;
     this.now = options.now ?? (() => performance.now());
     this.standbyCueId = this.show.cues[0]?.id ?? null;
   }
@@ -510,6 +552,11 @@ export class PlayerEngine<S extends FrameSource> {
    * sees the cue that is actually live this frame.
    */
   tick(): Tick<S> {
+    // A failed source loses its queue on release. A promoted one changes slots.
+    // Read each while its cue still owns the slot that observed the event.
+    this.drainRecoveryEvents('live', this.live);
+    this.drainRecoveryEvents('pending', this.pending);
+    this.drainRecoveryEvents('preview', this.preview);
     this.reapFailures();
     this.promotePending();
     this.advanceOnDuration();
@@ -586,6 +633,19 @@ export class PlayerEngine<S extends FrameSource> {
     if (this.preview?.source.failed === true) {
       this.fail('preview', this.preview.cue, 'failed to preview', this.preview.source.failureReason);
       this.preview = this.release(this.preview);
+    }
+  }
+
+  private drainRecoveryEvents(slot: SourceSlot, entry: Slot<S> | null): void {
+    if (entry === null) return;
+    const { cue, source } = entry;
+    for (const event of source.takeRecoveryEvents()) {
+      try {
+        this.onRecoveryEvent?.({ ...event, slot, cueId: cue.id, cueName: cue.name, path: cue.source.path });
+      } catch (error) {
+        // tick drives the render loop. A broken log listener must leave the next wire write reachable.
+        console.warn('Could not report player recovery event', error);
+      }
     }
   }
 
@@ -731,7 +791,7 @@ export class PlayerEngine<S extends FrameSource> {
 
   private promotePending(): void {
     const pending = this.pending;
-    if (pending === null || !pending.source.ready) return;
+    if (pending === null || !pending.source.drawable) return;
 
     // The incoming source is installed before the outgoing one is released, so
     // there is no instant at which neither is available to draw.

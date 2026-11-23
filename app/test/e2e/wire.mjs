@@ -132,8 +132,8 @@ function makeClip(directory, colour, seconds = CLIP_MS / 1_000) {
  * file already rejected that pairing once, for the same reason, in the cue
  * pair right above.
  */
-function makeSplitClip(directory, segments) {
-  const path = join(directory, 'split.mp4')
+function makeSplitClip(directory, segments, name = 'split.mp4') {
+  const path = join(directory, name)
   const inputs = segments.flatMap(([colour, seconds]) =>
     ['-f', 'lavfi', '-i', `color=c=${colour}:s=640x480:r=30:d=${seconds}`])
   const labels = segments.map((_, i) => `[${i}:v]`).join('')
@@ -250,7 +250,8 @@ function makeMoovPair(directory) {
 // ------------------------------------------------------------ wire capture
 
 class WireTap {
-  constructor() {
+  constructor(port = PORT) {
+    this.port = port
     this.packets = []
     /**
      * Arrival time of `packets[i]`, kept in a parallel array rather than by
@@ -279,7 +280,7 @@ class WireTap {
   }
 
   listen() {
-    return new Promise((done) => this.socket.bind(PORT, '127.0.0.1', done))
+    return new Promise((done) => this.socket.bind(this.port, '127.0.0.1', done))
   }
 
   /** Everything captured from now on, for `ms`. */
@@ -874,6 +875,325 @@ async function checkLibrarySurvivesRestart(workspace, expectedFile) {
       await sleep(300)
     }
   }
+}
+
+// ------------------------------------------------------- decode-fault cases
+
+/**
+ * What this tree claims a live decode error does to the floor.
+ *
+ * `true` on `app-decode-recovery`: the floor holds the last frame while the
+ * clip reloads, then plays on. `false` on stock `main` (and on
+ * `app-fault-seam`, which is `main` plus the seam): the floor goes black and
+ * the banner says why, as it did 37 times in September.
+ *
+ * A constant per tree, not a flag per run. A gate whose expectation can be
+ * switched on the command line can be run with the wrong one and pass. Here
+ * the tree states its own claim, and the other arm's file states the other.
+ */
+const DECODE_RECOVERY = true
+
+/**
+ * `RECOVERY_MAX_ATTEMPTS` in `src/player/videoSource.ts`, restated because
+ * this file cannot import TypeScript. A persistent fault lands once on the
+ * first element and once on each reload, so a source that gives up at the
+ * budget has taken exactly this many plus one. Re-derive it if that constant
+ * changes.
+ */
+const RECOVERY_MAX_ATTEMPTS = 3
+
+/**
+ * A live decode error, injected through `PXDF_FAULT_DECODE` and graded on the
+ * wire. One launch per mode.
+ *
+ * `PIPELINE_ERROR_DECODE` has no recipe. September raised it 116 times in
+ * eight hours and no file raises it on demand, so a recovery path that only
+ * runs when VideoToolbox happens to give up is ungraded. The seam
+ * (`src/player/decodeFault.ts`) raises what the element raises, on one clip,
+ * a fixed time after that clip's element starts playing.
+ *
+ * **The fixtures are chosen so each failure is distinguishable.**
+ *  - The live clip alternates red and yellow every half second. Red lights a
+ *    third of a packet's bytes and yellow two thirds, so `tone` reads them as
+ *    `red` and `other` from any packet phase. Both present in one window is
+ *    motion. One alone for the whole window is a frozen frame.
+ *  - The two preview clips are white, which `tone` reads as `white`. Live and
+ *    preview share one work canvas (`App.tsx`), and a hold that drew nothing
+ *    would send whatever the preview drew last. One white packet on the wire
+ *    is that leak.
+ *  - The preview is churned between the two white clips for the whole run,
+ *    so each composite has a fresh preview frame to leak. A positive control
+ *    reads the on-screen preview back to prove the churn really showed white.
+ *
+ * **Positive controls come first, and a failed one refuses.** Before the
+ * fault, the wire must show live motion and no white, and the launch must say
+ * the seam is armed. If any of that fails, nothing after it is graded: a
+ * fault case over a cue that never moved, or a seam that never armed, would
+ * grade recovery over nothing.
+ *
+ * **The injection is counted from the log**, where the renderer writes one
+ * line per injection that reached an element. A recovery verdict with zero
+ * injections is a run that tested nothing, so the count is asserted with the
+ * verdict.
+ */
+async function checkDecodeFault(workspace, mode) {
+  const FAULT_PORT = PORT + 3
+  const FAULT_DEBUG_PORT = DEBUG_PORT + 3
+  const label = `decode fault (${mode})`
+  // Long enough, in `once`, for the pre-fault motion control to see several
+  // red/yellow alternations. Short in `persistent`, so four injections and
+  // the reloads between them fit a bounded run.
+  const afterMs = mode === 'once' ? 4_000 : 1_500
+  const directory = join(workspace, `fault-${mode}`)
+  mkdirSync(directory)
+  // `decode-fault-live` is what the spec matches, and nothing else here
+  // contains it. A match on the preview clips would fault the preview instead.
+  const live = makeSplitClip(directory, [['red', 0.5], ['yellow', 0.5]], 'decode-fault-live.mp4')
+  const previewA = makeClip(directory, 'white')
+  const previewB = makeSplitClip(directory, [['white', 1]], 'white-b.mp4')
+  const spec = { match: 'decode-fault-live', afterMs, mode }
+  const logPath = join(homedir(), 'Library', 'Logs', 'Electron', 'pxdf.log')
+  const readLog = () => (existsSync(logPath) ? readFileSync(logPath, 'utf8') : '')
+  const injections = () => readLog().split('\n')
+    .filter((line) => line.includes('injected decode error into ') && line.includes(live)).length
+
+  const faultTap = new WireTap(FAULT_PORT)
+  await faultTap.listen()
+  let child = null
+  let faultPage = null
+  let churning = false
+  let churn = Promise.resolve()
+  try {
+    child = spawn(
+      resolve(APP_DIR, 'node_modules', '.bin', 'electron'),
+      [
+        resolve(APP_DIR, 'dist', 'main.js'),
+        `--remote-debugging-port=${FAULT_DEBUG_PORT}`,
+        `--user-data-dir=${join(workspace, `fault-${mode}-profile`)}`,
+      ],
+      {
+        cwd: APP_DIR,
+        env: {
+          ...process.env,
+          PXDF_ADDRESS: '127.0.0.1',
+          PXDF_PORT: String(FAULT_PORT),
+          PXDF_PICK_MEDIA: [live, previewA, previewB].join(delimiter),
+          PXDF_FAULT_DECODE: JSON.stringify(spec),
+        },
+        stdio: 'ignore',
+        detached: true,
+      },
+    )
+    faultPage = await attachToPage(FAULT_DEBUG_PORT)
+    const waitFor = async (expression, attempts = 25) => {
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        const value = await faultPage.evaluate(expression)
+        if (value) return value
+        await sleep(200)
+      }
+      return null
+    }
+    const liveRow = () => faultPage.evaluate(
+      '[...document.querySelectorAll(".cue-row")].findIndex((row) => row.classList.contains("is-live"))')
+    const banner = () => faultPage.evaluate('document.querySelector(".error-banner")?.textContent ?? ""')
+    const pressTab = () => faultPage.evaluate(
+      "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })) || true")
+    const tones = (packets) => ({
+      packets: packets.length,
+      red: countTone(packets, 'red'),
+      other: countTone(packets, 'other'),
+      white: countTone(packets, 'white'),
+      black: countTone(packets, 'black'),
+    })
+    const show = (t) => `${t.packets} packets: red ${t.red} · yellow ${t.other} · white ${t.white} · black ${t.black}`
+
+    // The seam announced itself at both ends: main logs it ACTIVE at launch,
+    // and the renderer logs it armed once it fetched the spec over IPC.
+    const armed = await waitFor(`(async () => {
+      const spec = await window.pxdf.decodeFault()
+      return spec !== null && spec.match === 'decode-fault-live' ? 1 : 0
+    })()`)
+    // Polled: the renderer's line arrives over IPC after its effect runs.
+    let launchLog = readLog()
+    for (let attempt = 0; attempt < 25 && !launchLog.includes('decode fault armed in the renderer'); attempt++) {
+      await sleep(200)
+      launchLog = readLog()
+    }
+    const announced = armed === 1
+      && launchLog.includes('decode fault injection ACTIVE')
+      && launchLog.includes('decode fault armed in the renderer')
+    check(announced, `${label}: the seam is armed, and the log says so at both ends`,
+      `renderer spec ${armed === 1 ? 'present' : 'absent'} · ` +
+      `main ACTIVE ${launchLog.includes('decode fault injection ACTIVE')} · ` +
+      `renderer armed ${launchLog.includes('decode fault armed in the renderer')}`)
+    if (!announced) return
+
+    await faultPage.evaluate(clickButtonScript('Open Player'))
+    await waitFor('document.querySelector(".play-screen") !== null ? 1 : 0')
+    await faultPage.evaluate(clickScript('[aria-label="Add cue"]'))
+    await waitFor('document.querySelectorAll(\'[role="menuitem"]\').length')
+    await faultPage.evaluate(clickButtonScript('Upload'))
+    const rows = await waitFor('document.querySelectorAll(".cue-row").length === 3 ? 3 : 0')
+    if (rows !== 3) {
+      check(false, `${label}: the three fixture cues land in the stack`, `saw ${rows}`)
+      return
+    }
+
+    // GO in Live, then Preview for the churn. Standby and GO are the
+    // operator's path; a dblclick would grade a different one.
+    await faultPage.evaluate(clickRowScript(0))
+    await faultPage.evaluate(clickButtonScript('GO'))
+    let liveIndex = -1
+    for (let attempt = 0; attempt < 25 && liveIndex !== 0; attempt++) {
+      liveIndex = await liveRow()
+      if (liveIndex !== 0) await sleep(200)
+    }
+    if (liveIndex !== 0) {
+      check(false, `${label}: the faulting clip goes live`, `live row ${liveIndex}`)
+      return
+    }
+    const fromLive = faultTap.packets.length
+
+    await pressTab()
+    const inPreview = await waitFor(
+      'document.querySelector(".player-shell")?.className.includes("mode-preview") ? 1 : 0')
+    let previewWhite = 0
+    churning = inPreview === 1
+    churn = (async () => {
+      for (let turn = 0; churning; turn++) {
+        await faultPage.evaluate(clickRowScript(1 + (turn % 2)))
+        // The on-screen preview, read back: the positive control on the churn.
+        const brightness = await faultPage.evaluate(`(() => {
+          const canvas = document.querySelector('.persistent-preview-canvas')
+          if (canvas === null) return 0
+          const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data
+          let sum = 0
+          for (let i = 0; i < data.length; i += 4) sum += data[i] + data[i + 1] + data[i + 2]
+          return sum / (data.length / 4) / 3
+        })()`)
+        if (brightness > 200) previewWhite += 1
+        await sleep(250)
+      }
+    })()
+
+    // Wait for the injection, with a deadline the spec bounds.
+    const injectDeadline = Date.now() + afterMs + 8_000
+    while (injections() === 0 && Date.now() < injectDeadline) await sleep(100)
+    const atFault = faultTap.packets.length
+    const firstInjection = injections()
+
+    // The positive controls, before anything about the fault is graded.
+    const before = tones(faultTap.packets.slice(fromLive, atFault))
+    const controls = [
+      [inPreview === 1, 'the player is in Preview for the churn'],
+      [previewWhite > 0, `the churned preview showed white on screen (${previewWhite} reads)`],
+      [before.red > 0 && before.other > 0, `the live clip moved on the wire before the fault (${show(before)})`],
+      [before.white === 0, 'no white reached the wire before the fault'],
+      [firstInjection > 0, `the seam injected (${firstInjection} by ${afterMs + 8_000} ms after GO)`],
+    ]
+    const failedControls = controls.filter(([ok]) => !ok).map(([, what]) => what)
+    check(failedControls.length === 0,
+      `${label}: positive controls — live motion, white preview, an injection`,
+      failedControls.length === 0 ? controls.map(([, what]) => what).join(' · ') : `REFUSED: ${failedControls.join(' · ')}`)
+    if (failedControls.length > 0) return
+
+    if (mode === 'once') {
+      // Long enough for one reload, well inside the 8 s episode deadline.
+      await sleep(6_000)
+      const after = faultTap.packets.slice(atFault)
+      const afterTones = tones(after)
+      const tail = tones(faultTap.packets.slice(Math.max(atFault, faultTap.packets.length - 2_000)))
+      check(afterTones.white === 0,
+        `${label}: no preview pixel reaches the wire while the live cue is held or reloaded`, show(afterTones))
+      const log = readLog()
+      const count = injections()
+      if (DECODE_RECOVERY) {
+        check(afterTones.packets > 0 && afterTones.black === 0,
+          `${label}: the floor never goes black across a decode error`, show(afterTones))
+        check(tail.red > 0 && tail.other > 0,
+          `${label}: the clip plays on after the reload, not frozen on the held frame`, `last ~2,000 packets: ${show(tail)}`)
+        const started = log.split('\n').filter((l) => l.includes('starting recovery') && l.includes(live)).length
+        const recovered = log.split('\n').filter((l) => l.includes('recovered on') && l.includes(live)).length
+        check(count === 1 && started === 1 && recovered === 1,
+          `${label}: one injection, one recovery started, one recovered — in the log`,
+          `${count} injected · ${started} started · ${recovered} recovered`)
+        const stillLive = await liveRow()
+        const text = String(await banner())
+        check(stillLive === 0 && text === '',
+          `${label}: the cue is still live and no banner went up`, `live row ${stillLive} · banner ${JSON.stringify(text)}`)
+      } else {
+        check(count === 1 && tail.packets > 0 && tail.black === tail.packets,
+          `${label}: stock blacks the floor on a live decode error (the control arm)`,
+          `${count} injected · last ~2,000 packets: ${show(tail)}`)
+        const text = String(await banner())
+        check(text.includes('code 3'), `${label}: the banner says why`, JSON.stringify(text))
+      }
+    } else {
+      // Persistent: every reload faults too, so recovery has to give up, and
+      // giving up is today's behaviour — black, with the reason on screen.
+      const giveUpDeadline = Date.now() + 30_000
+      let tail = tones([])
+      while (Date.now() < giveUpDeadline) {
+        await sleep(1_000)
+        tail = tones(faultTap.packets.slice(Math.max(atFault, faultTap.packets.length - 1_000)))
+        if (tail.packets > 0 && tail.black === tail.packets) break
+      }
+      const all = tones(faultTap.packets.slice(atFault))
+      const count = injections()
+      const text = String(await banner())
+      check(all.white === 0,
+        `${label}: no preview pixel reaches the wire across the reloads`, show(all))
+      check(tail.packets > 0 && tail.black === tail.packets && text.includes('code 3'),
+        `${label}: a fault that never clears ends black, with the reason in the banner`,
+        `last ~1,000 packets: ${show(tail)} · banner ${JSON.stringify(text)}`)
+      const want = DECODE_RECOVERY ? RECOVERY_MAX_ATTEMPTS + 1 : 1
+      check(count === want,
+        `${label}: ${want} injection(s) before giving up — ${DECODE_RECOVERY ? 'the reload budget, spent' : 'no reload at all'}`,
+        `${count} injected`)
+    }
+  } finally {
+    churning = false
+    await churn.catch(() => {})
+    if (faultPage !== null) {
+      const raised = [...faultPage.exceptions.values()]
+      check(raised.length === 0, `${label}: the page raised no uncaught exceptions`,
+        raised.map((e) => `x${e.count}  ${e.text}  ${e.where}`).join('\n          '))
+    }
+    faultPage?.close()
+    if (child !== null) {
+      try {
+        process.kill(-child.pid, 'SIGKILL')
+      } catch {
+        // Already gone.
+      }
+      await sleep(300)
+    }
+    faultTap.close()
+  }
+}
+
+/**
+ * `--decode-fault-only` runs the decode-fault launches and nothing else.
+ *
+ * For iterating on recovery, not for grading a PR: the summary line says it
+ * ran a subset, so it cannot be mistaken for the full gate.
+ */
+if (process.argv.includes('--decode-fault-only')) {
+  try {
+    if (!existsSync(join(APP_DIR, 'dist', 'main.js'))) {
+      throw new Error('dist/main.js is missing — run `npm run build` first')
+    }
+    await checkDecodeFault(workspace, 'once')
+    await checkDecodeFault(workspace, 'persistent')
+  } catch (error) {
+    check(false, 'the decode-fault run completed', String(error))
+  } finally {
+    rmSync(workspace, { recursive: true, force: true })
+  }
+  console.log(failures.length === 0
+    ? `\nAll ${stepNumber} decode-fault checks passed. SUBSET ONLY — not the full wire gate.`
+    : `\n${failures.length} of ${stepNumber} decode-fault checks FAILED:\n  - ${failures.join('\n  - ')}`)
+  process.exit(failures.length === 0 ? 0 : 1)
 }
 
 const tap = new WireTap()
@@ -2924,6 +3244,12 @@ try {
   //    quit and before the workspace it wrote `settings.json` into is
   //    removed in the `finally` block below.
   await checkLibrarySurvivesRestart(workspace, sibling.split('/').pop())
+
+  // 8. A live decode error, injected and graded on the wire, once and
+  //    persistently — see `checkDecodeFault`. Last, because each launch
+  //    rotates `pxdf.log` and section 6 has already read this run's.
+  await checkDecodeFault(workspace, 'once')
+  await checkDecodeFault(workspace, 'persistent')
 } catch (error) {
   check(false, 'the run completed', String(error))
 } finally {
