@@ -1,0 +1,59 @@
+2026-11-21T00:15:36.795Z  INFO   launch  Electron 43.4.0 · electron 43.4.0 · darwin x64
+    build: show-2026-09-05-55-ga3ca5f5
+    packaged=false
+    mapper cwd: /Users/USER/dev/pxdf
+    python: "python3"
+    PATH: /Users/USER/dev/pxdf/app/node_modules/.bin:/Users/USER/dev/pxdf/node_modules/.bin:/Users/USER/dev/node_modules/.bin:/Users/USER/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/usr/local/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/Users/USER/dev/pxdf/app/node_modules/.bin:/Users/USER/dev/pxdf/node_modules/.bin:/Users/USER/dev/node_modules/.bin:/Users/USER/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/usr/local/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/Users/USER/.bun/bin:/Users/USER/.local/bin:/opt/miniconda3/bin:/opt/miniconda3/condabin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Applications/VMware Fusion.app/Contents/Public:/Applications/Postgres.app/Contents/Versions/latest/bin:/usr/local/sbin:/Library/Frameworks/Python.framework/Versions/3.10/bin:/Library/Frameworks/Python.framework/Versions/3.7/bin:/Users/USER/.local/bin
+    floor: 8x8_4P 10x5
+    local ip: 192.168.1.100
+    log: /Users/USER/Library/Logs/Electron/pxdf.log
+    heartbeat: every 60s · draw/readback/pass are avg/max ms per composed frame · decoders=open now, peak=high-water mark, opened=total this page
+2026-11-21T00:15:36.795Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 10 --rows 5 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T00:15:36.969Z  INFO   nic  interfaces: en0=192.168.32.138 utun4=100.102.190.64 en7=192.168.1.100
+2026-11-21T00:15:37.139Z  INFO   sidecar  stdout: 8x8_4P 10x5 tiles = 80x40 px, 3 controller(s), 20 packets/frame, 9700 bytes/frame
+2026-11-21T00:15:37.139Z  INFO   sidecar  stdout: orientation: identity   source: stdin (9600 bytes/frame)
+2026-11-21T00:15:37.139Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T00:15:37.371Z  INFO   sender  status restarting -> sending
+2026-11-21T00:15:37.429Z  INFO   window  renderer loaded
+2026-11-21T00:15:37.502Z  INFO   player  live: (none)
+2026-11-21T00:15:37.506Z  INFO   player  live: (none)
+2026-11-21T00:15:41.971Z  INFO   sidecar  stable for 5000ms; retry ladder reset, banner cleared
+2026-11-21T00:15:43.106Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-21T00:15:43.133Z  INFO   sidecar  stdout: sent 3720 packets
+2026-11-21T00:15:43.147Z  INFO   sender  status sending -> restarting
+2026-11-21T00:15:43.147Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 5 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T00:15:43.287Z  INFO   sidecar  stdout: 8x8_4P 8x5 tiles = 64x40 px, 2 controller(s), 16 packets/frame, 7760 bytes/frame
+2026-11-21T00:15:43.288Z  INFO   sidecar  stdout: orientation: identity   source: stdin (7680 bytes/frame)
+2026-11-21T00:15:43.288Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T00:15:43.552Z  INFO   sender  status restarting -> sending
+2026-11-21T00:15:45.189Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-21T00:15:45.194Z  INFO   sidecar  stdout: sent 928 packets
+2026-11-21T00:15:45.213Z  INFO   sender  status sending -> restarting
+2026-11-21T00:15:45.214Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 8 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T00:15:45.355Z  INFO   sidecar  stdout: 8x8_4P 8x8 tiles = 64x64 px, 2 controller(s), 32 packets/frame, 12448 bytes/frame
+2026-11-21T00:15:45.355Z  INFO   sidecar  stdout: orientation: identity   source: stdin (12288 bytes/frame)
+2026-11-21T00:15:45.355Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T00:15:45.619Z  INFO   sender  status restarting -> sending
+2026-11-21T00:15:50.220Z  INFO   sidecar  stable for 5000ms; retry ladder reset, banner cleared
+2026-11-21T00:16:33.816Z  INFO   player  live: "BLACK_1" /Users/USER/Downloads/pxdf-client/converted/BLACK_1.mp4
+2026-11-21T00:16:37.645Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1739/60s renderer=live age=0.2s composes=63 draw=55.86/128.90ms readback=1.10/1.50ms pass=1.75/5.40ms decoders=1 peak=4 opened=5
+2026-11-21T00:16:41.449Z  WARN   player  cue "WHITE_1" clip is buffering (waiting)
+2026-11-21T00:16:41.449Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T00:17:37.690Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1209/60s renderer=live age=0.1s composes=1211 draw=45.42/78.20ms readback=1.07/1.70ms pass=1.37/4.30ms decoders=1 peak=4 opened=6
+2026-11-21T00:17:43.665Z  WARN   player  cue "BLACK_1" clip is buffering (waiting)
+2026-11-21T00:17:43.665Z  INFO   player  live: "BLACK_1" /Users/USER/Downloads/pxdf-client/converted/BLACK_1.mp4
+2026-11-21T00:17:47.110Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T00:18:17.942Z  INFO   player  live: "A-1 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-1 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T00:18:23.541Z  INFO   player  live: "A-2 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-2 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T00:18:38.078Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1389/60s renderer=live age=0.1s composes=1389 draw=31.73/87.90ms readback=1.09/14.20ms pass=1.43/16.80ms decoders=1 peak=9 opened=34
+2026-11-21T00:18:39.643Z  INFO   player  live: "Animated Dice Retro" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Animated Dice Retro.mp4
+2026-11-21T00:18:43.443Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T00:19:18.707Z  WARN   player  cue " Rainbow Neon (Not Full)" clip is buffering (waiting)
+2026-11-21T00:19:18.707Z  INFO   player  live: " Rainbow Neon (Not Full)" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/ Rainbow Neon (Not Full).mp4
+2026-11-21T00:19:30.442Z  INFO   player  live: "A-7 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-7 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T00:19:38.130Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1453/60s renderer=live age=0.2s composes=1447 draw=26.53/80.40ms readback=1.03/1.60ms pass=1.32/2.00ms decoders=1 peak=9 opened=38
+2026-11-21T00:19:38.167Z  INFO   player  live: "Animated Dice Retro" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Animated Dice Retro.mp4
+2026-11-21T00:19:57.481Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T00:20:05.251Z  INFO   player  live: " Rainbow Neon (Not Full)" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/ Rainbow Neon (Not Full).mp4
+2026-11-21T00:20:35.454Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T00:20:38.168Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1709/60s renderer=live age=0.1s composes=1715 draw=12.61/65.00ms readback=1.02/2.00ms pass=1.30/2.70ms decoders=1 peak=9 opened=42

@@ -1,0 +1,288 @@
+2026-11-21T00:21:26.840Z  INFO   launch  Electron 43.4.0 · electron 43.4.0 · darwin x64
+    build: show-2026-09-05-55-ga3ca5f5
+    packaged=false
+    mapper cwd: /Users/USER/dev/pxdf
+    python: "python3"
+    PATH: /Users/USER/dev/pxdf/app/node_modules/.bin:/Users/USER/dev/pxdf/node_modules/.bin:/Users/USER/dev/node_modules/.bin:/Users/USER/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/usr/local/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/Users/USER/dev/pxdf/app/node_modules/.bin:/Users/USER/dev/pxdf/node_modules/.bin:/Users/USER/dev/node_modules/.bin:/Users/USER/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/usr/local/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/Users/USER/.bun/bin:/Users/USER/.local/bin:/opt/miniconda3/bin:/opt/miniconda3/condabin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Applications/VMware Fusion.app/Contents/Public:/Applications/Postgres.app/Contents/Versions/latest/bin:/usr/local/sbin:/Library/Frameworks/Python.framework/Versions/3.10/bin:/Library/Frameworks/Python.framework/Versions/3.7/bin:/Users/USER/.local/bin
+    floor: 8x8_4P 10x5
+    local ip: 192.168.1.100
+    log: /Users/USER/Library/Logs/Electron/pxdf.log
+    heartbeat: every 60s · draw/readback/pass are avg/max ms per composed frame · decoders=open now, peak=high-water mark, opened=total this page
+2026-11-21T00:21:26.840Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 10 --rows 5 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T00:21:26.999Z  INFO   nic  interfaces: en0=192.168.32.138 utun4=100.102.190.64 en7=192.168.1.100
+2026-11-21T00:21:27.195Z  INFO   sidecar  stdout: 8x8_4P 10x5 tiles = 80x40 px, 3 controller(s), 20 packets/frame, 9700 bytes/frame
+2026-11-21T00:21:27.195Z  INFO   sidecar  stdout: orientation: identity   source: stdin (9600 bytes/frame)
+2026-11-21T00:21:27.195Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T00:21:27.401Z  INFO   sender  status restarting -> sending
+2026-11-21T00:21:27.476Z  INFO   window  renderer loaded
+2026-11-21T00:21:27.529Z  INFO   player  live: (none)
+2026-11-21T00:21:27.533Z  INFO   player  live: (none)
+2026-11-21T00:21:31.059Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-21T00:21:31.063Z  INFO   sidecar  stdout: sent 2460 packets
+2026-11-21T00:21:31.078Z  INFO   sender  status sending -> restarting
+2026-11-21T00:21:31.079Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 5 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T00:21:31.197Z  INFO   sidecar  stdout: 8x8_4P 8x5 tiles = 64x40 px, 2 controller(s), 16 packets/frame, 7760 bytes/frame
+2026-11-21T00:21:31.197Z  INFO   sidecar  stdout: orientation: identity   source: stdin (7680 bytes/frame)
+2026-11-21T00:21:31.198Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T00:21:31.482Z  INFO   sender  status restarting -> sending
+2026-11-21T00:21:33.008Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-21T00:21:33.035Z  INFO   sidecar  stdout: sent 896 packets
+2026-11-21T00:21:33.047Z  INFO   sender  status sending -> restarting
+2026-11-21T00:21:33.047Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 8 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T00:21:33.176Z  INFO   sidecar  stdout: 8x8_4P 8x8 tiles = 64x64 px, 2 controller(s), 32 packets/frame, 12448 bytes/frame
+2026-11-21T00:21:33.176Z  INFO   sidecar  stdout: orientation: identity   source: stdin (12288 bytes/frame)
+2026-11-21T00:21:33.177Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T00:21:33.451Z  INFO   sender  status restarting -> sending
+2026-11-21T00:21:38.056Z  INFO   sidecar  stable for 5000ms; retry ladder reset, banner cleared
+2026-11-21T00:22:02.530Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T00:22:28.335Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1607/60s renderer=live age=0.2s composes=568 draw=41.39/126.00ms readback=1.04/1.40ms pass=1.46/11.70ms decoders=1 peak=2 opened=3
+2026-11-21T00:23:28.378Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1152/60s renderer=live age=0.2s composes=1151 draw=47.61/385.40ms readback=1.11/14.30ms pass=1.57/16.50ms decoders=1 peak=9 opened=29
+2026-11-21T00:24:28.418Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1300/60s renderer=live age=0.2s composes=1300 draw=41.85/71.30ms readback=1.07/1.40ms pass=1.43/2.10ms decoders=1 peak=9 opened=39
+2026-11-21T00:25:05.299Z  INFO   player  live: "Blue Digital Bulb Wall 3" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 3.mp4
+2026-11-21T00:25:12.231Z  INFO   player  live: "Blue Digital Bulb Wall 5" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 5.mp4
+2026-11-21T00:25:18.884Z  INFO   player  live: "Blue Digital Bulb Wall 6" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 6.mp4
+2026-11-21T00:25:27.118Z  INFO   player  live: "Blue Digital Bulb Wall 7" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 7.mp4
+2026-11-21T00:25:28.469Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1484/60s renderer=live age=0.0s composes=1488 draw=29.03/61.40ms readback=1.07/1.50ms pass=1.47/2.20ms decoders=1 peak=9 opened=43
+2026-11-21T00:25:31.121Z  INFO   player  live: "Blue Particle Trails" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Particle Trails.mp4
+2026-11-21T00:25:44.468Z  INFO   player  live: "A-7 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-7 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T00:25:51.137Z  WARN   player  cue "A-7 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T00:25:51.734Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T00:26:28.510Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1364/60s renderer=live age=0.2s composes=1360 draw=29.90/63.60ms readback=1.05/1.40ms pass=1.43/2.70ms decoders=1 peak=9 opened=46
+2026-11-21T00:27:10.350Z  WARN   player  cue "WHITE_1" clip is buffering (waiting)
+2026-11-21T00:27:11.510Z  WARN   player  cue "A-2 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T00:27:12.095Z  WARN   player  cue "A-3 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T00:27:12.784Z  WARN   player  cue "A-4 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T00:27:14.012Z  WARN   player  cue "A-7 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T00:27:14.194Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T00:27:14.544Z  WARN   player  cue "A-9 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T00:27:15.102Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T00:27:16.750Z  WARN   player  cue "Animated Dice Retro" clip is buffering (waiting)
+2026-11-21T00:27:18.197Z  WARN   player  cue "WHITE_1" clip is buffering (waiting)
+2026-11-21T00:27:18.393Z  WARN   player  cue "Animated Dice Retro" clip is buffering (waiting)
+2026-11-21T00:27:18.393Z  INFO   player  live: "Animated Dice Retro" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Animated Dice Retro.mp4
+2026-11-21T00:27:24.210Z  WARN   player  cue "A-9 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T00:27:25.026Z  WARN   player  cue "A-4 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T00:27:27.698Z  INFO   player  live: "A-2 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-2 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T00:27:28.552Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1169/60s renderer=live age=0.1s composes=1503 draw=33.86/94.00ms readback=1.07/2.30ms pass=1.48/4.70ms decoders=2 peak=9 opened=76
+2026-11-21T00:27:30.356Z  WARN   player  cue "A-2 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T00:27:31.153Z  INFO   player  live: "Blue Digital Bulb Wall 3" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 3.mp4
+2026-11-21T00:27:36.221Z  INFO   player  live: "Blue Digital Bulb Wall 6" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 6.mp4
+2026-11-21T00:27:43.159Z  INFO   player  live: "Blue Particle Trails" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Particle Trails.mp4
+2026-11-21T00:28:28.593Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.1s composes=1833 draw=9.18/32.10ms readback=1.05/1.40ms pass=1.45/2.10ms decoders=1 peak=9 opened=79
+2026-11-21T00:29:28.636Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.2s composes=1800 draw=9.12/17.40ms readback=1.05/1.40ms pass=1.43/2.10ms decoders=1 peak=9 opened=79
+2026-11-21T00:29:59.773Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T00:30:28.678Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1457/60s renderer=live age=0.2s composes=1458 draw=23.84/106.90ms readback=1.05/1.60ms pass=1.43/4.40ms decoders=1 peak=9 opened=80
+2026-11-21T00:30:35.332Z  WARN   player  cue "WHITE_1" clip is buffering (waiting)
+2026-11-21T00:31:10.899Z  WARN   player  cue "WHITE_1" clip is buffering (waiting)
+2026-11-21T00:31:21.089Z  WARN   player  cue "WHITE_1" clip is buffering (waiting)
+2026-11-21T00:31:28.717Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1087/60s renderer=live age=0.1s composes=1089 draw=49.98/125.00ms readback=1.06/2.00ms pass=1.43/3.70ms decoders=1 peak=9 opened=80
+2026-11-21T00:31:46.546Z  WARN   player  cue "WHITE_1" clip is buffering (waiting)
+2026-11-21T00:32:28.756Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1059/60s renderer=live age=0.1s composes=1059 draw=51.39/98.80ms readback=1.09/1.70ms pass=1.45/3.10ms decoders=1 peak=9 opened=80
+2026-11-21T00:32:52.887Z  WARN   player  cue "WHITE_1" clip is buffering (waiting)
+2026-11-21T00:33:28.793Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1048/60s renderer=live age=0.1s composes=1048 draw=51.85/191.70ms readback=1.10/2.30ms pass=1.46/3.40ms decoders=1 peak=9 opened=80
+2026-11-21T00:34:19.401Z  WARN   player  cue "WHITE_1" clip is buffering (waiting)
+2026-11-21T00:34:28.844Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1043/60s renderer=live age=0.1s composes=1043 draw=52.23/231.60ms readback=1.09/2.00ms pass=1.48/3.70ms decoders=1 peak=9 opened=80
+2026-11-21T00:35:25.711Z  WARN   player  cue "WHITE_1" clip is buffering (waiting)
+2026-11-21T00:35:28.894Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1028/60s renderer=live age=0.1s composes=1028 draw=52.86/203.20ms readback=1.11/2.30ms pass=1.52/3.70ms decoders=1 peak=9 opened=80
+2026-11-21T00:36:28.937Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1069/60s renderer=live age=0.1s composes=1068 draw=50.83/200.10ms readback=1.11/2.30ms pass=1.55/3.80ms decoders=1 peak=9 opened=80
+2026-11-21T00:37:03.984Z  INFO   player  live: "Blue Particle Trails" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Particle Trails.mp4
+2026-11-21T00:37:22.802Z  INFO   player  live: "Animated Dice Retro" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Animated Dice Retro.mp4
+2026-11-21T00:37:28.061Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T00:37:28.976Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1342/60s renderer=live age=0.2s composes=1341 draw=32.03/167.60ms readback=1.12/2.50ms pass=1.59/4.80ms decoders=1 peak=9 opened=83
+2026-11-21T00:38:29.024Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1038/60s renderer=live age=0.1s composes=1040 draw=52.94/187.80ms readback=1.12/1.80ms pass=1.54/3.80ms decoders=1 peak=9 opened=83
+2026-11-21T00:39:29.071Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1127/60s renderer=live age=0.2s composes=1124 draw=48.75/135.40ms readback=1.09/1.80ms pass=1.48/4.00ms decoders=1 peak=9 opened=83
+2026-11-21T00:40:29.116Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1312/60s renderer=live age=0.2s composes=1312 draw=41.61/171.90ms readback=1.06/1.40ms pass=1.37/1.90ms decoders=1 peak=9 opened=83
+2026-11-21T00:41:29.159Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1320/60s renderer=live age=0.2s composes=1320 draw=41.42/52.50ms readback=1.05/1.20ms pass=1.35/2.00ms decoders=1 peak=9 opened=83
+2026-11-21T00:42:29.202Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1317/60s renderer=live age=0.2s composes=1316 draw=41.44/56.20ms readback=1.06/1.50ms pass=1.38/6.90ms decoders=1 peak=9 opened=83
+2026-11-21T00:43:29.251Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1282/60s renderer=live age=0.3s composes=1282 draw=42.63/107.60ms readback=1.06/1.70ms pass=1.38/2.40ms decoders=1 peak=9 opened=83
+2026-11-21T00:44:29.298Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1218/60s renderer=live age=0.2s composes=1219 draw=44.95/125.30ms readback=1.09/1.90ms pass=1.43/4.30ms decoders=1 peak=9 opened=83
+2026-11-21T00:45:29.343Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1208/60s renderer=live age=0.2s composes=1208 draw=45.36/98.60ms readback=1.07/1.60ms pass=1.41/2.60ms decoders=1 peak=9 opened=83
+2026-11-21T00:46:29.384Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1191/60s renderer=live age=0.2s composes=1191 draw=46.00/168.40ms readback=1.07/1.70ms pass=1.43/3.20ms decoders=1 peak=9 opened=83
+2026-11-21T00:47:29.418Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1298/60s renderer=live age=0.1s composes=1301 draw=42.13/91.50ms readback=1.05/1.40ms pass=1.37/2.50ms decoders=1 peak=9 opened=83
+2026-11-21T00:48:29.462Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1296/60s renderer=live age=0.1s composes=1295 draw=42.14/67.70ms readback=1.07/1.50ms pass=1.38/2.20ms decoders=1 peak=9 opened=83
+2026-11-21T00:49:29.504Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1224/60s renderer=live age=0.0s composes=1226 draw=44.73/105.60ms readback=1.08/1.70ms pass=1.42/2.80ms decoders=1 peak=9 opened=83
+2026-11-21T00:50:29.555Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1062/60s renderer=live age=0.1s composes=1061 draw=51.78/130.70ms readback=1.12/1.80ms pass=1.50/3.60ms decoders=1 peak=9 opened=83
+2026-11-21T00:51:29.684Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1003/60s renderer=live age=0.3s composes=1001 draw=54.69/183.70ms readback=1.16/8.70ms pass=1.64/7.90ms decoders=1 peak=9 opened=83
+2026-11-21T00:52:29.738Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1066/60s renderer=live age=0.1s composes=1067 draw=51.47/131.20ms readback=1.11/18.40ms pass=1.58/6.50ms decoders=1 peak=9 opened=83
+2026-11-21T00:53:29.773Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1289/60s renderer=live age=0.1s composes=1290 draw=42.30/137.60ms readback=1.04/2.60ms pass=1.42/23.50ms decoders=1 peak=9 opened=83
+2026-11-21T00:54:29.820Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1321/60s renderer=live age=0.2s composes=1319 draw=41.33/290.30ms readback=1.05/1.30ms pass=1.37/2.10ms decoders=1 peak=9 opened=83
+2026-11-21T00:55:29.866Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1308/60s renderer=live age=0.0s composes=1311 draw=41.79/50.50ms readback=1.06/1.40ms pass=1.37/1.80ms decoders=1 peak=9 opened=83
+2026-11-21T00:56:29.921Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1305/60s renderer=live age=0.1s composes=1304 draw=41.86/49.80ms readback=1.07/1.40ms pass=1.37/1.80ms decoders=1 peak=9 opened=83
+2026-11-21T00:57:29.989Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1316/60s renderer=live age=0.0s composes=1317 draw=41.46/72.90ms readback=1.06/1.40ms pass=1.38/2.30ms decoders=1 peak=9 opened=83
+2026-11-21T00:58:30.045Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1327/60s renderer=live age=0.0s composes=1327 draw=41.22/88.80ms readback=1.04/1.30ms pass=1.35/3.00ms decoders=1 peak=9 opened=83
+2026-11-21T00:59:30.113Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1313/60s renderer=live age=0.0s composes=1313 draw=41.58/204.40ms readback=1.06/14.40ms pass=1.37/15.90ms decoders=1 peak=9 opened=83
+2026-11-21T01:00:30.171Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1336/60s renderer=live age=0.2s composes=1333 draw=40.89/52.50ms readback=1.03/1.40ms pass=1.34/2.60ms decoders=1 peak=9 opened=83
+2026-11-21T01:01:30.240Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1305/60s renderer=live age=0.0s composes=1308 draw=41.89/51.40ms readback=1.06/1.30ms pass=1.37/1.90ms decoders=1 peak=9 opened=83
+2026-11-21T01:02:30.294Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1318/60s renderer=live age=0.2s composes=1315 draw=41.38/65.20ms readback=1.07/1.70ms pass=1.38/4.40ms decoders=1 peak=9 opened=83
+2026-11-21T01:03:30.335Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1329/60s renderer=live age=0.2s composes=1329 draw=41.00/103.10ms readback=1.06/1.40ms pass=1.37/3.10ms decoders=1 peak=9 opened=83
+2026-11-21T01:04:30.370Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1295/60s renderer=live age=0.1s composes=1297 draw=41.96/158.70ms readback=1.08/1.60ms pass=1.39/4.40ms decoders=1 peak=9 opened=83
+2026-11-21T01:05:30.415Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1141/60s renderer=live age=0.1s composes=1140 draw=47.87/134.10ms readback=1.11/2.00ms pass=1.48/3.00ms decoders=1 peak=9 opened=83
+2026-11-21T01:06:30.454Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1238/60s renderer=live age=0.1s composes=1239 draw=44.02/175.30ms readback=1.08/1.60ms pass=1.43/2.50ms decoders=1 peak=9 opened=83
+2026-11-21T01:07:30.498Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1242/60s renderer=live age=0.2s composes=1240 draw=43.75/190.30ms readback=1.09/1.80ms pass=1.45/3.60ms decoders=1 peak=9 opened=83
+2026-11-21T01:07:53.288Z  INFO   player  live: "YELLOW" /Users/USER/Downloads/pxdf-client/converted/YELLOW.mp4
+2026-11-21T01:08:30.542Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1534/60s renderer=live age=0.2s composes=1531 draw=21.15/270.00ms readback=1.08/14.50ms pass=1.47/16.90ms decoders=1 peak=9 opened=86
+2026-11-21T01:09:01.332Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T01:09:04.260Z  WARN   player  cue "YELLOW" clip is buffering (waiting)
+2026-11-21T01:09:04.260Z  INFO   player  live: "YELLOW" /Users/USER/Downloads/pxdf-client/converted/YELLOW.mp4
+2026-11-21T01:09:06.721Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T01:09:11.536Z  INFO   player  live: " Rainbow Neon (Not Full)" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/ Rainbow Neon (Not Full).mp4
+2026-11-21T01:09:13.087Z  INFO   player  live: "YELLOW" /Users/USER/Downloads/pxdf-client/converted/YELLOW.mp4
+2026-11-21T01:09:14.691Z  INFO   player  live: " Rainbow Neon (Not Full)" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/ Rainbow Neon (Not Full).mp4
+2026-11-21T01:09:17.359Z  INFO   player  live: "YELLOW" /Users/USER/Downloads/pxdf-client/converted/YELLOW.mp4
+2026-11-21T01:09:30.584Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1683/60s renderer=live age=0.1s composes=1686 draw=15.35/187.50ms readback=1.11/23.90ms pass=1.46/20.30ms decoders=1 peak=9 opened=93
+2026-11-21T01:09:47.133Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T01:10:28.876Z  INFO   player  live: "YELLOW" /Users/USER/Downloads/pxdf-client/converted/YELLOW.mp4
+2026-11-21T01:10:30.633Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1347/60s renderer=live age=0.2s composes=1346 draw=32.50/80.30ms readback=1.08/2.30ms pass=1.48/2.90ms decoders=1 peak=9 opened=95
+2026-11-21T01:11:03.591Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T01:11:09.120Z  INFO   player  live: "YELLOW" /Users/USER/Downloads/pxdf-client/converted/YELLOW.mp4
+2026-11-21T01:11:30.667Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1721/60s renderer=live age=0.2s composes=1718 draw=14.43/181.30ms readback=1.05/1.90ms pass=1.39/3.20ms decoders=1 peak=9 opened=97
+2026-11-21T01:12:30.726Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1761/60s renderer=live age=0.1s composes=1764 draw=11.62/104.00ms readback=1.05/2.10ms pass=1.41/3.10ms decoders=1 peak=9 opened=97
+2026-11-21T01:13:22.438Z  INFO   player  live: "ORANGE1" /Users/USER/Downloads/pxdf-client/converted/ORANGE1.mp4
+2026-11-21T01:13:26.424Z  INFO   player  live: "ORANGE2" /Users/USER/Downloads/pxdf-client/converted/ORANGE2.mp4
+2026-11-21T01:13:29.360Z  INFO   player  live: "ORANGE3" /Users/USER/Downloads/pxdf-client/converted/ORANGE3.mp4
+2026-11-21T01:13:30.775Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1753/60s renderer=live age=0.1s composes=1755 draw=12.49/148.80ms readback=1.12/17.00ms pass=1.55/30.00ms decoders=1 peak=9 opened=106
+2026-11-21T01:13:31.509Z  INFO   player  live: "ORANGE1" /Users/USER/Downloads/pxdf-client/converted/ORANGE1.mp4
+2026-11-21T01:14:30.821Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1799/60s renderer=live age=0.1s composes=1797 draw=11.91/45.90ms readback=1.07/1.50ms pass=1.42/5.80ms decoders=1 peak=9 opened=107
+2026-11-21T01:14:34.016Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T01:14:36.321Z  WARN   player  cue "YELLOW" clip is buffering (waiting)
+2026-11-21T01:14:36.322Z  INFO   player  live: "YELLOW" /Users/USER/Downloads/pxdf-client/converted/YELLOW.mp4
+2026-11-21T01:14:38.171Z  INFO   player  live: "ORANGE1" /Users/USER/Downloads/pxdf-client/converted/ORANGE1.mp4
+2026-11-21T01:15:30.857Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1746/60s renderer=live age=0.3s composes=1743 draw=11.45/116.40ms readback=0.94/1.70ms pass=1.26/3.80ms decoders=1 peak=9 opened=110
+2026-11-21T01:16:31.366Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1757/60s renderer=live age=0.0s composes=1764 draw=10.19/427.30ms readback=0.97/2.70ms pass=1.30/4.90ms decoders=1 peak=9 opened=110
+2026-11-21T01:16:43.689Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T01:16:47.353Z  INFO   player  live: "YELLOW" /Users/USER/Downloads/pxdf-client/converted/YELLOW.mp4
+2026-11-21T01:16:50.003Z  INFO   player  live: "ORANGE1" /Users/USER/Downloads/pxdf-client/converted/ORANGE1.mp4
+2026-11-21T01:16:52.169Z  INFO   player  live: "ORANGE4" /Users/USER/Downloads/pxdf-client/converted/ORANGE4.mp4
+2026-11-21T01:17:25.203Z  INFO   player  live: "A-2 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-2 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T01:17:31.414Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1753/60s renderer=live age=0.1s composes=1751 draw=13.91/63.50ms readback=1.08/1.40ms pass=1.47/2.50ms decoders=1 peak=9 opened=117
+2026-11-21T01:17:57.474Z  INFO   player  live: "11-white-8x8_4P-10x5" /Users/USER/dev/pxdf/test-patterns/11-white-8x8_4P-10x5.mp4
+2026-11-21T01:18:31.451Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1798/60s renderer=live age=0.1s composes=1797 draw=9.84/52.70ms readback=1.18/1.60ms pass=1.57/2.40ms decoders=1 peak=9 opened=120
+2026-11-21T01:19:24.216Z  INFO   player  live: "ORANGE5" /Users/USER/Downloads/pxdf-client/converted/ORANGE5.mp4
+2026-11-21T01:19:31.499Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1755/60s renderer=live age=0.1s composes=1755 draw=8.89/164.20ms readback=1.19/16.00ms pass=1.58/17.30ms decoders=1 peak=9 opened=123
+2026-11-21T01:19:38.152Z  INFO   player  live: "WHITE_1" /Users/USER/Downloads/pxdf-client/converted/WHITE_1.mp4
+2026-11-21T01:19:41.258Z  INFO   player  live: "YELLOW" /Users/USER/Downloads/pxdf-client/converted/YELLOW.mp4
+2026-11-21T01:19:43.658Z  INFO   player  live: "ORANGE1" /Users/USER/Downloads/pxdf-client/converted/ORANGE1.mp4
+2026-11-21T01:19:46.324Z  INFO   player  live: "ORANGE4" /Users/USER/Downloads/pxdf-client/converted/ORANGE4.mp4
+2026-11-21T01:19:48.456Z  INFO   player  live: "ORANGE5" /Users/USER/Downloads/pxdf-client/converted/ORANGE5.mp4
+2026-11-21T01:19:51.125Z  INFO   player  live: "ORANGE4" /Users/USER/Downloads/pxdf-client/converted/ORANGE4.mp4
+2026-11-21T01:19:54.112Z  INFO   player  live: "ORANGE5" /Users/USER/Downloads/pxdf-client/converted/ORANGE5.mp4
+2026-11-21T01:20:18.286Z  INFO   player  live: "11-white-8x8_4P-10x5" /Users/USER/dev/pxdf/test-patterns/11-white-8x8_4P-10x5.mp4
+2026-11-21T01:20:31.544Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1764/60s renderer=live age=0.2s composes=1762 draw=12.36/77.60ms readback=1.11/1.70ms pass=1.43/4.90ms decoders=1 peak=9 opened=131
+2026-11-21T01:21:31.580Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.2s composes=1800 draw=5.47/31.90ms readback=1.22/1.40ms pass=1.40/2.50ms decoders=1 peak=9 opened=131
+2026-11-21T01:22:03.905Z  INFO   player  live: "YELLOW" /Users/USER/Downloads/pxdf-client/converted/YELLOW.mp4
+2026-11-21T01:22:31.622Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.0s composes=1808 draw=7.51/36.20ms readback=1.13/1.70ms pass=1.36/4.20ms decoders=1 peak=9 opened=132
+2026-11-21T01:23:19.667Z  INFO   player  live: "ORANGE5" /Users/USER/Downloads/pxdf-client/converted/ORANGE5.mp4
+2026-11-21T01:23:31.667Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1800/60s renderer=live age=0.0s composes=1800 draw=10.80/50.70ms readback=1.06/1.40ms pass=1.30/2.80ms decoders=1 peak=9 opened=133
+2026-11-21T01:24:31.717Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.0s composes=1800 draw=11.89/49.30ms readback=1.05/1.40ms pass=1.28/1.90ms decoders=1 peak=9 opened=133
+2026-11-21T01:25:31.755Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.1s composes=1800 draw=12.41/19.50ms readback=1.05/1.50ms pass=1.29/2.00ms decoders=1 peak=9 opened=133
+2026-11-21T01:26:31.792Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.1s composes=1800 draw=11.85/18.90ms readback=1.04/1.50ms pass=1.26/2.00ms decoders=1 peak=9 opened=133
+2026-11-21T01:27:31.837Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.2s composes=1800 draw=12.24/18.10ms readback=1.05/1.60ms pass=1.29/3.60ms decoders=1 peak=9 opened=133
+2026-11-21T01:28:31.880Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.2s composes=1800 draw=11.75/18.00ms readback=1.05/1.50ms pass=1.29/3.50ms decoders=1 peak=9 opened=133
+2026-11-21T01:29:31.951Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.0s composes=1808 draw=11.59/18.20ms readback=1.07/1.50ms pass=1.31/1.90ms decoders=1 peak=9 opened=133
+2026-11-21T01:30:32.000Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.1s composes=1800 draw=11.23/18.50ms readback=1.05/1.60ms pass=1.28/2.10ms decoders=1 peak=9 opened=133
+2026-11-21T01:31:32.050Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1797/60s renderer=live age=0.2s composes=1793 draw=12.43/57.10ms readback=1.06/1.70ms pass=1.31/2.30ms decoders=1 peak=9 opened=133
+2026-11-21T01:32:32.096Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1772/60s renderer=live age=0.2s composes=1772 draw=9.85/145.20ms readback=1.05/1.90ms pass=1.30/2.60ms decoders=1 peak=9 opened=133
+2026-11-21T01:33:32.140Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1781/60s renderer=live age=0.1s composes=1784 draw=9.24/43.40ms readback=1.06/1.40ms pass=1.31/2.10ms decoders=1 peak=9 opened=133
+2026-11-21T01:34:32.184Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1781/60s renderer=live age=0.3s composes=1776 draw=8.79/12.60ms readback=1.05/1.40ms pass=1.29/4.50ms decoders=1 peak=9 opened=133
+2026-11-21T01:35:32.230Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1774/60s renderer=live age=0.3s composes=1774 draw=9.10/11.40ms readback=1.06/1.30ms pass=1.30/1.80ms decoders=1 peak=9 opened=133
+2026-11-21T01:36:32.272Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1782/60s renderer=live age=0.2s composes=1784 draw=9.04/11.00ms readback=1.04/1.30ms pass=1.29/1.90ms decoders=1 peak=9 opened=133
+2026-11-21T01:37:32.322Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1781/60s renderer=live age=0.1s composes=1784 draw=9.05/10.90ms readback=1.04/1.30ms pass=1.28/1.90ms decoders=1 peak=9 opened=133
+2026-11-21T01:38:32.376Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1779/60s renderer=live age=0.2s composes=1776 draw=8.41/11.10ms readback=0.98/1.70ms pass=1.21/1.80ms decoders=1 peak=9 opened=133
+2026-11-21T01:39:32.443Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1777/60s renderer=live age=0.2s composes=1776 draw=8.59/11.30ms readback=1.02/1.40ms pass=1.24/1.80ms decoders=1 peak=9 opened=133
+2026-11-21T01:40:32.492Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1778/60s renderer=live age=0.0s composes=1784 draw=8.93/12.00ms readback=1.05/1.40ms pass=1.29/1.80ms decoders=1 peak=9 opened=133
+2026-11-21T01:41:32.560Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1777/60s renderer=live age=0.0s composes=1776 draw=9.06/10.90ms readback=1.04/1.40ms pass=1.27/2.10ms decoders=1 peak=9 opened=133
+2026-11-21T01:42:32.635Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1777/60s renderer=live age=0.1s composes=1776 draw=9.08/11.00ms readback=1.05/1.40ms pass=1.29/1.80ms decoders=1 peak=9 opened=133
+2026-11-21T01:43:32.704Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1778/60s renderer=live age=0.1s composes=1776 draw=9.09/11.00ms readback=1.05/1.30ms pass=1.28/1.90ms decoders=1 peak=9 opened=133
+2026-11-21T01:44:32.763Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1777/60s renderer=live age=0.2s composes=1776 draw=8.91/25.50ms readback=1.05/1.60ms pass=1.28/2.10ms decoders=1 peak=9 opened=133
+2026-11-21T01:45:32.833Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1779/60s renderer=live age=0.0s composes=1784 draw=8.79/32.50ms readback=1.02/1.50ms pass=1.25/1.90ms decoders=1 peak=9 opened=133
+2026-11-21T01:46:32.904Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1775/60s renderer=live age=0.2s composes=1770 draw=8.98/68.60ms readback=1.03/14.10ms pass=1.26/15.70ms decoders=1 peak=9 opened=133
+2026-11-21T01:47:32.971Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1771/60s renderer=live age=0.1s composes=1772 draw=8.88/68.80ms readback=1.04/14.30ms pass=1.27/15.70ms decoders=1 peak=9 opened=133
+2026-11-21T01:48:33.033Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1779/60s renderer=live age=0.0s composes=1783 draw=8.93/16.80ms readback=1.04/1.30ms pass=1.27/1.90ms decoders=1 peak=9 opened=133
+2026-11-21T01:49:33.102Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1778/60s renderer=live age=0.1s composes=1776 draw=9.38/18.10ms readback=1.06/1.70ms pass=1.30/1.80ms decoders=1 peak=9 opened=133
+2026-11-21T01:50:33.183Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1777/60s renderer=live age=0.2s composes=1774 draw=9.27/17.80ms readback=1.06/1.30ms pass=1.29/2.20ms decoders=1 peak=9 opened=133
+2026-11-21T01:51:33.257Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1778/60s renderer=live age=0.2s composes=1776 draw=9.14/18.40ms readback=1.05/1.50ms pass=1.29/1.90ms decoders=1 peak=9 opened=133
+2026-11-21T01:52:33.323Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1775/60s renderer=live age=0.2s composes=1775 draw=9.23/16.50ms readback=1.05/1.40ms pass=1.28/1.70ms decoders=1 peak=9 opened=133
+2026-11-21T01:53:33.384Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1776/60s renderer=live age=0.2s composes=1779 draw=8.15/193.40ms readback=1.03/14.20ms pass=1.29/15.90ms decoders=1 peak=9 opened=133
+2026-11-21T01:54:33.442Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1793/60s renderer=live age=0.2s composes=1792 draw=8.81/167.40ms readback=1.05/14.60ms pass=1.31/16.10ms decoders=1 peak=9 opened=133
+2026-11-21T01:55:33.502Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1793/60s renderer=live age=0.1s composes=1795 draw=8.36/332.50ms readback=1.08/1.50ms pass=1.34/4.10ms decoders=1 peak=9 opened=133
+2026-11-21T01:56:33.558Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1793/60s renderer=live age=0.2s composes=1791 draw=8.42/331.30ms readback=1.08/1.40ms pass=1.34/12.20ms decoders=1 peak=9 opened=133
+2026-11-21T01:57:33.609Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1792/60s renderer=live age=0.2s composes=1791 draw=8.02/336.90ms readback=1.07/1.40ms pass=1.35/12.20ms decoders=1 peak=9 opened=133
+2026-11-21T01:58:33.671Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.0s composes=1808 draw=8.17/10.60ms readback=1.08/1.50ms pass=1.34/2.30ms decoders=1 peak=9 opened=133
+2026-11-21T01:59:33.724Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1781/60s renderer=live age=0.2s composes=1776 draw=12.09/312.50ms readback=1.09/2.30ms pass=1.36/4.50ms decoders=1 peak=9 opened=133
+2026-11-21T02:00:33.767Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1753/60s renderer=live age=0.2s composes=1755 draw=11.96/94.20ms readback=1.07/1.60ms pass=1.35/2.70ms decoders=1 peak=9 opened=133
+2026-11-21T02:01:33.817Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1764/60s renderer=live age=0.2s composes=1762 draw=10.99/85.20ms readback=1.07/1.70ms pass=1.34/2.70ms decoders=1 peak=9 opened=133
+2026-11-21T02:02:33.868Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1765/60s renderer=live age=0.2s composes=1763 draw=10.38/96.60ms readback=1.05/1.60ms pass=1.31/2.50ms decoders=1 peak=9 opened=133
+2026-11-21T02:03:33.914Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1758/60s renderer=live age=0.2s composes=1759 draw=11.40/66.30ms readback=1.06/1.60ms pass=1.34/2.70ms decoders=1 peak=9 opened=133
+2026-11-21T02:04:33.956Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1763/60s renderer=live age=0.2s composes=1765 draw=10.70/82.00ms readback=1.06/1.60ms pass=1.32/2.50ms decoders=1 peak=9 opened=133
+2026-11-21T02:05:33.991Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1769/60s renderer=live age=0.3s composes=1766 draw=9.91/119.00ms readback=1.05/1.40ms pass=1.30/2.40ms decoders=1 peak=9 opened=133
+2026-11-21T02:06:34.034Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1740/60s renderer=live age=0.2s composes=1741 draw=13.56/95.50ms readback=1.08/1.70ms pass=1.39/4.40ms decoders=1 peak=9 opened=133
+2026-11-21T02:07:34.075Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1744/60s renderer=live age=0.2s composes=1746 draw=13.16/89.70ms readback=1.07/2.00ms pass=1.36/4.50ms decoders=1 peak=9 opened=133
+2026-11-21T02:08:34.120Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1769/60s renderer=live age=0.1s composes=1772 draw=9.34/217.80ms readback=1.05/1.70ms pass=1.30/4.20ms decoders=1 peak=9 opened=133
+2026-11-21T02:09:34.160Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1760/60s renderer=live age=0.0s composes=1761 draw=10.55/73.30ms readback=1.06/2.80ms pass=1.32/3.10ms decoders=1 peak=9 opened=133
+2026-11-21T02:10:34.210Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1724/60s renderer=live age=0.1s composes=1722 draw=15.81/129.20ms readback=1.09/1.70ms pass=1.39/3.00ms decoders=1 peak=9 opened=133
+2026-11-21T02:11:34.251Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1735/60s renderer=live age=0.2s composes=1732 draw=13.80/136.00ms readback=1.09/2.50ms pass=1.42/4.20ms decoders=1 peak=9 opened=133
+2026-11-21T02:11:59.603Z  INFO   nic  interfaces: en0=192.168.32.138 utun4=100.102.190.64 en7=192.168.1.100 utun7=100.112.1.252
+2026-11-21T02:12:34.290Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1663/60s renderer=live age=0.1s composes=1666 draw=14.37/459.20ms readback=1.11/14.60ms pass=1.51/16.30ms decoders=1 peak=9 opened=133
+2026-11-21T02:13:34.329Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1710/60s renderer=live age=0.2s composes=1708 draw=11.76/276.40ms readback=1.00/2.00ms pass=1.30/3.20ms decoders=1 peak=9 opened=133
+2026-11-21T02:14:34.371Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1710/60s renderer=live age=0.1s composes=1710 draw=15.26/177.40ms readback=1.00/2.10ms pass=1.32/4.00ms decoders=1 peak=9 opened=133
+2026-11-21T02:15:34.415Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1721/60s renderer=live age=0.0s composes=1725 draw=16.72/98.90ms readback=1.11/2.10ms pass=1.47/3.40ms decoders=1 peak=9 opened=133
+2026-11-21T02:16:34.457Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1745/60s renderer=live age=0.3s composes=1738 draw=13.11/91.00ms readback=1.07/1.70ms pass=1.38/3.90ms decoders=1 peak=9 opened=133
+2026-11-21T02:17:34.504Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1769/60s renderer=live age=0.2s composes=1770 draw=10.87/76.50ms readback=1.08/1.90ms pass=1.36/4.20ms decoders=1 peak=9 opened=133
+2026-11-21T02:18:34.548Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1764/60s renderer=live age=0.1s composes=1769 draw=11.94/97.70ms readback=1.07/2.10ms pass=1.35/3.40ms decoders=1 peak=9 opened=133
+2026-11-21T02:19:34.587Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1782/60s renderer=live age=0.0s composes=1783 draw=9.15/67.80ms readback=1.07/1.50ms pass=1.32/2.40ms decoders=1 peak=9 opened=133
+2026-11-21T02:20:34.632Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1767/60s renderer=live age=0.1s composes=1766 draw=9.75/94.90ms readback=1.07/1.60ms pass=1.33/3.10ms decoders=1 peak=9 opened=133
+2026-11-21T02:21:31.834Z  ERROR  sidecar  stderr: floor NIC 192.168.1.100 unusable: [Errno 49] Can't assign requested address
+2026-11-21T02:21:31.838Z  ERROR  sidecar  child died: code=3 signal=-
+2026-11-21T02:21:31.838Z  ERROR  sender  floor NIC 192.168.1.100 unusable: [Errno 49] Can't assign requested address
+2026-11-21T02:21:31.838Z  INFO   sender  status sending -> stopped
+2026-11-21T02:21:31.839Z  INFO   sidecar  respawning in 0ms (attempt 1)
+2026-11-21T02:21:31.839Z  INFO   sender  status stopped -> restarting
+2026-11-21T02:21:31.839Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 8 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T02:21:32.032Z  INFO   sidecar  stdout: 8x8_4P 8x8 tiles = 64x64 px, 2 controller(s), 32 packets/frame, 12448 bytes/frame
+2026-11-21T02:21:32.032Z  INFO   sidecar  stdout: orientation: identity   source: stdin (12288 bytes/frame)
+2026-11-21T02:21:32.033Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T02:21:32.033Z  ERROR  sidecar  stderr: floor NIC 192.168.1.100 unusable: [Errno 49] Can't assign requested address
+2026-11-21T02:21:32.035Z  ERROR  sidecar  child died: code=3 signal=-
+2026-11-21T02:21:32.035Z  INFO   sender  status restarting -> stopped
+2026-11-21T02:21:32.035Z  INFO   sidecar  respawning in 250ms (attempt 2)
+2026-11-21T02:21:32.285Z  INFO   sender  status stopped -> restarting
+2026-11-21T02:21:32.286Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 8 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T02:21:32.409Z  INFO   sidecar  stdout: 8x8_4P 8x8 tiles = 64x64 px, 2 controller(s), 32 packets/frame, 12448 bytes/frame
+2026-11-21T02:21:32.409Z  INFO   sidecar  stdout: orientation: identity   source: stdin (12288 bytes/frame)
+2026-11-21T02:21:32.409Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T02:21:32.410Z  ERROR  sidecar  stderr: floor NIC 192.168.1.100 unusable: [Errno 49] Can't assign requested address
+2026-11-21T02:21:32.411Z  ERROR  sidecar  child died: code=3 signal=-
+2026-11-21T02:21:32.411Z  INFO   sender  status restarting -> stopped
+2026-11-21T02:21:32.411Z  INFO   sidecar  respawning in 500ms (attempt 3)
+2026-11-21T02:21:32.912Z  INFO   sender  status stopped -> restarting
+2026-11-21T02:21:32.912Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 8 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T02:21:33.043Z  INFO   sidecar  stdout: 8x8_4P 8x8 tiles = 64x64 px, 2 controller(s), 32 packets/frame, 12448 bytes/frame
+2026-11-21T02:21:33.044Z  INFO   sidecar  stdout: orientation: identity   source: stdin (12288 bytes/frame)
+2026-11-21T02:21:33.044Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T02:21:33.044Z  ERROR  sidecar  stderr: floor NIC 192.168.1.100 unusable: [Errno 49] Can't assign requested address
+2026-11-21T02:21:33.046Z  ERROR  sidecar  child died: code=3 signal=-
+2026-11-21T02:21:33.046Z  INFO   sender  status restarting -> stopped
+2026-11-21T02:21:33.047Z  INFO   sidecar  respawning in 1000ms (attempt 4)
+2026-11-21T02:21:33.798Z  ERROR  nic  floor NIC 192.168.1.100 is no longer assigned to any interface — check the cable
+2026-11-21T02:21:33.799Z  INFO   nic  interfaces: en0=192.168.32.138 utun4=100.102.190.64 utun7=100.112.1.252
+2026-11-21T02:21:33.799Z  ERROR  sender  floor NIC 192.168.1.100 is no longer assigned to any interface — check the cable
+2026-11-21T02:21:33.800Z  INFO   sidecar  suspended: floor NIC 192.168.1.100 is no longer assigned to any interface — check the cable
+2026-11-21T02:21:34.668Z  INFO   heartbeat  status=stopped nic=192.168.1.100 floor=8x8_4P 8x8 frames=1773/60s renderer=live age=0.3s composes=1767 draw=9.32/112.40ms readback=1.07/1.60ms pass=1.33/3.60ms decoders=1 peak=9 opened=133
+2026-11-21T02:21:51.806Z  INFO   nic  interfaces: en0=192.168.32.138 utun4=100.102.190.64 en7=169.254.169.142 utun7=100.112.1.252
+2026-11-21T02:22:34.713Z  INFO   heartbeat  status=stopped nic=192.168.1.100 floor=8x8_4P 8x8 frames=1774/60s renderer=live age=0.1s composes=1777 draw=9.67/84.80ms readback=1.07/1.50ms pass=1.32/2.70ms decoders=1 peak=9 opened=133
+2026-11-21T02:23:34.768Z  INFO   heartbeat  status=stopped nic=192.168.1.100 floor=8x8_4P 8x8 frames=1745/60s renderer=live age=0.1s composes=1816 draw=11.04/484.80ms readback=1.06/1.60ms pass=1.33/2.90ms decoders=2 peak=9 opened=155
+2026-11-21T02:23:43.408Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-21T02:23:43.408Z  INFO   sender  status stopped -> restarting
+2026-11-21T02:23:43.409Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 8 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.32.138
+2026-11-21T02:23:43.546Z  INFO   sidecar  stdout: 8x8_4P 8x8 tiles = 64x64 px, 2 controller(s), 32 packets/frame, 12448 bytes/frame
+2026-11-21T02:23:43.547Z  INFO   sidecar  stdout: orientation: identity   source: stdin (12288 bytes/frame)
+2026-11-21T02:23:43.547Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.32.138
+2026-11-21T02:23:43.813Z  INFO   sender  status restarting -> sending
+2026-11-21T02:23:43.852Z  INFO   nic  banner cleared
+2026-11-21T02:23:48.413Z  INFO   sidecar  stable for 5000ms; retry ladder reset, banner cleared
+2026-11-21T02:23:48.413Z  INFO   sender  banner cleared
+2026-11-21T02:24:07.423Z  INFO   app  quitting
+2026-11-21T02:24:07.427Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-21T02:24:07.454Z  INFO   sidecar  stdout: sent 22976 packets
+2026-11-21T02:24:07.465Z  INFO   app  quitting
+2026-11-21T02:24:07.530Z  INFO   window  last window closed; black frame sent, watchdog disarmed

@@ -1,0 +1,1219 @@
+2026-11-21T02:24:17.968Z  INFO   launch  Electron 43.4.0 · electron 43.4.0 · darwin x64
+    build: floor-2026-11-20
+    packaged=false
+    mapper cwd: /Users/USER/dev/pxdf
+    python: "python3"
+    PATH: /Users/USER/dev/pxdf/app/node_modules/.bin:/Users/USER/dev/pxdf/node_modules/.bin:/Users/USER/dev/node_modules/.bin:/Users/USER/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/usr/local/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/Users/USER/dev/pxdf/app/node_modules/.bin:/Users/USER/dev/pxdf/node_modules/.bin:/Users/USER/dev/node_modules/.bin:/Users/USER/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/usr/local/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/Users/USER/.bun/bin:/Users/USER/.local/bin:/opt/miniconda3/bin:/opt/miniconda3/condabin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Applications/VMware Fusion.app/Contents/Public:/Applications/Postgres.app/Contents/Versions/latest/bin:/usr/local/sbin:/Library/Frameworks/Python.framework/Versions/3.10/bin:/Library/Frameworks/Python.framework/Versions/3.7/bin:/Users/USER/.local/bin
+    floor: 8x8_4P 10x5
+    local ip: 192.168.32.138
+    log: /Users/USER/Library/Logs/Electron/pxdf.log
+    heartbeat: every 60s · draw/readback/pass are avg/max ms per composed frame · decoders=open now, peak=high-water mark, opened=total this page
+2026-11-21T02:24:17.969Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 10 --rows 5 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.32.138
+2026-11-21T02:24:18.153Z  INFO   nic  interfaces: en0=192.168.32.138 utun4=100.102.190.64 en7=169.254.169.142 utun7=100.112.1.252
+2026-11-21T02:24:18.362Z  INFO   sidecar  stdout: 8x8_4P 10x5 tiles = 80x40 px, 3 controller(s), 20 packets/frame, 9700 bytes/frame
+2026-11-21T02:24:18.362Z  INFO   sidecar  stdout: orientation: identity   source: stdin (9600 bytes/frame)
+2026-11-21T02:24:18.362Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.32.138
+2026-11-21T02:24:18.555Z  INFO   sender  status restarting -> sending
+2026-11-21T02:24:18.691Z  INFO   window  renderer loaded
+2026-11-21T02:24:18.753Z  INFO   player  live: (none)
+2026-11-21T02:24:18.759Z  INFO   player  live: (none)
+2026-11-21T02:24:23.155Z  INFO   sidecar  stable for 5000ms; retry ladder reset, banner cleared
+2026-11-21T02:24:28.158Z  INFO   nic  interfaces: en0=192.168.32.138 utun4=100.102.190.64 utun7=100.112.1.252
+2026-11-21T02:24:36.159Z  INFO   nic  interfaces: en0=192.168.32.138 utun4=100.102.190.64 en7=192.168.1.100 utun7=100.112.1.252
+2026-11-21T02:24:39.324Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-21T02:24:39.338Z  INFO   sidecar  stdout: sent 12760 packets
+2026-11-21T02:24:39.353Z  INFO   sender  status sending -> restarting
+2026-11-21T02:24:39.353Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 10 --rows 5 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T02:24:39.485Z  INFO   sidecar  stdout: 8x8_4P 10x5 tiles = 80x40 px, 3 controller(s), 20 packets/frame, 9700 bytes/frame
+2026-11-21T02:24:39.485Z  INFO   sidecar  stdout: orientation: identity   source: stdin (9600 bytes/frame)
+2026-11-21T02:24:39.486Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T02:24:39.757Z  INFO   sender  status restarting -> sending
+2026-11-21T02:24:44.358Z  INFO   sidecar  stable for 5000ms; retry ladder reset, banner cleared
+2026-11-21T02:24:45.604Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-21T02:24:45.625Z  INFO   sidecar  stdout: sent 3700 packets
+2026-11-21T02:24:45.643Z  INFO   sender  status sending -> restarting
+2026-11-21T02:24:45.643Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 5 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T02:24:45.780Z  INFO   sidecar  stdout: 8x8_4P 8x5 tiles = 64x40 px, 2 controller(s), 16 packets/frame, 7760 bytes/frame
+2026-11-21T02:24:45.780Z  INFO   sidecar  stdout: orientation: identity   source: stdin (7680 bytes/frame)
+2026-11-21T02:24:45.781Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T02:24:46.049Z  INFO   sender  status restarting -> sending
+2026-11-21T02:24:48.524Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-21T02:24:48.560Z  INFO   sidecar  stdout: sent 1344 packets
+2026-11-21T02:24:48.567Z  INFO   sender  status sending -> restarting
+2026-11-21T02:24:48.568Z  INFO   sidecar  spawning: python3 -m mapper stream --type 8x8_4P --cols 8 --rows 8 --fps 30 --address 255.255.255.255 --port 60001 --local-ip 192.168.1.100
+2026-11-21T02:24:48.701Z  INFO   sidecar  stdout: 8x8_4P 8x8 tiles = 64x64 px, 2 controller(s), 32 packets/frame, 12448 bytes/frame
+2026-11-21T02:24:48.702Z  INFO   sidecar  stdout: orientation: identity   source: stdin (12288 bytes/frame)
+2026-11-21T02:24:48.702Z  INFO   sidecar  stdout: sending to 255.255.255.255:60001 at 30 fps, pacing clock, until stdin ends from 192.168.1.100
+2026-11-21T02:24:48.972Z  INFO   sender  status restarting -> sending
+2026-11-21T02:24:53.572Z  INFO   sidecar  stable for 5000ms; retry ladder reset, banner cleared
+2026-11-21T02:25:02.839Z  INFO   player  live: "ORANGE5" /Users/USER/Downloads/pxdf-client/converted/ORANGE5.mp4
+2026-11-21T02:25:18.588Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1790/60s renderer=live age=0.3s composes=470 draw=12.38/48.80ms readback=1.07/1.60ms pass=1.41/5.70ms decoders=1 peak=2 opened=4
+2026-11-21T02:26:18.858Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1712/60s renderer=live age=0.2s composes=1713 draw=13.66/447.90ms readback=1.10/14.20ms pass=1.53/17.00ms decoders=1 peak=2 opened=4
+2026-11-21T02:27:19.126Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1604/60s renderer=live age=0.2s composes=1606 draw=17.99/433.50ms readback=1.10/14.40ms pass=1.51/17.20ms decoders=1 peak=9 opened=18
+2026-11-21T02:28:19.427Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1269/60s renderer=live age=0.1s composes=1270 draw=29.02/334.70ms readback=1.16/15.00ms pass=1.60/17.00ms decoders=1 peak=9 opened=44
+2026-11-21T02:29:19.489Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1578/60s renderer=live age=0.0s composes=1581 draw=18.35/286.80ms readback=1.14/14.80ms pass=1.51/16.40ms decoders=1 peak=9 opened=62
+2026-11-21T02:30:19.530Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1454/60s renderer=live age=0.1s composes=1454 draw=22.09/242.50ms readback=1.14/14.60ms pass=1.55/16.90ms decoders=1 peak=9 opened=66
+2026-11-21T02:31:19.552Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1774/60s renderer=live age=0.1s composes=1770 draw=13.43/139.40ms readback=1.07/14.50ms pass=1.43/17.20ms decoders=1 peak=9 opened=66
+2026-11-21T02:32:19.977Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1687/60s renderer=live age=0.3s composes=1689 draw=15.68/237.50ms readback=1.15/24.30ms pass=1.52/16.70ms decoders=1 peak=9 opened=86
+2026-11-21T02:33:20.022Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1778/60s renderer=live age=0.0s composes=1780 draw=13.47/197.80ms readback=1.05/2.00ms pass=1.37/2.10ms decoders=1 peak=9 opened=86
+2026-11-21T02:34:20.062Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.1s composes=1800 draw=12.69/29.80ms readback=1.05/1.30ms pass=1.36/1.90ms decoders=1 peak=9 opened=86
+2026-11-21T02:35:20.103Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.1s composes=1800 draw=12.81/23.10ms readback=1.04/1.40ms pass=1.35/2.00ms decoders=1 peak=9 opened=86
+2026-11-21T02:36:20.140Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.1s composes=1800 draw=13.24/21.70ms readback=1.04/1.40ms pass=1.36/1.90ms decoders=1 peak=9 opened=86
+2026-11-21T02:37:20.174Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.2s composes=1800 draw=13.34/21.40ms readback=1.05/1.60ms pass=1.36/2.90ms decoders=1 peak=9 opened=86
+2026-11-21T02:38:20.221Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.2s composes=1800 draw=12.33/22.40ms readback=1.04/1.30ms pass=1.36/4.20ms decoders=1 peak=9 opened=86
+2026-11-21T02:39:20.268Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1781/60s renderer=live age=0.1s composes=1787 draw=12.00/79.00ms readback=1.05/15.20ms pass=1.36/16.60ms decoders=1 peak=9 opened=86
+2026-11-21T02:40:20.323Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1789/60s renderer=live age=0.1s composes=1785 draw=11.79/88.00ms readback=1.07/24.00ms pass=1.34/6.10ms decoders=1 peak=9 opened=86
+2026-11-21T02:41:20.378Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.2s composes=1800 draw=12.75/23.00ms readback=1.06/1.50ms pass=1.39/2.20ms decoders=1 peak=9 opened=86
+2026-11-21T02:42:20.431Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.2s composes=1800 draw=12.33/23.30ms readback=1.04/1.40ms pass=1.37/2.00ms decoders=1 peak=9 opened=86
+2026-11-21T02:43:20.498Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.0s composes=1808 draw=12.73/21.30ms readback=1.05/1.40ms pass=1.37/2.40ms decoders=1 peak=9 opened=86
+2026-11-21T02:44:20.557Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.1s composes=1800 draw=12.81/43.40ms readback=1.04/1.40ms pass=1.37/3.00ms decoders=1 peak=9 opened=86
+2026-11-21T02:45:20.603Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.1s composes=1800 draw=12.52/22.90ms readback=1.05/1.40ms pass=1.39/3.00ms decoders=1 peak=9 opened=86
+2026-11-21T02:46:20.656Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.2s composes=1800 draw=12.91/21.30ms readback=1.05/1.70ms pass=1.39/2.90ms decoders=1 peak=9 opened=86
+2026-11-21T02:47:20.712Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.3s composes=1800 draw=12.92/22.50ms readback=1.05/1.40ms pass=1.37/1.90ms decoders=1 peak=9 opened=86
+2026-11-21T02:48:20.764Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.0s composes=1808 draw=13.12/20.70ms readback=1.05/1.40ms pass=1.38/2.00ms decoders=1 peak=9 opened=86
+2026-11-21T02:49:20.826Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.1s composes=1800 draw=13.43/21.70ms readback=1.05/1.60ms pass=1.38/1.80ms decoders=1 peak=9 opened=86
+2026-11-21T02:50:20.886Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.2s composes=1800 draw=13.34/23.20ms readback=1.05/1.40ms pass=1.39/2.70ms decoders=1 peak=9 opened=86
+2026-11-21T02:51:20.936Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.2s composes=1800 draw=13.30/32.30ms readback=1.05/1.30ms pass=1.39/1.90ms decoders=1 peak=9 opened=86
+2026-11-21T02:52:20.987Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.3s composes=1800 draw=13.36/21.30ms readback=1.05/1.70ms pass=1.39/3.10ms decoders=1 peak=9 opened=86
+2026-11-21T02:53:21.210Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1789/60s renderer=live age=0.2s composes=1791 draw=17.60/94.00ms readback=1.08/14.20ms pass=1.41/16.10ms decoders=1 peak=9 opened=86
+2026-11-21T02:54:21.255Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1775/60s renderer=live age=0.0s composes=1779 draw=11.18/316.20ms readback=1.08/1.90ms pass=1.38/3.70ms decoders=1 peak=9 opened=128
+2026-11-21T02:55:03.418Z  WARN   player  cue "Fluid-shapes 3" clip is buffering (waiting)
+2026-11-21T02:55:05.293Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T02:55:19.635Z  WARN   player  cue "Colorful Triangle Fast" clip is buffering (waiting)
+2026-11-21T02:55:21.302Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1786/60s renderer=live age=0.1s composes=2039 draw=11.92/71.60ms readback=1.06/1.40ms pass=1.23/1.90ms decoders=2 peak=9 opened=135
+2026-11-21T02:55:25.513Z  WARN   player  cue " Rainbow Neon (Not Full)" clip is buffering (waiting)
+2026-11-21T02:55:26.273Z  WARN   player  cue "A-1 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T02:55:29.728Z  WARN   player  cue "A-3 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T02:55:31.109Z  WARN   player  cue "A-5 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T02:55:31.839Z  WARN   player  cue "A-6 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T02:55:36.911Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T02:56:13.474Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T02:56:21.343Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1756/60s renderer=live age=0.2s composes=2296 draw=12.89/53.50ms readback=1.06/1.40ms pass=1.23/4.40ms decoders=1 peak=9 opened=148
+2026-11-21T02:57:21.390Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1802/60s renderer=live age=0.2s composes=1800 draw=12.43/20.10ms readback=1.05/1.40ms pass=1.20/2.50ms decoders=1 peak=9 opened=148
+2026-11-21T02:58:21.432Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.0s composes=1808 draw=11.85/50.40ms readback=1.06/1.60ms pass=1.21/2.50ms decoders=1 peak=9 opened=148
+2026-11-21T02:58:39.046Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T02:58:47.098Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T02:58:54.766Z  WARN   player  cue "Colorful Lines" clip is buffering (waiting)
+2026-11-21T02:58:56.619Z  WARN   player  cue "Dashed Cubes" clip is buffering (waiting)
+2026-11-21T02:58:57.163Z  WARN   player  cue " Rainbow Neon (Not Full)" clip is buffering (waiting)
+2026-11-21T02:58:57.418Z  WARN   player  cue "A-2 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T02:58:58.270Z  WARN   player  cue "A-5 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T02:58:59.596Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T02:58:59.933Z  WARN   player  cue "A-9 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T02:59:00.672Z  WARN   player  cue "Abstract Rainbow" clip is buffering (waiting)
+2026-11-21T02:59:21.473Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1722/60s renderer=live age=0.1s composes=2690 draw=12.92/72.30ms readback=1.08/1.70ms pass=1.25/1.70ms decoders=2 peak=9 opened=169
+2026-11-21T02:59:28.537Z  WARN   player  cue "Blue Digital Bulb Wall 2" clip is buffering (waiting)
+2026-11-21T02:59:30.703Z  WARN   player  cue " Rainbow Neon (Not Full)" clip is buffering (waiting)
+2026-11-21T02:59:31.716Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T02:59:32.529Z  WARN   player  cue "B&W Geo 3" clip is buffering (waiting)
+2026-11-21T02:59:33.030Z  WARN   player  cue "Blue Digital Bulb Wall 3" clip is buffering (waiting)
+2026-11-21T02:59:34.610Z  WARN   player  cue "Blue Digital Bulb Wall 3" clip is buffering (waiting)
+2026-11-21T02:59:35.668Z  WARN   player  cue "Blue Digital Bulb Wall 5" clip is buffering (waiting)
+2026-11-21T02:59:36.261Z  WARN   player  cue "Blue Digital Bulb Wall 6" clip is buffering (waiting)
+2026-11-21T02:59:56.399Z  WARN   player  cue "Colorful Triangle Fast" clip is buffering (waiting)
+2026-11-21T02:59:58.035Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T03:00:00.437Z  WARN   player  cue "Blue Digital Bulb Wall 6" clip is buffering (waiting)
+2026-11-21T03:00:00.706Z  WARN   player  cue "Abstract Rainbow" clip is buffering (waiting)
+2026-11-21T03:00:01.243Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T03:00:21.515Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1702/60s renderer=live age=0.2s composes=2896 draw=13.43/70.70ms readback=1.09/1.70ms pass=1.27/2.70ms decoders=1 peak=9 opened=205
+2026-11-21T03:01:21.560Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.2s composes=1800 draw=12.31/38.80ms readback=1.06/1.40ms pass=1.21/4.60ms decoders=1 peak=9 opened=205
+2026-11-21T03:02:21.605Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.2s composes=1800 draw=10.79/53.50ms readback=1.08/1.80ms pass=1.14/2.20ms decoders=1 peak=9 opened=205
+2026-11-21T03:02:40.688Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T03:02:44.440Z  WARN   player  cue "Abstract Rainbow" clip is buffering (waiting)
+2026-11-21T03:02:45.683Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T03:02:46.471Z  WARN   player  cue "A-1 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:02:46.774Z  WARN   player  cue "A-3 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:02:47.776Z  WARN   player  cue "A-5 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:02:48.109Z  WARN   player  cue "A-6 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:02:48.897Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:02:50.221Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:03:09.384Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:03:19.839Z  WARN   player  cue "Colorful Triangle Fast" clip is buffering (waiting)
+2026-11-21T03:03:21.659Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1722/60s renderer=live age=0.0s composes=2866 draw=13.35/58.90ms readback=1.09/1.40ms pass=1.18/4.30ms decoders=2 peak=9 opened=230
+2026-11-21T03:03:22.208Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T03:03:41.056Z  WARN   player  cue "Flickering Rgb Triangles Glitch" clip is buffering (waiting)
+2026-11-21T03:03:58.774Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T03:03:59.905Z  WARN   player  cue " Rainbow Neon (Not Full)" clip is buffering (waiting)
+2026-11-21T03:04:07.605Z  WARN   player  cue "Dashed Cubes" clip is buffering (waiting)
+2026-11-21T03:04:08.970Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T03:04:09.449Z  WARN   player  cue "A-1 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:04:13.777Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T03:04:20.752Z  INFO   player  live: "A-1 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-1 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T03:04:21.696Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1564/60s renderer=live age=0.1s composes=2951 draw=15.24/67.20ms readback=1.09/1.50ms pass=1.16/1.60ms decoders=1 peak=9 opened=247
+2026-11-21T03:04:23.698Z  INFO   player  live: "Golden Triangles Shimmering" /Users/USER/Downloads/ddf_content/Operator Transfers/Golden Triangles Shimmering.mp4
+2026-11-21T03:05:21.745Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1793/60s renderer=live age=0.2s composes=1822 draw=12.49/58.80ms readback=1.07/1.80ms pass=1.17/1.80ms decoders=2 peak=9 opened=249
+2026-11-21T03:05:23.176Z  WARN   player  cue "Colorful Lines" clip is buffering (waiting)
+2026-11-21T03:05:23.704Z  WARN   player  cue "Abstract Rainbow" clip is buffering (waiting)
+2026-11-21T03:05:41.265Z  INFO   player  live: "Abstract Rainbow" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Abstract Rainbow.mp4
+2026-11-21T03:06:21.771Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1794/60s renderer=live age=0.0s composes=2004 draw=12.72/49.90ms readback=1.10/1.70ms pass=1.18/1.60ms decoders=1 peak=9 opened=252
+2026-11-21T03:06:40.775Z  WARN   player  cue "Abstract Rainbow" clip is buffering (waiting)
+2026-11-21T03:06:43.637Z  INFO   player  live: "Colorful Lines" /Users/USER/Downloads/ddf_content/Operator Transfers/Colorful Lines.mp4
+2026-11-21T03:07:21.809Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1770/60s renderer=live age=0.1s composes=2125 draw=12.98/52.90ms readback=1.10/1.80ms pass=1.19/1.80ms decoders=1 peak=9 opened=259
+2026-11-21T03:08:19.075Z  WARN   player  cue " Rainbow Neon (Not Full)" clip is buffering (waiting)
+2026-11-21T03:08:19.503Z  INFO   player  live: "Blue Digital Bulb Wall 6" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 6.mp4
+2026-11-21T03:08:21.863Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1718/60s renderer=live age=0.2s composes=2567 draw=13.18/52.90ms readback=1.10/1.50ms pass=1.20/2.10ms decoders=2 peak=9 opened=263
+2026-11-21T03:09:21.901Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1792/60s renderer=live age=0.3s composes=1807 draw=12.76/45.30ms readback=1.10/1.70ms pass=1.22/1.60ms decoders=1 peak=9 opened=263
+2026-11-21T03:09:25.982Z  WARN   player  cue "Blue Digital Bulb Wall 6" clip is buffering (waiting)
+2026-11-21T03:09:35.040Z  INFO   player  live: "Flickering Rgb Triangles Glitch" /Users/USER/Downloads/ddf_content/Operator Transfers/Flickering Rgb Triangles Glitch.mp4
+2026-11-21T03:10:21.952Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1757/60s renderer=live age=0.1s composes=1815 draw=12.99/55.60ms readback=1.11/1.60ms pass=1.23/1.60ms decoders=1 peak=9 opened=265
+2026-11-21T03:11:06.691Z  INFO   player  live: "Blue Particle Trails" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Particle Trails.mp4
+2026-11-21T03:11:22.007Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1734/60s renderer=live age=0.1s composes=1732 draw=12.63/143.80ms readback=1.18/47.80ms pass=1.26/16.80ms decoders=1 peak=9 opened=266
+2026-11-21T03:12:22.039Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1791/60s renderer=live age=0.1s composes=1791 draw=12.41/56.50ms readback=1.11/1.60ms pass=1.19/1.80ms decoders=1 peak=9 opened=266
+2026-11-21T03:12:23.089Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T03:12:30.428Z  INFO   player  live: "Dashed Cubes" /Users/USER/Downloads/ddf_content/Operator Transfers/Dashed Cubes.mp4
+2026-11-21T03:13:22.088Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1794/60s renderer=live age=0.2s composes=1866 draw=12.92/55.30ms readback=1.09/2.20ms pass=1.12/2.70ms decoders=1 peak=9 opened=271
+2026-11-21T03:14:22.122Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1797/60s renderer=live age=0.2s composes=1796 draw=11.82/63.40ms readback=0.94/1.70ms pass=0.94/4.30ms decoders=1 peak=9 opened=271
+2026-11-21T03:14:29.397Z  INFO   player  live: "Animated Dice Retro" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Animated Dice Retro.mp4
+2026-11-21T03:15:02.982Z  WARN   player  cue "Animated Dice Retro" clip is buffering (waiting)
+2026-11-21T03:15:07.769Z  WARN   player  cue "Color Light Rays Center" clip is buffering (waiting)
+2026-11-21T03:15:10.930Z  INFO   player  live: "Color Light Rays Center" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Color Light Rays Center.mp4
+2026-11-21T03:15:22.172Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1791/60s renderer=live age=0.0s composes=1837 draw=12.21/56.40ms readback=1.08/1.60ms pass=1.13/3.50ms decoders=1 peak=9 opened=274
+2026-11-21T03:16:11.064Z  WARN   player  cue "Color Light Rays Center" clip is buffering (waiting)
+2026-11-21T03:16:15.082Z  INFO   player  live: "Color Dots" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Color Dots.mp4
+2026-11-21T03:16:22.215Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1786/60s renderer=live age=0.3s composes=1779 draw=11.95/56.10ms readback=1.12/1.60ms pass=1.23/1.60ms decoders=1 peak=9 opened=275
+2026-11-21T03:17:22.254Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1790/60s renderer=live age=0.0s composes=1797 draw=12.83/50.10ms readback=1.11/1.50ms pass=1.15/1.50ms decoders=1 peak=9 opened=275
+2026-11-21T03:17:36.878Z  WARN   player  cue "Colorful Glitch Block" clip is buffering (waiting)
+2026-11-21T03:17:59.534Z  INFO   player  live: "Colorful Glitch Block" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Colorful Glitch Block.mp4
+2026-11-21T03:18:22.283Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1789/60s renderer=live age=0.1s composes=1837 draw=12.99/51.00ms readback=1.10/1.70ms pass=1.17/1.80ms decoders=1 peak=9 opened=277
+2026-11-21T03:19:22.326Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1780/60s renderer=live age=0.1s composes=1779 draw=12.54/50.40ms readback=1.11/1.50ms pass=1.23/1.90ms decoders=1 peak=9 opened=277
+2026-11-21T03:19:46.987Z  INFO   player  live: "Colorful Light Ray Bright" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Colorful Light Ray Bright.mp4
+2026-11-21T03:20:22.346Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1789/60s renderer=live age=0.2s composes=1787 draw=13.03/59.80ms readback=1.09/1.60ms pass=1.21/1.60ms decoders=1 peak=9 opened=278
+2026-11-21T03:20:31.323Z  WARN   player  cue "Colorful Waves" clip is buffering (waiting)
+2026-11-21T03:20:34.506Z  WARN   player  cue "Curved Arch Color Dips" clip is buffering (waiting)
+2026-11-21T03:20:51.762Z  WARN   player  cue "Colorful Shapes Rotaing" clip is buffering (waiting)
+2026-11-21T03:21:22.391Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1736/60s renderer=live age=0.1s composes=3239 draw=12.96/72.40ms readback=1.07/1.40ms pass=1.17/2.70ms decoders=2 peak=9 opened=285
+2026-11-21T03:21:47.027Z  WARN   player  cue "Colorful Light Ray Bright" clip is buffering (waiting)
+2026-11-21T03:21:50.717Z  INFO   player  live: "Colorful Shapes Rotaing" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Colorful Shapes Rotaing.mp4
+2026-11-21T03:22:17.656Z  WARN   player  cue "Colorful Shapes Rotaing" clip is buffering (waiting)
+2026-11-21T03:22:19.761Z  WARN   player  cue "Curved Arch Color Dips" clip is buffering (waiting)
+2026-11-21T03:22:20.264Z  WARN   player  cue "Colorful Waves" clip is buffering (waiting)
+2026-11-21T03:22:22.436Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1758/60s renderer=live age=0.0s composes=2667 draw=12.92/55.90ms readback=1.09/1.80ms pass=1.17/4.20ms decoders=2 peak=9 opened=290
+2026-11-21T03:22:25.899Z  WARN   player  cue "Diamond Pixel Dots Colorful" clip is buffering (waiting)
+2026-11-21T03:22:46.646Z  INFO   player  live: "Fluid-shapes 3" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Fluid-shapes 3.mp4
+2026-11-21T03:23:22.469Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1695/60s renderer=live age=0.1s composes=3341 draw=13.18/63.90ms readback=1.08/1.40ms pass=1.19/1.90ms decoders=2 peak=9 opened=300
+2026-11-21T03:23:24.566Z  WARN   player  cue "Curved Arch Color Dips" clip is buffering (waiting)
+2026-11-21T03:23:26.893Z  WARN   player  cue "Fluid-shapes 3" clip is buffering (waiting)
+2026-11-21T03:23:48.854Z  WARN   player  cue "Curved Arch Color Dips" clip is buffering (waiting)
+2026-11-21T03:23:50.664Z  INFO   player  live: "Colorful Waves" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Colorful Waves.mp4
+2026-11-21T03:24:21.435Z  WARN   player  cue "Diamond Pixel Dots Colorful" clip is buffering (waiting)
+2026-11-21T03:24:21.944Z  WARN   player  cue "Curved Arch Color Dips" clip is buffering (waiting)
+2026-11-21T03:24:22.506Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1749/60s renderer=live age=0.0s composes=2650 draw=12.71/67.00ms readback=1.08/1.40ms pass=1.19/1.80ms decoders=2 peak=9 opened=311
+2026-11-21T03:24:39.059Z  INFO   player  live: "A-2 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-2 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T03:25:14.240Z  INFO   player  live: "B&W Geo 2" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/B&W Geo 2.mp4
+2026-11-21T03:25:22.548Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1786/60s renderer=live age=0.1s composes=1852 draw=12.64/52.70ms readback=1.10/1.50ms pass=1.20/1.60ms decoders=1 peak=9 opened=315
+2026-11-21T03:26:03.248Z  WARN   player  cue "B&W Geo 2" clip is buffering (waiting)
+2026-11-21T03:26:10.472Z  WARN   player  cue "B&W Geo 3" clip is buffering (waiting)
+2026-11-21T03:26:20.410Z  INFO   player  live: "B&W Geo 3" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/B&W Geo 3.mp4
+2026-11-21T03:26:22.588Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1786/60s renderer=live age=0.1s composes=1877 draw=13.57/52.70ms readback=1.10/1.40ms pass=1.13/2.00ms decoders=1 peak=9 opened=318
+2026-11-21T03:26:33.741Z  WARN   player  cue "Blue Digital Bulb Wall 2" clip is buffering (waiting)
+2026-11-21T03:26:42.556Z  WARN   player  cue "B&W Geo 3" clip is buffering (waiting)
+2026-11-21T03:26:48.486Z  INFO   player  live: "Blue Digital Bulb Wall 3" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 3.mp4
+2026-11-21T03:27:13.504Z  WARN   player  cue "Blue Digital Bulb Wall 3" clip is buffering (waiting)
+2026-11-21T03:27:22.616Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1668/60s renderer=live age=0.3s composes=3040 draw=13.48/58.80ms readback=1.09/1.70ms pass=1.20/3.90ms decoders=2 peak=9 opened=325
+2026-11-21T03:27:56.178Z  WARN   player  cue "Blue Digital Bulb Wall 5" clip is buffering (waiting)
+2026-11-21T03:28:01.784Z  WARN   player  cue "Blue Digital Bulb Wall 7" clip is buffering (waiting)
+2026-11-21T03:28:09.410Z  WARN   player  cue "Blue Digital Bulb Wall 7" clip is buffering (waiting)
+2026-11-21T03:28:11.491Z  INFO   player  live: "Blue Digital Bulb Wall 7" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 7.mp4
+2026-11-21T03:28:22.649Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1711/60s renderer=live age=0.0s composes=3426 draw=13.12/64.90ms readback=1.08/1.60ms pass=1.22/4.10ms decoders=2 peak=9 opened=328
+2026-11-21T03:28:24.551Z  WARN   player  cue "Blue Digital Bulb Wall 7" clip is buffering (waiting)
+2026-11-21T03:28:25.941Z  WARN   player  cue "Color Dots" clip is buffering (waiting)
+2026-11-21T03:28:30.086Z  WARN   player  cue "Colorful Glitch Block" clip is buffering (waiting)
+2026-11-21T03:28:31.919Z  WARN   player  cue "Colorful Hexagon Pixel Particles" clip is buffering (waiting)
+2026-11-21T03:28:34.082Z  WARN   player  cue "Colorful Hexagon Pixel Particles" clip is buffering (waiting)
+2026-11-21T03:28:36.754Z  WARN   player  cue "Colorful Shapes Rotaing" clip is buffering (waiting)
+2026-11-21T03:28:37.821Z  WARN   player  cue "Colorful Waves" clip is buffering (waiting)
+2026-11-21T03:28:38.629Z  WARN   player  cue "Curved Arch Color Dips" clip is buffering (waiting)
+2026-11-21T03:28:57.060Z  WARN   player  cue "Blue Digital Bulb Wall 7" clip is buffering (waiting)
+2026-11-21T03:28:57.318Z  INFO   player  live: "Diamond Pixel Dots Colorful" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Diamond Pixel Dots Colorful.mp4
+2026-11-21T03:29:22.688Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1736/60s renderer=live age=0.0s composes=2739 draw=12.99/58.10ms readback=1.09/1.50ms pass=1.21/3.80ms decoders=2 peak=9 opened=342
+2026-11-21T03:30:22.717Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1765/60s renderer=live age=0.2s composes=2428 draw=13.35/49.70ms readback=1.08/1.70ms pass=1.20/2.30ms decoders=1 peak=9 opened=343
+2026-11-21T03:30:27.859Z  WARN   player  cue "Geometric Block Grid" clip is buffering (waiting)
+2026-11-21T03:30:27.860Z  INFO   player  live: "Geometric Block Grid" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Geometric Block Grid.mp4
+2026-11-21T03:30:50.471Z  WARN   player  cue "Colorful Shapes Rotaing" clip is buffering (waiting)
+2026-11-21T03:30:58.226Z  INFO   player  live: "Diamond Pixel Dots Colorful" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Diamond Pixel Dots Colorful.mp4
+2026-11-21T03:31:22.756Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1790/60s renderer=live age=0.0s composes=1833 draw=13.22/58.80ms readback=1.10/1.70ms pass=1.21/1.60ms decoders=1 peak=9 opened=346
+2026-11-21T03:31:54.223Z  INFO   player  live: "Colorful Glitch Block" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Colorful Glitch Block.mp4
+2026-11-21T03:32:22.798Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1801/60s renderer=live age=0.1s composes=1799 draw=12.65/44.40ms readback=1.09/1.50ms pass=1.21/3.30ms decoders=1 peak=9 opened=347
+2026-11-21T03:33:22.838Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1800/60s renderer=live age=0.1s composes=1799 draw=12.86/37.10ms readback=1.09/1.60ms pass=1.21/4.20ms decoders=1 peak=9 opened=347
+2026-11-21T03:33:27.840Z  INFO   player  live: "Colorful Hexagon Pixel Particles" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Colorful Hexagon Pixel Particles.mp4
+2026-11-21T03:34:23.383Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1620/60s renderer=live age=0.1s composes=1622 draw=18.02/485.50ms readback=1.13/2.40ms pass=1.18/2.20ms decoders=1 peak=9 opened=354
+2026-11-21T03:34:33.627Z  INFO   player  live: "Gradient Color Bar Horz" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Gradient Color Bar Horz.mp4
+2026-11-21T03:35:06.235Z  WARN   player  cue "Gradient Color Bar Horz" clip is buffering (waiting)
+2026-11-21T03:35:23.434Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1591/60s renderer=live age=0.0s composes=1592 draw=18.33/274.50ms readback=1.14/13.30ms pass=1.21/25.10ms decoders=1 peak=9 opened=355
+2026-11-21T03:35:39.249Z  WARN   player  cue "Gradient Color Bar Horz" clip is buffering (waiting)
+2026-11-21T03:35:47.455Z  WARN   player  cue "Gradient Color Bar Horz" clip is buffering (waiting)
+2026-11-21T03:35:55.993Z  WARN   player  cue "Gradient Color Bar Horz" clip is buffering (waiting)
+2026-11-21T03:36:04.311Z  WARN   player  cue "Gradient Color Bar Horz" clip is buffering (waiting)
+2026-11-21T03:36:19.508Z  WARN   player  cue "Hexagon Color Sparkles" clip is buffering (waiting)
+2026-11-21T03:36:20.333Z  WARN   player  cue "LED Ring Grid Wall 2-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:21.382Z  WARN   player  cue "LED Ring Grid Wall 2-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:23.573Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1368/60s renderer=live age=0.1s composes=1488 draw=24.30/591.40ms readback=1.17/4.20ms pass=1.24/15.00ms decoders=2 peak=9 opened=411
+2026-11-21T03:36:24.015Z  INFO   player  live: "LED Ring Grid Wall 2-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/LED Ring Grid Wall 2-MPEG-4 HVEC.mp4
+2026-11-21T03:36:40.503Z  WARN   player  cue "LED Wall Light Grid Sequences" clip is buffering (waiting)
+2026-11-21T03:36:41.633Z  WARN   player  cue "Light Wall loop 02-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:42.138Z  WARN   player  cue "Light Wall loop 01-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:42.438Z  WARN   player  cue "LED Ring Grid Wall 3-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:44.070Z  WARN   player  cue "Light Wall loop 02-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:44.623Z  WARN   player  cue "Light Wall loop 03-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:46.976Z  WARN   player  cue "Light Wall loop 06-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:48.316Z  WARN   player  cue "Light Wall loop 07-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:49.350Z  WARN   player  cue "Light Wall loop 08-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:53.180Z  WARN   player  cue "Light Wall loop 09-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:56.023Z  WARN   player  cue "Light Wall loop 11-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:36:59.814Z  INFO   player  live: "Light Wall loop 11-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Light Wall loop 11-MPEG-4 HVEC.mp4
+2026-11-21T03:37:08.509Z  WARN   player  cue "Light Wall loop 11-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:37:14.943Z  INFO   player  live: "Light Wall loop 14-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Light Wall loop 14-MPEG-4 HVEC.mp4
+2026-11-21T03:37:15.220Z  WARN   player  cue "Light Wall loop 14-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:37:21.114Z  WARN   player  cue "Light Wall loop 14-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:37:23.617Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1664/60s renderer=live age=0.2s composes=3239 draw=13.38/66.60ms readback=1.08/1.60ms pass=1.21/1.90ms decoders=2 peak=9 opened=438
+2026-11-21T03:37:25.592Z  WARN   player  cue "Light Wall loop 14-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:37:38.922Z  WARN   player  cue "Light Wall loop 17-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:37:43.198Z  WARN   player  cue "Light Wall loop 18-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:37:45.857Z  INFO   player  live: "Light Wall loop 18-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Light Wall loop 18-MPEG-4 HVEC.mp4
+2026-11-21T03:37:55.664Z  WARN   player  cue "Light Wall loop 20-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:38:04.561Z  WARN   player  cue "Light Wall loop 20-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:38:06.503Z  WARN   player  cue "Light Wall loop 20-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:38:11.226Z  WARN   player  cue "Light Wall loop 20-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:38:18.709Z  WARN   player  cue "Light Wall loop 20-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:38:20.248Z  WARN   player  cue "Light Wall loop 18-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:38:21.408Z  WARN   player  cue "Light Wall loop 20-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T03:38:23.709Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1217/60s renderer=live age=0.0s composes=2427 draw=19.26/488.00ms readback=1.13/14.30ms pass=1.25/15.20ms decoders=2 peak=9 opened=443
+2026-11-21T03:38:26.854Z  WARN   player  cue "Neon Color Square Rotating" clip is buffering (waiting)
+2026-11-21T03:38:28.839Z  INFO   player  live: "Light Wall loop 20-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Light Wall loop 20-MPEG-4 HVEC.mp4
+2026-11-21T03:38:31.305Z  INFO   player  live: "Neon Color Square Rotating" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Neon Color Square Rotating.mp4
+2026-11-21T03:39:10.538Z  WARN   player  cue "Neon Color Square Rotating" clip is buffering (waiting)
+2026-11-21T03:39:22.486Z  WARN   player  cue "Neon Chasing Line Rectangles" clip is buffering (waiting)
+2026-11-21T03:39:23.761Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1570/60s renderer=live age=0.1s composes=2292 draw=15.84/362.10ms readback=1.11/3.70ms pass=1.24/15.20ms decoders=2 peak=9 opened=474
+2026-11-21T03:39:23.961Z  WARN   player  cue "Neon Chasing Line Rectangles" clip is buffering (waiting)
+2026-11-21T03:39:24.489Z  WARN   player  cue "Neon Color Square Rotating" clip is buffering (waiting)
+2026-11-21T03:39:29.014Z  WARN   player  cue "Neon Firework Particle Tunnel" clip is buffering (waiting)
+2026-11-21T03:39:30.806Z  INFO   player  live: "Neon Firework Particle Tunnel" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Neon Firework Particle Tunnel.mp4
+2026-11-21T03:39:47.558Z  WARN   player  cue "Neon Glowing Squares Tunnel" clip is buffering (waiting)
+2026-11-21T03:40:12.146Z  WARN   player  cue "Neon Lines Diagonal" clip is buffering (waiting)
+2026-11-21T03:40:23.807Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1673/60s renderer=live age=0.1s composes=3311 draw=13.22/53.30ms readback=1.07/1.50ms pass=1.18/2.80ms decoders=2 peak=9 opened=484
+2026-11-21T03:40:36.031Z  INFO   player  live: "Neon Lines Diagonal" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Neon Lines Diagonal.mp4
+2026-11-21T03:41:08.264Z  WARN   player  cue "Neon Lines Diagonal" clip is buffering (waiting)
+2026-11-21T03:41:16.286Z  WARN   player  cue "Neon Lines Diagonal" clip is buffering (waiting)
+2026-11-21T03:41:23.496Z  WARN   player  cue "Neon Pixel Grid Crazy" clip is buffering (waiting)
+2026-11-21T03:41:23.859Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1542/60s renderer=live age=0.1s composes=3069 draw=13.51/63.40ms readback=1.07/1.70ms pass=1.20/3.60ms decoders=2 peak=9 opened=489
+2026-11-21T03:41:25.338Z  WARN   player  cue "Neon Square Abstract" clip is buffering (waiting)
+2026-11-21T03:41:31.563Z  WARN   player  cue "Neon Square Diamond Tunnel" clip is buffering (waiting)
+2026-11-21T03:41:39.539Z  INFO   player  live: "Neon Square Diamond Tunnel" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Neon Square Diamond Tunnel.mp4
+2026-11-21T03:42:02.082Z  WARN   player  cue "Neon Star Tunnel Fast" clip is buffering (waiting)
+2026-11-21T03:42:09.578Z  INFO   player  live: "Neon Star Tunnel Fast" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Neon Star Tunnel Fast.mp4
+2026-11-21T03:42:23.904Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1638/60s renderer=live age=0.3s composes=2795 draw=13.73/55.20ms readback=1.08/1.80ms pass=1.21/2.50ms decoders=1 peak=9 opened=496
+2026-11-21T03:42:44.688Z  WARN   player  cue "Neon Star Tunnel Fast" clip is buffering (waiting)
+2026-11-21T03:43:23.155Z  INFO   player  live: "Neon Streaks Center Out" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Neon Streaks Center Out.mp4
+2026-11-21T03:43:23.939Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1793/60s renderer=live age=0.0s composes=1801 draw=14.15/50.50ms readback=1.10/1.50ms pass=1.20/1.60ms decoders=1 peak=9 opened=497
+2026-11-21T03:44:23.980Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1781/60s renderer=live age=0.0s composes=1781 draw=12.87/48.80ms readback=1.09/1.40ms pass=1.21/1.50ms decoders=1 peak=9 opened=497
+2026-11-21T03:44:41.361Z  WARN   player  cue "Blue Digital Bulb Wall 3" clip is buffering (waiting)
+2026-11-21T03:44:42.681Z  INFO   player  live: "Blue Digital Bulb Wall 3" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 3.mp4
+2026-11-21T03:45:01.534Z  WARN   player  cue "Blue Digital Bulb Wall 3" clip is buffering (waiting)
+2026-11-21T03:45:18.722Z  WARN   player  cue "Blue Digital Bulb Wall 7" clip is buffering (waiting)
+2026-11-21T03:45:18.939Z  WARN   player  cue "Blue Digital Bulb Wall 5" clip is buffering (waiting)
+2026-11-21T03:45:22.125Z  INFO   player  live: "Blue Digital Bulb Wall 5" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 5.mp4
+2026-11-21T03:45:24.013Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1689/60s renderer=live age=0.0s composes=2874 draw=13.29/58.20ms readback=1.08/1.50ms pass=1.21/2.90ms decoders=2 peak=9 opened=506
+2026-11-21T03:45:33.900Z  WARN   player  cue "Blue Digital Bulb Wall 2" clip is buffering (waiting)
+2026-11-21T03:45:35.471Z  WARN   player  cue "Color Dots" clip is buffering (waiting)
+2026-11-21T03:45:37.628Z  WARN   player  cue "Blue Digital Bulb Wall 5" clip is buffering (waiting)
+2026-11-21T03:45:38.157Z  WARN   player  cue "Blue Digital Bulb Wall 3" clip is buffering (waiting)
+2026-11-21T03:45:41.626Z  WARN   player  cue "Blue Digital Bulb Wall 3" clip is buffering (waiting)
+2026-11-21T03:45:41.627Z  INFO   player  live: "Blue Digital Bulb Wall 3" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Digital Bulb Wall 3.mp4
+2026-11-21T03:45:51.624Z  WARN   player  cue "Blue Digital Bulb Wall 3" clip is buffering (waiting)
+2026-11-21T03:45:56.978Z  WARN   player  cue "Blue Digital Bulb Wall 3" clip is buffering (waiting)
+2026-11-21T03:45:58.559Z  WARN   player  cue "B&W Geo 2" clip is buffering (waiting)
+2026-11-21T03:46:00.170Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:46:24.048Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1652/60s renderer=live age=0.0s composes=3163 draw=13.13/63.00ms readback=1.08/1.80ms pass=1.21/2.40ms decoders=2 peak=9 opened=531
+2026-11-21T03:47:24.082Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1647/60s renderer=live age=0.2s composes=3286 draw=13.28/50.40ms readback=1.08/1.60ms pass=1.21/4.20ms decoders=2 peak=9 opened=531
+2026-11-21T03:47:27.678Z  WARN   player  cue "Blue Digital Bulb Wall 3" clip is buffering (waiting)
+2026-11-21T03:47:28.208Z  INFO   player  live: "Color Blinking Grid Floor" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Color Blinking Grid Floor.mp4
+2026-11-21T03:47:51.800Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:47:53.343Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:47:58.412Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:48:03.468Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:48:07.029Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:48:08.520Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:48:17.138Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:48:22.233Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:48:24.143Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1467/60s renderer=live age=0.1s composes=2940 draw=13.85/58.50ms readback=1.08/1.70ms pass=1.21/2.10ms decoders=2 peak=9 opened=532
+2026-11-21T03:48:27.310Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:48:28.970Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:48:37.454Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:48:52.735Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:48:57.811Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:48:59.562Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:02.917Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:07.968Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:09.729Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:13.027Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:23.178Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:24.190Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1324/60s renderer=live age=0.2s composes=2642 draw=14.37/53.30ms readback=1.07/1.70ms pass=1.20/1.90ms decoders=2 peak=9 opened=532
+2026-11-21T03:49:24.978Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:28.244Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:33.306Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:35.171Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:40.327Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:43.482Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:48.538Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:53.606Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:49:58.673Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:50:03.746Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:50:08.842Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:50:11.614Z  WARN   player  cue "Color Dots" clip is buffering (waiting)
+2026-11-21T03:50:12.805Z  INFO   player  live: "Color Dots" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Color Dots.mp4
+2026-11-21T03:50:24.238Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1413/60s renderer=live age=0.0s composes=2832 draw=14.10/54.90ms readback=1.08/1.60ms pass=1.19/1.60ms decoders=2 peak=9 opened=534
+2026-11-21T03:50:43.083Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T03:50:47.608Z  WARN   player  cue "Colorful Glitch Block" clip is buffering (waiting)
+2026-11-21T03:50:48.300Z  WARN   player  cue "Color Light Rays Center" clip is buffering (waiting)
+2026-11-21T03:50:51.544Z  WARN   player  cue "Color Dots" clip is buffering (waiting)
+2026-11-21T03:51:05.414Z  WARN   player  cue "Color Light Rays Center" clip is buffering (waiting)
+2026-11-21T03:51:06.386Z  WARN   player  cue "Colorful Glitch Block" clip is buffering (waiting)
+2026-11-21T03:51:08.319Z  WARN   player  cue "Colorful Shapes Rotaing" clip is buffering (waiting)
+2026-11-21T03:51:09.104Z  WARN   player  cue "Curved Arch Color Dips" clip is buffering (waiting)
+2026-11-21T03:51:09.624Z  WARN   player  cue "Diamond Pixel Dots Colorful" clip is buffering (waiting)
+2026-11-21T03:51:11.028Z  WARN   player  cue "Gradient Color Bar Horz" clip is buffering (waiting)
+2026-11-21T03:51:11.762Z  WARN   player  cue "Glowing Neon Circle Lines" clip is buffering (waiting)
+2026-11-21T03:51:24.281Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1611/60s renderer=live age=0.2s composes=3146 draw=13.49/55.70ms readback=1.08/1.70ms pass=1.16/2.50ms decoders=2 peak=9 opened=552
+2026-11-21T03:51:27.873Z  WARN   player  cue "Color Light Rays Center" clip is buffering (waiting)
+2026-11-21T03:51:28.702Z  WARN   player  cue "Colorful Waves" clip is buffering (waiting)
+2026-11-21T03:51:29.720Z  WARN   player  cue "Gradient Color Bar Horz" clip is buffering (waiting)
+2026-11-21T03:51:31.307Z  WARN   player  cue "Fluid-shapes 3" clip is buffering (waiting)
+2026-11-21T03:51:33.202Z  INFO   player  live: "Fluid-shapes 3" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Fluid-shapes 3.mp4
+2026-11-21T03:51:37.749Z  INFO   player  live: "Color Light Rays Center" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Color Light Rays Center.mp4
+2026-11-21T03:51:39.874Z  INFO   player  live: "Glowing Neon Circle Lines" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Glowing Neon Circle Lines.mp4
+2026-11-21T03:52:24.322Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1764/60s renderer=live age=0.2s composes=2060 draw=13.16/57.50ms readback=1.09/1.70ms pass=1.21/1.80ms decoders=1 peak=9 opened=567
+2026-11-21T03:52:36.342Z  WARN   player  cue "Neon Glowing Squares Tunnel" clip is buffering (waiting)
+2026-11-21T03:53:24.368Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1751/60s renderer=live age=0.2s composes=2311 draw=13.30/56.70ms readback=1.08/1.70ms pass=1.19/4.10ms decoders=1 peak=9 opened=570
+2026-11-21T03:53:45.271Z  WARN   player  cue "Neon Firework Particle Tunnel" clip is buffering (waiting)
+2026-11-21T03:53:51.923Z  WARN   player  cue "Neon Color Square Rotating" clip is buffering (waiting)
+2026-11-21T03:53:54.130Z  WARN   player  cue "Neon Lines Diagonal" clip is buffering (waiting)
+2026-11-21T03:53:55.210Z  WARN   player  cue "Neon Lips Random" clip is buffering (waiting)
+2026-11-21T03:53:56.071Z  WARN   player  cue "Neon Lines Diagonal" clip is buffering (waiting)
+2026-11-21T03:54:02.514Z  INFO   player  live: "Neon Firework Particle Tunnel" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Neon Firework Particle Tunnel.mp4
+2026-11-21T03:54:24.419Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1701/60s renderer=live age=0.0s composes=2751 draw=13.23/55.20ms readback=1.08/1.60ms pass=1.18/2.90ms decoders=2 peak=9 opened=580
+2026-11-21T03:55:02.616Z  WARN   player  cue "Neon Firework Particle Tunnel" clip is buffering (waiting)
+2026-11-21T03:55:24.479Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1671/60s renderer=live age=0.1s composes=3338 draw=13.29/57.20ms readback=1.06/1.40ms pass=1.15/2.90ms decoders=2 peak=9 opened=580
+2026-11-21T03:56:24.514Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1648/60s renderer=live age=0.0s composes=3298 draw=13.32/59.20ms readback=1.07/1.50ms pass=1.15/1.50ms decoders=2 peak=9 opened=580
+2026-11-21T03:56:25.828Z  WARN   player  cue "Neon Square Diamond Tunnel" clip is buffering (waiting)
+2026-11-21T03:56:27.716Z  WARN   player  cue "Neon Glowing Squares Tunnel" clip is buffering (waiting)
+2026-11-21T03:56:29.831Z  WARN   player  cue "Neon Tunnel Lines & Blinking" clip is buffering (waiting)
+2026-11-21T03:56:50.048Z  WARN   player  cue "Neon Tunnel Lines & Blinking" clip is buffering (waiting)
+2026-11-21T03:56:56.985Z  WARN   player  cue "Orange & Blue Flashing Squares" clip is buffering (waiting)
+2026-11-21T03:57:24.556Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1402/60s renderer=live age=0.1s composes=2762 draw=16.29/304.00ms readback=1.12/15.00ms pass=1.21/15.30ms decoders=2 peak=9 opened=596
+2026-11-21T03:57:33.349Z  WARN   player  cue "Purple & Turquoise Tunnel Spiral" clip is buffering (waiting)
+2026-11-21T03:57:39.054Z  WARN   player  cue "Orange & Blue Flashing Squares" clip is buffering (waiting)
+2026-11-21T03:57:39.214Z  WARN   player  cue "Pink Kaleidoscope" clip is buffering (waiting)
+2026-11-21T03:57:39.523Z  WARN   player  cue "Purple & Turquoise Tunnel Spiral" clip is buffering (waiting)
+2026-11-21T03:57:47.975Z  INFO   player  live: "Purple & Turquoise Tunnel Spiral" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Purple & Turquoise Tunnel Spiral.mp4
+2026-11-21T03:58:13.836Z  WARN   player  cue "Neon Tunnel Lines & Blinking" clip is buffering (waiting)
+2026-11-21T03:58:15.904Z  WARN   player  cue "Pink Kaleidoscope" clip is buffering (waiting)
+2026-11-21T03:58:21.021Z  WARN   player  cue "Purple & Turquoise Tunnel Spiral" clip is buffering (waiting)
+2026-11-21T03:58:24.598Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1622/60s renderer=live age=0.1s composes=2252 draw=14.65/370.80ms readback=1.10/2.10ms pass=1.21/3.40ms decoders=2 peak=9 opened=608
+2026-11-21T03:58:39.474Z  WARN   player  cue "Pink Kaleidoscope" clip is buffering (waiting)
+2026-11-21T03:58:40.459Z  WARN   player  cue "Purple & Turquoise Tunnel Spiral" clip is buffering (waiting)
+2026-11-21T03:58:40.800Z  WARN   player  cue "Pink Kaleidoscope" clip is buffering (waiting)
+2026-11-21T03:58:42.371Z  WARN   player  cue "Purple & Turquoise Tunnel Spiral" clip is buffering (waiting)
+2026-11-21T03:58:45.159Z  WARN   player  cue "Pink Kaleidoscope" clip is buffering (waiting)
+2026-11-21T03:59:24.801Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1478/60s renderer=live age=0.2s composes=2952 draw=14.91/439.90ms readback=1.14/14.90ms pass=1.23/4.60ms decoders=2 peak=9 opened=608
+2026-11-21T03:59:24.885Z  WARN   player  cue "Rainbow Bars Motion" clip is buffering (waiting)
+2026-11-21T03:59:28.640Z  WARN   player  cue "Rainbow Color Array Rotating" clip is buffering (waiting)
+2026-11-21T03:59:29.239Z  WARN   player  cue "Purple & Turquoise Tunnel Spiral" clip is buffering (waiting)
+2026-11-21T03:59:29.714Z  WARN   player  cue "Rainbow Color Lens Flare Rotation" clip is buffering (waiting)
+2026-11-21T03:59:30.530Z  WARN   player  cue "Rainbow Cubes Strobe Random" clip is buffering (waiting)
+2026-11-21T03:59:31.548Z  WARN   player  cue "Rainbow Stars" clip is buffering (waiting)
+2026-11-21T03:59:32.410Z  WARN   player  cue "Red White Blue Grid Flashing" clip is buffering (waiting)
+2026-11-21T03:59:41.361Z  WARN   player  cue "Rainbow Stars" clip is buffering (waiting)
+2026-11-21T03:59:44.284Z  WARN   player  cue "Red White Blue Grid Flashing" clip is buffering (waiting)
+2026-11-21T03:59:46.356Z  INFO   player  live: "Rainbow Stars" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Rainbow Stars.mp4
+2026-11-21T04:00:24.846Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1475/60s renderer=live age=0.1s composes=2885 draw=13.26/61.40ms readback=1.08/1.50ms pass=1.20/1.80ms decoders=2 peak=10 opened=788
+2026-11-21T04:00:35.315Z  WARN   player  cue "Rainbow Stars" clip is buffering (waiting)
+2026-11-21T04:00:36.306Z  WARN   player  cue "Red White Blue Grid Flashing" clip is buffering (waiting)
+2026-11-21T04:00:37.373Z  WARN   player  cue "Rainbow Cubes Strobe Random" clip is buffering (waiting)
+2026-11-21T04:00:41.626Z  WARN   player  cue "Rainbow Stars" clip is buffering (waiting)
+2026-11-21T04:00:43.218Z  WARN   player  cue "Red White Blue Grid Flashing" clip is buffering (waiting)
+2026-11-21T04:00:53.062Z  WARN   player  cue "Rainbow Stars" clip is buffering (waiting)
+2026-11-21T04:01:24.877Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1692/60s renderer=live age=0.2s composes=2454 draw=13.44/50.00ms readback=1.08/1.60ms pass=1.20/1.60ms decoders=1 peak=10 opened=796
+2026-11-21T04:01:40.745Z  WARN   player  cue "Rainbow Stars" clip is buffering (waiting)
+2026-11-21T04:02:24.923Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1797/60s renderer=live age=0.3s composes=1794 draw=14.17/49.40ms readback=1.09/1.50ms pass=1.22/1.60ms decoders=1 peak=10 opened=796
+2026-11-21T04:03:24.962Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1796/60s renderer=live age=0.1s composes=1802 draw=14.44/51.90ms readback=1.10/1.60ms pass=1.22/2.50ms decoders=1 peak=10 opened=796
+2026-11-21T04:04:24.995Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1796/60s renderer=live age=0.1s composes=1795 draw=14.14/48.30ms readback=1.10/1.60ms pass=1.21/4.00ms decoders=1 peak=10 opened=796
+2026-11-21T04:04:50.490Z  INFO   player  live: "Colorful Waves" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Colorful Waves.mp4
+2026-11-21T04:05:25.039Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1797/60s renderer=live age=0.1s composes=1795 draw=13.33/46.60ms readback=1.08/1.40ms pass=1.19/1.60ms decoders=1 peak=10 opened=797
+2026-11-21T04:05:48.897Z  WARN   player  cue "Colorful Waves" clip is buffering (waiting)
+2026-11-21T04:05:49.902Z  WARN   player  cue "LED Ring Grid Wall 3-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:06:04.382Z  INFO   player  live: "Curved Arch Color Dips" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Curved Arch Color Dips.mp4
+2026-11-21T04:06:24.507Z  WARN   player  cue "Curved Arch Color Dips" clip is buffering (waiting)
+2026-11-21T04:06:25.078Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1646/60s renderer=live age=0.1s composes=2585 draw=13.33/48.10ms readback=1.08/1.40ms pass=1.19/1.60ms decoders=2 peak=10 opened=803
+2026-11-21T04:07:16.067Z  WARN   player  cue "LED Ring Grid Wall 2-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:07:25.126Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1499/60s renderer=live age=0.2s composes=2990 draw=13.23/54.60ms readback=1.08/1.50ms pass=1.21/1.70ms decoders=2 peak=10 opened=803
+2026-11-21T04:07:44.799Z  WARN   player  cue "LED Ring Grid Wall 2-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:07:46.369Z  WARN   player  cue "LED Ring Grid Wall 2-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:07:49.802Z  INFO   player  live: "LED Ring Grid Wall 2-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/LED Ring Grid Wall 2-MPEG-4 HVEC.mp4
+2026-11-21T04:08:08.794Z  WARN   player  cue "Light Wall loop 05-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:08:09.295Z  WARN   player  cue "Light Wall loop 06-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:08:11.771Z  WARN   player  cue "Light Wall loop 10-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:08:11.979Z  WARN   player  cue "Light Wall loop 11-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:08:12.240Z  WARN   player  cue "Light Wall loop 12-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:08:12.825Z  WARN   player  cue "Light Wall loop 13-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:08:14.107Z  WARN   player  cue "Light Wall loop 18-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:08:14.654Z  WARN   player  cue "Light Wall loop 20-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:08:15.180Z  WARN   player  cue "Neon Color Square Rotating" clip is buffering (waiting)
+2026-11-21T04:08:16.071Z  WARN   player  cue "Neon Lines Diagonal" clip is buffering (waiting)
+2026-11-21T04:08:16.289Z  WARN   player  cue "Neon Lips Random" clip is buffering (waiting)
+2026-11-21T04:08:17.319Z  WARN   player  cue "Neon Square Diamond Tunnel" clip is buffering (waiting)
+2026-11-21T04:08:18.418Z  WARN   player  cue "Neon Tunnel Lines & Blinking" clip is buffering (waiting)
+2026-11-21T04:08:22.932Z  WARN   player  cue "Rainbow Color Array Rotating" clip is buffering (waiting)
+2026-11-21T04:08:23.721Z  WARN   player  cue "Rainbow Color Lens Flare Rotation" clip is buffering (waiting)
+2026-11-21T04:08:24.303Z  WARN   player  cue "Rainbow Cubes Strobe Random" clip is buffering (waiting)
+2026-11-21T04:08:24.789Z  WARN   player  cue "Rainbow Stars" clip is buffering (waiting)
+2026-11-21T04:08:25.164Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1644/60s renderer=live age=0.1s composes=2392 draw=13.60/64.30ms readback=1.09/1.60ms pass=1.22/1.70ms decoders=2 peak=10 opened=845
+2026-11-21T04:08:28.826Z  WARN   player  cue "Retro Light Board_02" clip is buffering (waiting)
+2026-11-21T04:08:29.615Z  WARN   player  cue "Retro Light Board_03" clip is buffering (waiting)
+2026-11-21T04:08:30.393Z  WARN   player  cue "Snow Border Frame" clip is buffering (waiting)
+2026-11-21T04:08:31.695Z  WARN   player  cue "Spectrum Analyser 2" clip is buffering (waiting)
+2026-11-21T04:08:34.128Z  WARN   player  cue "Spectrum Analyser 4" clip is buffering (waiting)
+2026-11-21T04:08:35.451Z  WARN   player  cue "Spectrum Analyser 6" clip is buffering (waiting)
+2026-11-21T04:08:36.804Z  WARN   player  cue "Spliced Colro Circles" clip is buffering (waiting)
+2026-11-21T04:08:37.364Z  WARN   player  cue "Spiral Color Line Tunnel" clip is buffering (waiting)
+2026-11-21T04:08:47.509Z  WARN   player  cue "Spiral Color Line Tunnel" clip is buffering (waiting)
+2026-11-21T04:08:48.840Z  WARN   player  cue "Spliced Colro Circles" clip is buffering (waiting)
+2026-11-21T04:08:49.665Z  WARN   player  cue "Spiral Color Line Tunnel" clip is buffering (waiting)
+2026-11-21T04:09:06.570Z  WARN   player  cue "Spliced Colro Circles" clip is buffering (waiting)
+2026-11-21T04:09:13.065Z  WARN   player  cue "Spiral Color Line Tunnel" clip is buffering (waiting)
+2026-11-21T04:09:25.203Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1600/60s renderer=live age=0.2s composes=2607 draw=13.44/216.60ms readback=1.09/3.90ms pass=1.21/2.90ms decoders=1 peak=10 opened=869
+2026-11-21T04:09:26.876Z  INFO   player  live: "Spiral Color Line Tunnel" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Spiral Color Line Tunnel.mp4
+2026-11-21T04:09:38.098Z  WARN   player  cue "Spotlight Flashing 1" clip is buffering (waiting)
+2026-11-21T04:09:49.565Z  WARN   player  cue "Spotlight Flashing 1" clip is buffering (waiting)
+2026-11-21T04:10:00.993Z  WARN   player  cue "Spotlight Flashing 1" clip is buffering (waiting)
+2026-11-21T04:10:02.045Z  WARN   player  cue "Spotlight Flashing 1" clip is buffering (waiting)
+2026-11-21T04:10:11.163Z  WARN   player  cue "Spotlight Flashing 3" clip is buffering (waiting)
+2026-11-21T04:10:13.576Z  WARN   player  cue "Spotlight Flashing 6" clip is buffering (waiting)
+2026-11-21T04:10:16.863Z  WARN   player  cue "Spiral Color Line Tunnel" clip is buffering (waiting)
+2026-11-21T04:10:17.132Z  WARN   player  cue "Spotlight Flashing 13" clip is buffering (waiting)
+2026-11-21T04:10:19.243Z  WARN   player  cue "Spotlight Flashing 20" clip is buffering (waiting)
+2026-11-21T04:10:25.254Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1609/60s renderer=live age=0.2s composes=2862 draw=13.16/65.60ms readback=1.08/1.40ms pass=1.18/1.50ms decoders=2 peak=10 opened=891
+2026-11-21T04:10:54.153Z  INFO   player  live: "Square Dot Moving" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Square Dot Moving.mp4
+2026-11-21T04:11:14.861Z  WARN   player  cue "Square Dot Moving" clip is buffering (waiting)
+2026-11-21T04:11:24.666Z  WARN   player  cue "Vibrant Colorful Abstract 01-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:11:25.292Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1624/60s renderer=live age=0.1s composes=2694 draw=13.43/54.50ms readback=1.08/1.60ms pass=1.20/1.60ms decoders=2 peak=10 opened=898
+2026-11-21T04:11:27.550Z  WARN   player  cue "Vibrant Colorful Abstract 01-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:12:25.324Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1711/60s renderer=live age=0.2s composes=2223 draw=13.58/53.80ms readback=1.08/1.40ms pass=1.20/1.70ms decoders=1 peak=10 opened=900
+2026-11-21T04:13:04.819Z  WARN   player  cue "Square Dot Moving" clip is buffering (waiting)
+2026-11-21T04:13:25.366Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1767/60s renderer=live age=0.1s composes=1817 draw=13.86/66.60ms readback=1.10/1.60ms pass=1.21/2.00ms decoders=1 peak=10 opened=901
+2026-11-21T04:13:57.971Z  WARN   player  cue "Vibrant Colorful Abstract 01-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:13:59.030Z  WARN   player  cue "Twinkling Stars Forward" clip is buffering (waiting)
+2026-11-21T04:14:07.211Z  WARN   player  cue "Vibrant Colorful Abstract 01-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:14:11.935Z  WARN   player  cue "Twinkling Stars Forward" clip is buffering (waiting)
+2026-11-21T04:14:18.783Z  WARN   player  cue "Vibrant Colorful Abstract 02-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:14:19.585Z  WARN   player  cue "Vibrant Colorful Abstract 04-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:14:20.637Z  WARN   player  cue "Vibrant Lines Center Out" clip is buffering (waiting)
+2026-11-21T04:14:25.123Z  WARN   player  cue "Vibrant Rainbow Color Rays" clip is buffering (waiting)
+2026-11-21T04:14:25.415Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1686/60s renderer=live age=0.1s composes=2355 draw=13.81/58.70ms readback=1.08/1.70ms pass=1.19/1.60ms decoders=2 peak=10 opened=915
+2026-11-21T04:14:31.818Z  WARN   player  cue "Wall of Lights 4K 03" clip is buffering (waiting)
+2026-11-21T04:14:32.767Z  WARN   player  cue "Wall of Lights 4K 04" clip is buffering (waiting)
+2026-11-21T04:14:33.891Z  WARN   player  cue "Wall of Lights 4K 06" clip is buffering (waiting)
+2026-11-21T04:14:38.146Z  WARN   player  cue "Wall of Lights 4K 08" clip is buffering (waiting)
+2026-11-21T04:14:44.346Z  WARN   player  cue "Wall of Lights 4K 12" clip is buffering (waiting)
+2026-11-21T04:14:44.873Z  WARN   player  cue "Wall of Lights 4K 13" clip is buffering (waiting)
+2026-11-21T04:14:45.414Z  WARN   player  cue "Wall of Lights 4K 14" clip is buffering (waiting)
+2026-11-21T04:14:45.916Z  WARN   player  cue "Wall of Lights 4K 15" clip is buffering (waiting)
+2026-11-21T04:14:47.325Z  WARN   player  cue "White Line Trans 1" clip is buffering (waiting)
+2026-11-21T04:14:48.147Z  WARN   player  cue "White Line Trans 2" clip is buffering (waiting)
+2026-11-21T04:14:49.273Z  WARN   player  cue "White Line Trans 4" clip is buffering (waiting)
+2026-11-21T04:14:50.019Z  WARN   player  cue "White Line Trans 6" clip is buffering (waiting)
+2026-11-21T04:14:50.276Z  WARN   player  cue "White Line Trans 7" clip is buffering (waiting)
+2026-11-21T04:14:51.376Z  WARN   player  cue "White Line Trans 10" clip is buffering (waiting)
+2026-11-21T04:14:51.611Z  WARN   player  cue "White Line Trans 11" clip is buffering (waiting)
+2026-11-21T04:14:52.201Z  WARN   player  cue "White Line Trans 12" clip is buffering (waiting)
+2026-11-21T04:14:54.583Z  WARN   player  cue "White Line Trans 12" clip is buffering (waiting)
+2026-11-21T04:14:55.611Z  WARN   player  cue "White Line Trans 4" clip is buffering (waiting)
+2026-11-21T04:14:57.828Z  WARN   player  cue "Twinkling Stars Forward" clip is buffering (waiting)
+2026-11-21T04:15:04.160Z  WARN   player  cue "Wall of Lights 4K 12" clip is buffering (waiting)
+2026-11-21T04:15:04.435Z  WARN   player  cue "Wall of Lights 4K 11" clip is buffering (waiting)
+2026-11-21T04:15:04.971Z  WARN   player  cue "Wall of Lights 4K 09" clip is buffering (waiting)
+2026-11-21T04:15:05.233Z  WARN   player  cue "Wall of Lights 4K 07" clip is buffering (waiting)
+2026-11-21T04:15:05.785Z  WARN   player  cue "Wall of Lights 4K 05" clip is buffering (waiting)
+2026-11-21T04:15:06.033Z  WARN   player  cue "Wall of Lights 4K 02" clip is buffering (waiting)
+2026-11-21T04:15:14.536Z  WARN   player  cue "Vibrant Colorful Abstract 01-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:15:25.442Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1643/60s renderer=live age=0.3s composes=2549 draw=13.35/59.60ms readback=1.06/1.50ms pass=1.15/1.60ms decoders=1 peak=10 opened=989
+2026-11-21T04:16:21.480Z  INFO   player  live: "Vibrant Colorful Abstract 01-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Vibrant Colorful Abstract 01-MPEG-4 HVEC.mp4
+2026-11-21T04:16:25.471Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1793/60s renderer=live age=0.0s composes=1829 draw=11.29/47.60ms readback=0.93/1.70ms pass=0.98/3.10ms decoders=1 peak=10 opened=991
+2026-11-21T04:17:01.506Z  WARN   player  cue "Vibrant Colorful Abstract 01-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:17:25.513Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1796/60s renderer=live age=0.0s composes=1796 draw=14.53/48.90ms readback=1.11/1.80ms pass=1.23/1.70ms decoders=1 peak=10 opened=991
+2026-11-21T04:18:25.554Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1796/60s renderer=live age=0.0s composes=1796 draw=14.70/45.30ms readback=1.10/1.70ms pass=1.22/4.20ms decoders=1 peak=10 opened=991
+2026-11-21T04:18:31.693Z  WARN   player  cue "Vibrant Colorful Abstract 01-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:19:25.590Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1796/60s renderer=live age=0.1s composes=1794 draw=14.77/47.10ms readback=1.10/1.40ms pass=1.22/1.70ms decoders=1 peak=10 opened=991
+2026-11-21T04:20:18.943Z  WARN   player  cue "Vibrant Rainbow Color Rays" clip is buffering (waiting)
+2026-11-21T04:20:24.796Z  WARN   player  cue "Vibrant Colorful Abstract 03-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:20:25.072Z  WARN   player  cue "Vibrant Colorful Abstract 02-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:20:25.345Z  WARN   player  cue "Twinkling Stars Forward" clip is buffering (waiting)
+2026-11-21T04:20:25.633Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1741/60s renderer=live age=0.0s composes=2004 draw=14.54/70.40ms readback=1.10/1.40ms pass=1.22/1.60ms decoders=2 peak=10 opened=1005
+2026-11-21T04:20:32.545Z  WARN   player  cue "Spotlight Flashing 19" clip is buffering (waiting)
+2026-11-21T04:20:33.146Z  WARN   player  cue "Spotlight Flashing 18" clip is buffering (waiting)
+2026-11-21T04:20:41.240Z  WARN   player  cue "Spiral Color Line Tunnel" clip is buffering (waiting)
+2026-11-21T04:20:47.814Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T04:20:52.540Z  WARN   player  cue "Abstract Rainbow" clip is buffering (waiting)
+2026-11-21T04:21:25.671Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1645/60s renderer=live age=0.0s composes=2256 draw=14.07/76.50ms readback=1.10/1.70ms pass=1.21/1.60ms decoders=1 peak=10 opened=1022
+2026-11-21T04:21:29.448Z  WARN   player  cue "Colorful Lines" clip is buffering (waiting)
+2026-11-21T04:21:31.293Z  WARN   player  cue "Blue Digital Bulb Wall 6" clip is buffering (waiting)
+2026-11-21T04:21:34.509Z  WARN   player  cue "Abstract Rainbow" clip is buffering (waiting)
+2026-11-21T04:21:39.807Z  INFO   player  live: "Abstract Rainbow" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Abstract Rainbow.mp4
+2026-11-21T04:21:56.070Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:21:57.642Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T04:22:01.442Z  WARN   player  cue "Blue Particle Trails" clip is buffering (waiting)
+2026-11-21T04:22:04.136Z  WARN   player  cue "Colorful Triangle Fast" clip is buffering (waiting)
+2026-11-21T04:22:07.110Z  WARN   player  cue "Animated Dice Retro" clip is buffering (waiting)
+2026-11-21T04:22:09.536Z  WARN   player  cue "Dashed Cubes" clip is buffering (waiting)
+2026-11-21T04:22:09.809Z  WARN   player  cue " Rainbow Neon (Not Full)" clip is buffering (waiting)
+2026-11-21T04:22:10.063Z  WARN   player  cue "Blue Particle Trails" clip is buffering (waiting)
+2026-11-21T04:22:10.355Z  WARN   player  cue "Flickering Rgb Triangles Glitch" clip is buffering (waiting)
+2026-11-21T04:22:10.874Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T04:22:11.704Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:22:17.072Z  WARN   player  cue "A-1 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:22:18.382Z  WARN   player  cue "Abstract Rainbow" clip is buffering (waiting)
+2026-11-21T04:22:20.236Z  WARN   player  cue "A-1 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:22:20.807Z  WARN   player  cue "A-2 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:22:22.654Z  WARN   player  cue "A-3 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:22:23.748Z  WARN   player  cue "A-4 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:22:25.379Z  WARN   player  cue "A-4 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:22:25.716Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1637/60s renderer=live age=0.1s composes=2358 draw=14.10/74.70ms readback=1.10/1.50ms pass=1.19/1.90ms decoders=2 peak=10 opened=1054
+2026-11-21T04:22:28.326Z  WARN   player  cue "A-4 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:22:32.035Z  WARN   player  cue "A-5 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:23:06.652Z  WARN   player  cue "Abstract Rainbow" clip is buffering (waiting)
+2026-11-21T04:23:25.386Z  INFO   player  live: "A-4 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-4 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T04:23:25.755Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1695/60s renderer=live age=0.1s composes=2298 draw=13.96/68.10ms readback=1.10/1.50ms pass=1.19/2.80ms decoders=1 peak=10 opened=1057
+2026-11-21T04:23:45.919Z  WARN   player  cue "A-7 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:23:47.247Z  WARN   player  cue "A-9 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:23:48.310Z  WARN   player  cue "A-10 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:23:50.170Z  WARN   player  cue "A-9 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:23:50.502Z  WARN   player  cue "A-7 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:23:50.970Z  WARN   player  cue "A-5 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:23:55.242Z  WARN   player  cue "A-5 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:24:05.869Z  WARN   player  cue "A-4 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:24:25.796Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1744/60s renderer=live age=0.2s composes=1959 draw=14.44/62.20ms readback=1.11/1.60ms pass=1.23/1.60ms decoders=1 peak=10 opened=1067
+2026-11-21T04:24:26.189Z  WARN   player  cue "A-4 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:24:33.347Z  INFO   player  live: "A-5 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-5 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T04:24:45.927Z  WARN   player  cue "A-9 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:24:56.420Z  WARN   player  cue "A-5 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:25:25.839Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1756/60s renderer=live age=0.1s composes=1930 draw=14.55/56.50ms readback=1.10/1.50ms pass=1.22/1.70ms decoders=1 peak=10 opened=1070
+2026-11-21T04:25:26.331Z  WARN   player  cue "A-9 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:25:26.331Z  INFO   player  live: "A-9 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-9 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T04:25:44.055Z  INFO   player  live: "A-8 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-8 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T04:26:00.242Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:26:19.460Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:26:21.577Z  WARN   player  cue "Color Light Rays Center" clip is buffering (waiting)
+2026-11-21T04:26:25.649Z  WARN   player  cue "Colorful Hexagon Pixel Particles" clip is buffering (waiting)
+2026-11-21T04:26:25.891Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1716/60s renderer=live age=0.0s composes=1918 draw=15.11/60.30ms readback=1.11/1.60ms pass=1.22/1.80ms decoders=2 peak=10 opened=1080
+2026-11-21T04:26:35.875Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:26:53.712Z  WARN   player  cue "Colorful Light Ray Bright" clip is buffering (waiting)
+2026-11-21T04:26:54.805Z  WARN   player  cue "Colorful Hexagon Pixel Particles" clip is buffering (waiting)
+2026-11-21T04:26:57.975Z  WARN   player  cue "Colorful Hexagon Pixel Particles" clip is buffering (waiting)
+2026-11-21T04:27:00.476Z  WARN   player  cue "Colorful Hexagon Pixel Particles" clip is buffering (waiting)
+2026-11-21T04:27:12.638Z  INFO   player  live: "Colorful Hexagon Pixel Particles" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Colorful Hexagon Pixel Particles.mp4
+2026-11-21T04:27:25.932Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1615/60s renderer=live age=0.0s composes=2664 draw=13.31/62.30ms readback=1.09/1.80ms pass=1.18/1.60ms decoders=1 peak=10 opened=1085
+2026-11-21T04:28:08.774Z  WARN   player  cue "Colorful Light Ray Bright" clip is buffering (waiting)
+2026-11-21T04:28:09.625Z  WARN   player  cue "Colorful Shapes Rotaing" clip is buffering (waiting)
+2026-11-21T04:28:11.460Z  WARN   player  cue "Diamond Pixel Dots Colorful" clip is buffering (waiting)
+2026-11-21T04:28:11.938Z  WARN   player  cue "Fluid-shapes 3" clip is buffering (waiting)
+2026-11-21T04:28:13.055Z  WARN   player  cue "Colorful Hexagon Pixel Particles" clip is buffering (waiting)
+2026-11-21T04:28:25.979Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1740/60s renderer=live age=0.3s composes=1904 draw=14.23/81.30ms readback=1.09/1.60ms pass=1.16/1.50ms decoders=1 peak=10 opened=1094
+2026-11-21T04:29:26.019Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1782/60s renderer=live age=0.0s composes=1842 draw=14.22/63.00ms readback=1.09/1.50ms pass=1.15/1.60ms decoders=1 peak=10 opened=1095
+2026-11-21T04:29:31.360Z  INFO   player  live: "Gradient Color Bar Horz" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Gradient Color Bar Horz.mp4
+2026-11-21T04:30:26.059Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1786/60s renderer=live age=0.0s composes=1786 draw=15.20/55.20ms readback=1.09/1.40ms pass=1.16/1.50ms decoders=1 peak=10 opened=1096
+2026-11-21T04:30:31.261Z  WARN   player  cue "Gradient Color Bar Horz" clip is buffering (waiting)
+2026-11-21T04:30:38.812Z  WARN   player  cue "Fluid-shapes 3" clip is buffering (waiting)
+2026-11-21T04:30:39.348Z  WARN   player  cue "Diamond Pixel Dots Colorful" clip is buffering (waiting)
+2026-11-21T04:30:40.372Z  WARN   player  cue "Gradient Color Bar Horz" clip is buffering (waiting)
+2026-11-21T04:30:40.611Z  WARN   player  cue "Green Red Line Bursts" clip is buffering (waiting)
+2026-11-21T04:30:48.412Z  WARN   player  cue "LED Wall Light Grid Sequences" clip is buffering (waiting)
+2026-11-21T04:30:48.964Z  WARN   player  cue "LED Ring Grid Wall 3-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:30:49.688Z  WARN   player  cue "LED Wall Light Grid Sequences" clip is buffering (waiting)
+2026-11-21T04:31:02.219Z  WARN   player  cue "LED Wall Light Grid Sequences" clip is buffering (waiting)
+2026-11-21T04:31:02.495Z  WARN   player  cue "LED Ring Grid Wall 3-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:31:03.032Z  WARN   player  cue "Hexagon Color Sparkles" clip is buffering (waiting)
+2026-11-21T04:31:03.875Z  WARN   player  cue "Green Red Line Bursts" clip is buffering (waiting)
+2026-11-21T04:31:04.351Z  WARN   player  cue "Hexagon Color Sparkles" clip is buffering (waiting)
+2026-11-21T04:31:12.132Z  WARN   player  cue "Hexagon Color Sparkles" clip is buffering (waiting)
+2026-11-21T04:31:23.627Z  INFO   player  live: "Hexagon Color Sparkles" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Hexagon Color Sparkles.mp4
+2026-11-21T04:31:26.097Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1588/60s renderer=live age=0.1s composes=2830 draw=13.43/67.60ms readback=1.08/1.70ms pass=1.17/4.10ms decoders=2 peak=10 opened=1120
+2026-11-21T04:31:38.454Z  WARN   player  cue "Hexagon Color Sparkles" clip is buffering (waiting)
+2026-11-21T04:31:42.307Z  WARN   player  cue "Hexagon Color Sparkles" clip is buffering (waiting)
+2026-11-21T04:32:26.134Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1547/60s renderer=live age=0.0s composes=3100 draw=13.09/53.90ms readback=1.07/1.40ms pass=1.19/4.20ms decoders=2 peak=10 opened=1120
+2026-11-21T04:32:57.782Z  WARN   player  cue "Hexagon Color Sparkles" clip is buffering (waiting)
+2026-11-21T04:33:26.170Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1563/60s renderer=live age=0.0s composes=3126 draw=12.85/55.40ms readback=1.07/1.40ms pass=1.19/2.60ms decoders=2 peak=10 opened=1120
+2026-11-21T04:34:26.218Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1623/60s renderer=live age=0.0s composes=2666 draw=13.64/80.50ms readback=1.10/14.80ms pass=1.21/15.80ms decoders=1 peak=10 opened=1121
+2026-11-21T04:34:40.743Z  WARN   player  cue "Color Changing Dot Arrow Tunnel" clip is buffering (waiting)
+2026-11-21T04:34:47.406Z  WARN   player  cue "Color Changing Dot Arrow Tunnel" clip is buffering (waiting)
+2026-11-21T04:34:54.519Z  WARN   player  cue "Color Changing Dot Arrow Tunnel" clip is buffering (waiting)
+2026-11-21T04:34:58.043Z  WARN   player  cue "Color Changing Dot Spiral Tunnel" clip is buffering (waiting)
+2026-11-21T04:35:26.260Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1691/60s renderer=live age=0.2s composes=2146 draw=14.34/74.90ms readback=1.09/1.90ms pass=1.21/3.00ms decoders=1 peak=10 opened=1134
+2026-11-21T04:35:47.427Z  INFO   player  live: "Color Changing Dot Spiral Tunnel" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Color Changing Dot Spiral Tunnel.mp4
+2026-11-21T04:36:26.303Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1775/60s renderer=live age=0.2s composes=1775 draw=14.52/51.90ms readback=1.11/1.60ms pass=1.19/1.90ms decoders=1 peak=10 opened=1135
+2026-11-21T04:37:08.810Z  WARN   player  cue "Color Changing Dot Arrow Tunnel" clip is buffering (waiting)
+2026-11-21T04:37:26.345Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1779/60s renderer=live age=0.1s composes=1831 draw=15.33/52.20ms readback=1.11/1.60ms pass=1.17/2.20ms decoders=1 peak=10 opened=1136
+2026-11-21T04:38:23.911Z  WARN   player  cue "Color Changing Dot Spiral Tunnel" clip is buffering (waiting)
+2026-11-21T04:38:24.072Z  WARN   player  cue "Multi Color Audio Spectrum Center" clip is buffering (waiting)
+2026-11-21T04:38:24.624Z  WARN   player  cue "Multi Color Circle Rays Tunnel" clip is buffering (waiting)
+2026-11-21T04:38:25.441Z  WARN   player  cue "Multi Color Lens" clip is buffering (waiting)
+2026-11-21T04:38:26.389Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1749/60s renderer=live age=0.2s composes=1785 draw=15.87/146.40ms readback=1.15/14.40ms pass=1.21/15.30ms decoders=2 peak=10 opened=1170
+2026-11-21T04:38:28.821Z  INFO   player  live: "Multi Colored Circle Box" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Multi Colored Circle Box.mp4
+2026-11-21T04:38:46.590Z  WARN   player  cue "Multi Colored Neon Laser Grid" clip is buffering (waiting)
+2026-11-21T04:38:49.480Z  WARN   player  cue "Multi Color Particle Growing Burst" clip is buffering (waiting)
+2026-11-21T04:39:02.792Z  WARN   player  cue "Multi Color Circle Rays Tunnel" clip is buffering (waiting)
+2026-11-21T04:39:03.034Z  WARN   player  cue "Multi Color Circle Lines Pastels" clip is buffering (waiting)
+2026-11-21T04:39:03.276Z  WARN   player  cue "Multi Color Circle Animations" clip is buffering (waiting)
+2026-11-21T04:39:26.434Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1615/60s renderer=live age=0.2s composes=2775 draw=13.45/56.50ms readback=1.08/1.50ms pass=1.19/1.90ms decoders=2 peak=10 opened=1184
+2026-11-21T04:40:26.474Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1570/60s renderer=live age=0.2s composes=3136 draw=13.22/51.40ms readback=1.08/1.40ms pass=1.19/2.00ms decoders=2 peak=10 opened=1184
+2026-11-21T04:41:04.358Z  WARN   player  cue "Multi Color Circle Animations" clip is buffering (waiting)
+2026-11-21T04:41:26.516Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1591/60s renderer=live age=0.1s composes=3192 draw=13.07/56.10ms readback=1.05/1.70ms pass=1.15/3.30ms decoders=2 peak=10 opened=1184
+2026-11-21T04:41:54.767Z  WARN   player  cue "Multi Color Circle Animations" clip is buffering (waiting)
+2026-11-21T04:42:26.552Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1566/60s renderer=live age=0.3s composes=3122 draw=13.35/52.90ms readback=1.07/1.60ms pass=1.18/4.20ms decoders=2 peak=10 opened=1184
+2026-11-21T04:43:05.324Z  WARN   player  cue "Multi Color Circle Animations" clip is buffering (waiting)
+2026-11-21T04:43:24.751Z  WARN   player  cue "Multi Color Circle Animations" clip is buffering (waiting)
+2026-11-21T04:43:26.584Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1577/60s renderer=live age=0.1s composes=3156 draw=13.24/60.80ms readback=1.07/1.70ms pass=1.18/4.20ms decoders=2 peak=10 opened=1186
+2026-11-21T04:43:28.714Z  INFO   player  live: "Multi Color Circle Animations" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Multi Color Circle Animations.mp4
+2026-11-21T04:43:51.758Z  WARN   player  cue "Multi Color Circle Rays Tunnel" clip is buffering (waiting)
+2026-11-21T04:44:05.028Z  WARN   player  cue "Multi Color Lens" clip is buffering (waiting)
+2026-11-21T04:44:15.704Z  WARN   player  cue "Multi Colored Circle Box" clip is buffering (waiting)
+2026-11-21T04:44:26.624Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1591/60s renderer=live age=0.1s composes=2851 draw=13.53/70.70ms readback=1.08/1.70ms pass=1.20/4.10ms decoders=2 peak=10 opened=1197
+2026-11-21T04:44:49.461Z  INFO   player  live: "Multi Colored Neon Laser Grid" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Multi Colored Neon Laser Grid.mp4
+2026-11-21T04:45:26.658Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1552/60s renderer=live age=0.1s composes=3104 draw=13.52/63.70ms readback=1.08/1.40ms pass=1.21/3.90ms decoders=2 peak=10 opened=1198
+2026-11-21T04:45:49.359Z  WARN   player  cue "Multi Colored Neon Laser Grid" clip is buffering (waiting)
+2026-11-21T04:45:51.834Z  WARN   player  cue "Neon Light Mosaic" clip is buffering (waiting)
+2026-11-21T04:45:56.735Z  WARN   player  cue "Neon Light Mosaic" clip is buffering (waiting)
+2026-11-21T04:45:59.380Z  WARN   player  cue "Neon Pink Red Circle Movement" clip is buffering (waiting)
+2026-11-21T04:46:05.672Z  INFO   player  live: "Neon Pink Red Circle Movement" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Neon Pink Red Circle Movement.mp4
+2026-11-21T04:46:15.993Z  WARN   player  cue "Neon Pink Red Circle Movement" clip is buffering (waiting)
+2026-11-21T04:46:26.695Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1497/60s renderer=live age=0.1s composes=2972 draw=13.49/62.00ms readback=1.10/2.10ms pass=1.22/1.60ms decoders=2 peak=10 opened=1266
+2026-11-21T04:46:26.886Z  WARN   player  cue "Orange Blob Lines" clip is buffering (waiting)
+2026-11-21T04:46:27.964Z  WARN   player  cue "Orange Pixel Circle Expanse" clip is buffering (waiting)
+2026-11-21T04:46:29.346Z  WARN   player  cue "Particles Starburst" clip is buffering (waiting)
+2026-11-21T04:46:32.230Z  WARN   player  cue "Pink & White Line Play" clip is buffering (waiting)
+2026-11-21T04:46:36.627Z  INFO   player  live: "Pink & White Line Play" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Pink & White Line Play.mp4
+2026-11-21T04:47:19.146Z  WARN   player  cue "Pink Heart Lines Rotating" clip is buffering (waiting)
+2026-11-21T04:47:19.653Z  WARN   player  cue "Pink Neon Horz Line Split" clip is buffering (waiting)
+2026-11-21T04:47:25.694Z  WARN   player  cue "Pink Orange Blue Circle Tunnel Action" clip is buffering (waiting)
+2026-11-21T04:47:26.733Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1556/60s renderer=live age=0.2s composes=3070 draw=13.11/64.80ms readback=1.06/1.50ms pass=1.18/2.10ms decoders=2 peak=10 opened=1276
+2026-11-21T04:48:15.024Z  WARN   player  cue "Pink Heart Lines Rotating" clip is buffering (waiting)
+2026-11-21T04:48:15.025Z  INFO   player  live: "Pink Heart Lines Rotating" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Pink Heart Lines Rotating.mp4
+2026-11-21T04:48:24.934Z  WARN   player  cue "Pink Heart Lines Rotating" clip is buffering (waiting)
+2026-11-21T04:48:26.775Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1570/60s renderer=live age=0.0s composes=3129 draw=12.98/62.80ms readback=1.07/1.50ms pass=1.20/1.60ms decoders=2 peak=10 opened=1282
+2026-11-21T04:48:33.863Z  INFO   player  live: "Pink & White Line Play" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Pink & White Line Play.mp4
+2026-11-21T04:48:36.735Z  WARN   player  cue "Pink Neon Horz Line Split" clip is buffering (waiting)
+2026-11-21T04:48:39.156Z  WARN   player  cue "Pink Orange Blue Circle Tunnel Action" clip is buffering (waiting)
+2026-11-21T04:48:42.488Z  WARN   player  cue "Pink White Vertical Line Crazy" clip is buffering (waiting)
+2026-11-21T04:48:45.647Z  WARN   player  cue "Pointed Lights Beam" clip is buffering (waiting)
+2026-11-21T04:48:49.910Z  WARN   player  cue "Pink & White Line Play" clip is buffering (waiting)
+2026-11-21T04:48:52.304Z  WARN   player  cue "Pointed Lights Beam" clip is buffering (waiting)
+2026-11-21T04:48:56.840Z  WARN   player  cue "Purple & Yellow Neon Plasma" clip is buffering (waiting)
+2026-11-21T04:49:01.837Z  WARN   player  cue "Pointed Lights Beam" clip is buffering (waiting)
+2026-11-21T04:49:06.078Z  WARN   player  cue "Pink & White Line Play" clip is buffering (waiting)
+2026-11-21T04:49:19.043Z  WARN   player  cue "Purple & Yellow Neon Plasma" clip is buffering (waiting)
+2026-11-21T04:49:26.817Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1552/60s renderer=live age=0.3s composes=2971 draw=13.20/60.30ms readback=1.08/1.50ms pass=1.19/1.50ms decoders=2 peak=10 opened=1297
+2026-11-21T04:49:39.725Z  WARN   player  cue "Pointed Lights Beam" clip is buffering (waiting)
+2026-11-21T04:49:50.070Z  INFO   player  live: "Pointed Lights Beam" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Pointed Lights Beam.mp4
+2026-11-21T04:50:13.264Z  WARN   player  cue "Purple Line Animations" clip is buffering (waiting)
+2026-11-21T04:50:26.861Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1520/60s renderer=live age=0.0s composes=3035 draw=13.14/54.00ms readback=1.08/1.50ms pass=1.18/1.60ms decoders=2 peak=10 opened=1303
+2026-11-21T04:51:14.627Z  WARN   player  cue "Purple Chaotic Particles" clip is buffering (waiting)
+2026-11-21T04:51:26.900Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1547/60s renderer=live age=0.2s composes=2875 draw=13.38/139.80ms readback=1.08/1.80ms pass=1.17/2.00ms decoders=1 peak=10 opened=1303
+2026-11-21T04:52:26.931Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1760/60s renderer=live age=0.2s composes=1779 draw=14.89/53.40ms readback=1.10/1.50ms pass=1.19/4.30ms decoders=1 peak=10 opened=1304
+2026-11-21T04:52:32.438Z  WARN   player  cue "Purple Chaotic Particles" clip is buffering (waiting)
+2026-11-21T04:53:13.234Z  WARN   player  cue "Purple Blue Circle Lines" clip is buffering (waiting)
+2026-11-21T04:53:13.991Z  WARN   player  cue "Purple & Yellow Neon Plasma" clip is buffering (waiting)
+2026-11-21T04:53:17.528Z  INFO   player  live: "Purple & Yellow Neon Plasma" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Purple & Yellow Neon Plasma.mp4
+2026-11-21T04:53:26.978Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1632/60s renderer=live age=0.1s composes=2535 draw=13.54/69.10ms readback=1.07/1.50ms pass=1.17/1.60ms decoders=2 peak=10 opened=1311
+2026-11-21T04:53:32.773Z  WARN   player  cue "Purple Chaotic Particles" clip is buffering (waiting)
+2026-11-21T04:53:34.586Z  WARN   player  cue "Purple Chaotic Particles" clip is buffering (waiting)
+2026-11-21T04:53:37.550Z  INFO   player  live: "Purple Chaotic Particles" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Purple Chaotic Particles.mp4
+2026-11-21T04:54:27.011Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1545/60s renderer=live age=0.1s composes=3060 draw=13.27/83.40ms readback=1.07/1.50ms pass=1.17/1.80ms decoders=2 peak=10 opened=1314
+2026-11-21T04:54:36.654Z  WARN   player  cue "Purple White Tunnel Weird" clip is buffering (waiting)
+2026-11-21T04:54:44.110Z  WARN   player  cue "Red Pink Grid 1" clip is buffering (waiting)
+2026-11-21T04:54:46.591Z  WARN   player  cue "Red Pink Grid 2" clip is buffering (waiting)
+2026-11-21T04:54:49.794Z  WARN   player  cue "Red Pink Grid 5" clip is buffering (waiting)
+2026-11-21T04:54:51.372Z  WARN   player  cue "Teal Grid Kaleidoscope" clip is buffering (waiting)
+2026-11-21T04:54:54.825Z  WARN   player  cue "Red Pink Grid 4" clip is buffering (waiting)
+2026-11-21T04:55:15.783Z  WARN   player  cue "Teal Grid Kaleidoscope" clip is buffering (waiting)
+2026-11-21T04:55:17.164Z  WARN   player  cue "Red Pink Grid 5" clip is buffering (waiting)
+2026-11-21T04:55:17.494Z  WARN   player  cue "Red Pink Grid 4" clip is buffering (waiting)
+2026-11-21T04:55:19.369Z  WARN   player  cue "Red Pink Grid 4" clip is buffering (waiting)
+2026-11-21T04:55:24.373Z  WARN   player  cue "Red Pink Grid 4" clip is buffering (waiting)
+2026-11-21T04:55:27.058Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1522/60s renderer=live age=0.1s composes=2956 draw=13.56/85.00ms readback=1.08/1.50ms pass=1.18/1.90ms decoders=2 peak=10 opened=1332
+2026-11-21T04:56:03.995Z  INFO   player  live: "Red Pink Grid 4" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Red Pink Grid 4.mp4
+2026-11-21T04:56:13.880Z  WARN   player  cue "Red Pink Grid 4" clip is buffering (waiting)
+2026-11-21T04:56:27.094Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1716/60s renderer=live age=0.0s composes=2021 draw=14.44/58.90ms readback=1.09/1.40ms pass=1.20/1.60ms decoders=1 peak=10 opened=1333
+2026-11-21T04:56:29.805Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T04:56:43.128Z  INFO   player  live: "Red Pink Grid 5" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Red Pink Grid 5.mp4
+2026-11-21T04:56:50.103Z  WARN   player  cue "Red Pink Grid 1" clip is buffering (waiting)
+2026-11-21T04:56:51.697Z  WARN   player  cue "Red Pink Grid 2" clip is buffering (waiting)
+2026-11-21T04:56:53.897Z  WARN   player  cue "Teal Grid Kaleidoscope" clip is buffering (waiting)
+2026-11-21T04:56:54.746Z  WARN   player  cue "Twinkle Twinkle" clip is buffering (waiting)
+2026-11-21T04:56:58.726Z  WARN   player  cue "White Line X Slant Strobe" clip is buffering (waiting)
+2026-11-21T04:57:03.270Z  WARN   player  cue "Red Pink Grid 5" clip is buffering (waiting)
+2026-11-21T04:57:27.128Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1586/60s renderer=live age=0.1s composes=2630 draw=13.58/52.60ms readback=1.09/1.60ms pass=1.21/4.20ms decoders=2 peak=10 opened=1347
+2026-11-21T04:57:45.522Z  WARN   player  cue "White Line X Sequence" clip is buffering (waiting)
+2026-11-21T04:57:46.287Z  WARN   player  cue "White Line X Slant Strobe" clip is buffering (waiting)
+2026-11-21T04:57:58.552Z  WARN   player  cue "White Line X Slant Strobe" clip is buffering (waiting)
+2026-11-21T04:58:05.670Z  WARN   player  cue "White Line X Slant Strobe" clip is buffering (waiting)
+2026-11-21T04:58:26.551Z  WARN   player  cue "Yellow Red 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T04:58:27.170Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1591/60s renderer=live age=0.1s composes=2501 draw=13.89/57.50ms readback=1.08/1.50ms pass=1.21/2.60ms decoders=2 peak=10 opened=1352
+2026-11-21T04:58:29.252Z  WARN   player  cue "White Line X Slant Strobe" clip is buffering (waiting)
+2026-11-21T04:58:29.531Z  WARN   player  cue "White Line X Sequence" clip is buffering (waiting)
+2026-11-21T04:58:29.785Z  WARN   player  cue "Teal Grid Kaleidoscope" clip is buffering (waiting)
+2026-11-21T04:58:30.261Z  WARN   player  cue "Red Pink Grid 4" clip is buffering (waiting)
+2026-11-21T04:58:30.586Z  WARN   player  cue "Red Pink Grid 3" clip is buffering (waiting)
+2026-11-21T04:58:32.158Z  WARN   player  cue "Red Chasing Light Pattern" clip is buffering (waiting)
+2026-11-21T04:59:09.246Z  WARN   player  cue "Red Pink Grid 5" clip is buffering (waiting)
+2026-11-21T04:59:11.321Z  INFO   player  live: "Red Chasing Light Pattern" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Red Chasing Light Pattern.mp4
+2026-11-21T04:59:27.210Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1712/60s renderer=live age=0.2s composes=1973 draw=14.57/55.90ms readback=1.10/1.70ms pass=1.21/1.60ms decoders=1 peak=10 opened=1365
+2026-11-21T04:59:40.696Z  WARN   player  cue "Purple White Tunnel Weird" clip is buffering (waiting)
+2026-11-21T04:59:41.808Z  WARN   player  cue "Purple Line Animations" clip is buffering (waiting)
+2026-11-21T04:59:42.549Z  WARN   player  cue "Purple Chaotic Particles" clip is buffering (waiting)
+2026-11-21T04:59:43.670Z  WARN   player  cue "Purple Blue Circle Lines" clip is buffering (waiting)
+2026-11-21T04:59:46.817Z  WARN   player  cue "Pointed Lights Beam" clip is buffering (waiting)
+2026-11-21T04:59:47.414Z  WARN   player  cue "Pixel Star" clip is buffering (waiting)
+2026-11-21T04:59:47.886Z  WARN   player  cue "Pink White Vertical Line Crazy" clip is buffering (waiting)
+2026-11-21T04:59:48.970Z  WARN   player  cue "Pink Red Hearts Rising" clip is buffering (waiting)
+2026-11-21T04:59:49.532Z  WARN   player  cue "Pink Purple 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T04:59:51.132Z  WARN   player  cue "Pink Orange Blue Circle Tunnel Action" clip is buffering (waiting)
+2026-11-21T04:59:53.781Z  WARN   player  cue "Pink Neon Horz Line Split" clip is buffering (waiting)
+2026-11-21T05:00:05.384Z  WARN   player  cue "Pink Purple 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T05:00:06.191Z  WARN   player  cue "Pink Orange Blue Circle Tunnel Action" clip is buffering (waiting)
+2026-11-21T05:00:07.486Z  WARN   player  cue "Pink Heart Lines Rotating" clip is buffering (waiting)
+2026-11-21T05:00:11.959Z  WARN   player  cue "Pink Neon Horz Line Split" clip is buffering (waiting)
+2026-11-21T05:00:27.249Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1689/60s renderer=live age=0.1s composes=2183 draw=14.15/72.40ms readback=1.09/1.40ms pass=1.19/4.30ms decoders=1 peak=10 opened=1388
+2026-11-21T05:01:19.038Z  INFO   player  live: "Pink Neon Horz Line Split" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Pink Neon Horz Line Split.mp4
+2026-11-21T05:01:27.278Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1767/60s renderer=live age=0.0s composes=1770 draw=14.10/53.50ms readback=1.09/1.40ms pass=1.18/1.50ms decoders=1 peak=10 opened=1389
+2026-11-21T05:01:50.722Z  WARN   player  cue "Pink Purple 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T05:01:51.555Z  WARN   player  cue "Pink Red Hearts Rising" clip is buffering (waiting)
+2026-11-21T05:01:52.282Z  WARN   player  cue "Pink Neon Horz Line Split" clip is buffering (waiting)
+2026-11-21T05:01:53.060Z  WARN   player  cue "Pink & White Line Play" clip is buffering (waiting)
+2026-11-21T05:01:53.607Z  WARN   player  cue "Particles Starburst" clip is buffering (waiting)
+2026-11-21T05:01:54.129Z  WARN   player  cue "Pink & White Line Play" clip is buffering (waiting)
+2026-11-21T05:01:54.909Z  WARN   player  cue "Particles Starburst" clip is buffering (waiting)
+2026-11-21T05:01:55.773Z  WARN   player  cue "Orange Pixel Circle Expanse" clip is buffering (waiting)
+2026-11-21T05:01:56.541Z  WARN   player  cue "Orange Blob Lines" clip is buffering (waiting)
+2026-11-21T05:01:57.267Z  WARN   player  cue "Orange Blob Full Movement" clip is buffering (waiting)
+2026-11-21T05:01:58.643Z  WARN   player  cue "Neon Light Mosaic" clip is buffering (waiting)
+2026-11-21T05:02:01.320Z  WARN   player  cue "Neon Light Mosaic" clip is buffering (waiting)
+2026-11-21T05:02:01.592Z  WARN   player  cue "Multi Colored Neon Laser Grid" clip is buffering (waiting)
+2026-11-21T05:02:02.168Z  WARN   player  cue "Multi Colored Circle Box" clip is buffering (waiting)
+2026-11-21T05:02:02.604Z  WARN   player  cue "Multi Color Particle Growing Burst" clip is buffering (waiting)
+2026-11-21T05:02:04.286Z  WARN   player  cue "Multi Color Energy Tunnel" clip is buffering (waiting)
+2026-11-21T05:02:04.828Z  WARN   player  cue "Multi Color Circle Rays Tunnel" clip is buffering (waiting)
+2026-11-21T05:02:24.207Z  INFO   player  live: "Multi Color Circle Rays Tunnel" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Multi Color Circle Rays Tunnel.mp4
+2026-11-21T05:02:27.309Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1684/60s renderer=live age=0.2s composes=2140 draw=14.03/62.80ms readback=1.09/1.60ms pass=1.18/1.70ms decoders=1 peak=10 opened=1415
+2026-11-21T05:03:27.345Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1786/60s renderer=live age=0.3s composes=1785 draw=14.88/56.00ms readback=1.10/1.40ms pass=1.22/1.60ms decoders=1 peak=10 opened=1415
+2026-11-21T05:04:27.383Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1786/60s renderer=live age=0.2s composes=1789 draw=14.89/52.70ms readback=1.10/1.60ms pass=1.22/1.60ms decoders=1 peak=10 opened=1415
+2026-11-21T05:05:27.420Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1791/60s renderer=live age=0.3s composes=1788 draw=15.19/50.60ms readback=1.11/1.60ms pass=1.22/1.50ms decoders=1 peak=10 opened=1415
+2026-11-21T05:05:50.111Z  WARN   player  cue "Multi Color Circle Lines Pastels" clip is buffering (waiting)
+2026-11-21T05:05:53.285Z  WARN   player  cue "Multi Color Circle Animations" clip is buffering (waiting)
+2026-11-21T05:05:56.837Z  WARN   player  cue "Multi Color Audio Spectrum Border" clip is buffering (waiting)
+2026-11-21T05:06:06.874Z  WARN   player  cue "Color Changing Dot Spiral Tunnel" clip is buffering (waiting)
+2026-11-21T05:06:07.978Z  WARN   player  cue "Color Changing Dot Arrow Tunnel" clip is buffering (waiting)
+2026-11-21T05:06:27.462Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1662/60s renderer=live age=0.1s composes=2399 draw=13.93/57.30ms readback=1.09/1.40ms pass=1.20/2.20ms decoders=1 peak=10 opened=1424
+2026-11-21T05:07:27.507Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1787/60s renderer=live age=0.0s composes=1788 draw=14.77/49.80ms readback=1.11/1.60ms pass=1.23/1.70ms decoders=1 peak=10 opened=1424
+2026-11-21T05:08:05.543Z  WARN   player  cue "Yellow Orange Disco Wall" clip is buffering (waiting)
+2026-11-21T05:08:27.563Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1772/60s renderer=live age=0.0s composes=1863 draw=14.73/56.90ms readback=1.11/1.40ms pass=1.22/2.40ms decoders=1 peak=10 opened=1427
+2026-11-21T05:09:16.317Z  INFO   player  live: "Yellow Orange Disco Wall" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Yellow Orange Disco Wall.mp4
+2026-11-21T05:09:27.606Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1676/60s renderer=live age=0.2s composes=1670 draw=15.93/145.60ms readback=1.13/13.80ms pass=1.25/9.70ms decoders=1 peak=10 opened=1428
+2026-11-21T05:09:30.613Z  WARN   player  cue "White Line Trans 12" clip is buffering (waiting)
+2026-11-21T05:09:32.218Z  WARN   player  cue "White Neon Square Shapes" clip is buffering (waiting)
+2026-11-21T05:09:39.152Z  INFO   player  live: "White Neon Square Shapes" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/White Neon Square Shapes.mp4
+2026-11-21T05:10:25.924Z  WARN   player  cue "White Neon Square Shapes" clip is buffering (waiting)
+2026-11-21T05:10:27.647Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1530/60s renderer=live age=0.2s composes=2981 draw=13.33/62.50ms readback=1.08/1.50ms pass=1.16/2.20ms decoders=2 peak=10 opened=1432
+2026-11-21T05:10:52.620Z  WARN   player  cue "White Neon Square Shapes" clip is buffering (waiting)
+2026-11-21T05:10:59.497Z  WARN   player  cue "White Neon Square Shapes" clip is buffering (waiting)
+2026-11-21T05:11:16.348Z  WARN   player  cue "White Neon Square Shapes" clip is buffering (waiting)
+2026-11-21T05:11:16.635Z  WARN   player  cue "White Line Trans 11" clip is buffering (waiting)
+2026-11-21T05:11:17.650Z  WARN   player  cue "White Line Trans 7" clip is buffering (waiting)
+2026-11-21T05:11:17.906Z  WARN   player  cue "White Line Trans 6" clip is buffering (waiting)
+2026-11-21T05:11:18.235Z  WARN   player  cue "White Line Trans 5" clip is buffering (waiting)
+2026-11-21T05:11:18.419Z  WARN   player  cue "White Line Trans 4" clip is buffering (waiting)
+2026-11-21T05:11:18.695Z  WARN   player  cue "White Line Trans 2" clip is buffering (waiting)
+2026-11-21T05:11:19.453Z  WARN   player  cue "White Line Trans 1" clip is buffering (waiting)
+2026-11-21T05:11:19.686Z  WARN   player  cue "Wall of Lights Star" clip is buffering (waiting)
+2026-11-21T05:11:19.976Z  WARN   player  cue "Wall of Lights 4K 16" clip is buffering (waiting)
+2026-11-21T05:11:22.350Z  WARN   player  cue "Wall of Lights 4K 16" clip is buffering (waiting)
+2026-11-21T05:11:23.414Z  INFO   player  live: "Wall of Lights 4K 15" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Wall of Lights 4K 15.mp4
+2026-11-21T05:11:26.913Z  WARN   player  cue "Wall of Lights 4K 15" clip is buffering (waiting)
+2026-11-21T05:11:27.688Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1533/60s renderer=live age=0.0s composes=3006 draw=13.28/59.90ms readback=1.06/2.30ms pass=1.13/4.10ms decoders=2 peak=10 opened=1453
+2026-11-21T05:11:37.059Z  WARN   player  cue "Wall of Lights 4K 15" clip is buffering (waiting)
+2026-11-21T05:11:39.203Z  WARN   player  cue "Vibrant Colorful Abstract 02-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:11:40.586Z  WARN   player  cue "Wall of Lights 4K 15" clip is buffering (waiting)
+2026-11-21T05:11:41.041Z  WARN   player  cue "Wall of Lights 4K 16" clip is buffering (waiting)
+2026-11-21T05:11:42.080Z  WARN   player  cue "Wall of Lights 4K 17" clip is buffering (waiting)
+2026-11-21T05:11:51.479Z  WARN   player  cue "Vibrant Colorful Abstract 02-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:11:55.190Z  INFO   player  live: "Vibrant Colorful Abstract 01-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Vibrant Colorful Abstract 01-MPEG-4 HVEC.mp4
+2026-11-21T05:12:06.220Z  WARN   player  cue "Turquoise Flashing Square Neons" clip is buffering (waiting)
+2026-11-21T05:12:07.302Z  WARN   player  cue "Square Mosaic Soft Blur Circular" clip is buffering (waiting)
+2026-11-21T05:12:09.684Z  WARN   player  cue "Spotlight Flashing 20" clip is buffering (waiting)
+2026-11-21T05:12:11.033Z  WARN   player  cue "Square Dot Moving" clip is buffering (waiting)
+2026-11-21T05:12:11.594Z  WARN   player  cue "Spotlight Flashing 19" clip is buffering (waiting)
+2026-11-21T05:12:11.837Z  WARN   player  cue "Spotlight Flashing 18" clip is buffering (waiting)
+2026-11-21T05:12:12.630Z  WARN   player  cue "Spotlight Flashing 17" clip is buffering (waiting)
+2026-11-21T05:12:13.465Z  WARN   player  cue "Spotlight Flashing 16" clip is buffering (waiting)
+2026-11-21T05:12:13.945Z  WARN   player  cue "Spotlight Flashing 15" clip is buffering (waiting)
+2026-11-21T05:12:15.897Z  WARN   player  cue "Spotlight Flashing 9" clip is buffering (waiting)
+2026-11-21T05:12:16.958Z  WARN   player  cue "Spotlight Flashing 5" clip is buffering (waiting)
+2026-11-21T05:12:17.455Z  WARN   player  cue "Spotlight Flashing 2" clip is buffering (waiting)
+2026-11-21T05:12:17.984Z  WARN   player  cue "Spotlight Flashing 1" clip is buffering (waiting)
+2026-11-21T05:12:18.232Z  WARN   player  cue "Spiral Color Line Tunnel" clip is buffering (waiting)
+2026-11-21T05:12:21.212Z  WARN   player  cue "Spectrum Analyser 3" clip is buffering (waiting)
+2026-11-21T05:12:22.307Z  WARN   player  cue "Snow Border Frame" clip is buffering (waiting)
+2026-11-21T05:12:22.589Z  WARN   player  cue "Retro Light Frame" clip is buffering (waiting)
+2026-11-21T05:12:24.199Z  WARN   player  cue "Retro LED Wall Star" clip is buffering (waiting)
+2026-11-21T05:12:24.477Z  WARN   player  cue "Red White Blue Grid Flashing" clip is buffering (waiting)
+2026-11-21T05:12:24.666Z  WARN   player  cue "Rainbow Stars" clip is buffering (waiting)
+2026-11-21T05:12:27.721Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1610/60s renderer=live age=0.2s composes=2443 draw=13.97/58.60ms readback=1.09/1.60ms pass=1.21/2.80ms decoders=2 peak=10 opened=1506
+2026-11-21T05:13:27.762Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1732/60s renderer=live age=0.2s composes=1914 draw=14.94/56.80ms readback=1.10/1.50ms pass=1.22/1.50ms decoders=1 peak=10 opened=1507
+2026-11-21T05:14:27.851Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1760/60s renderer=live age=0.0s composes=1938 draw=14.52/50.30ms readback=1.10/1.50ms pass=1.22/3.10ms decoders=2 peak=10 opened=1508
+2026-11-21T05:14:29.480Z  WARN   player  cue "Rainbow Stars" clip is buffering (waiting)
+2026-11-21T05:14:35.615Z  WARN   player  cue "Vibrant Colorful Abstract 01-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:15:19.223Z  INFO   player  live: "Rainbow Stars" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Rainbow Stars.mp4
+2026-11-21T05:15:27.889Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1739/60s renderer=live age=0.2s composes=2003 draw=13.57/54.40ms readback=1.02/1.50ms pass=1.11/1.70ms decoders=1 peak=10 opened=1509
+2026-11-21T05:16:27.924Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1787/60s renderer=live age=0.1s composes=1791 draw=13.90/54.80ms readback=0.99/1.70ms pass=1.06/3.90ms decoders=1 peak=10 opened=1509
+2026-11-21T05:17:10.106Z  WARN   player  cue "Rainbow Cubes Strobe Random" clip is buffering (waiting)
+2026-11-21T05:17:11.159Z  WARN   player  cue "Rainbow Color Lens Flare Rotation" clip is buffering (waiting)
+2026-11-21T05:17:13.060Z  WARN   player  cue "Orange & Blue Flashing Squares" clip is buffering (waiting)
+2026-11-21T05:17:14.433Z  WARN   player  cue "Neon Streaks Center Out" clip is buffering (waiting)
+2026-11-21T05:17:14.885Z  WARN   player  cue "Neon Star Tunnel Fast" clip is buffering (waiting)
+2026-11-21T05:17:15.476Z  WARN   player  cue "Neon Square Diamond Tunnel" clip is buffering (waiting)
+2026-11-21T05:17:15.931Z  WARN   player  cue "Neon Square Abstract" clip is buffering (waiting)
+2026-11-21T05:17:17.599Z  WARN   player  cue "Neon Lines Diagonal" clip is buffering (waiting)
+2026-11-21T05:17:24.573Z  WARN   player  cue "Neon Lines Diagonal" clip is buffering (waiting)
+2026-11-21T05:17:24.883Z  WARN   player  cue "Neon Pixel Grid Crazy" clip is buffering (waiting)
+2026-11-21T05:17:25.137Z  WARN   player  cue "Neon Square Abstract" clip is buffering (waiting)
+2026-11-21T05:17:26.510Z  WARN   player  cue "Spotlight Flashing 6" clip is buffering (waiting)
+2026-11-21T05:17:27.965Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1715/60s renderer=live age=0.1s composes=2050 draw=14.35/54.50ms readback=1.10/1.80ms pass=1.22/4.20ms decoders=1 peak=10 opened=1533
+2026-11-21T05:17:29.705Z  WARN   player  cue "Spotlight Flashing 8" clip is buffering (waiting)
+2026-11-21T05:17:31.877Z  WARN   player  cue "Spotlight Flashing 20" clip is buffering (waiting)
+2026-11-21T05:17:32.389Z  WARN   player  cue "Vibrant Colorful Abstract 02-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:17:34.602Z  WARN   player  cue "Vibrant Colorful Abstract 03-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:17:34.843Z  WARN   player  cue "Vibrant Colorful Abstract 02-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:17:35.346Z  WARN   player  cue "Vibrant Colorful Abstract 04-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:17:35.909Z  WARN   player  cue "VJ Squares" clip is buffering (waiting)
+2026-11-21T05:17:36.705Z  WARN   player  cue "Wall of Lights 4K 02" clip is buffering (waiting)
+2026-11-21T05:17:37.186Z  WARN   player  cue "Wall of Lights 4K 04" clip is buffering (waiting)
+2026-11-21T05:17:37.462Z  WARN   player  cue "Wall of Lights 4K 06" clip is buffering (waiting)
+2026-11-21T05:17:46.009Z  WARN   player  cue "Wall of Lights 4K 03" clip is buffering (waiting)
+2026-11-21T05:17:50.915Z  WARN   player  cue "Orange Blob Lines" clip is buffering (waiting)
+2026-11-21T05:17:56.397Z  WARN   player  cue "A-6 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:17:56.942Z  WARN   player  cue "Orange Pixel Circle Expanse" clip is buffering (waiting)
+2026-11-21T05:17:57.199Z  WARN   player  cue "Particles Starburst" clip is buffering (waiting)
+2026-11-21T05:17:57.444Z  WARN   player  cue "Pink & White Line Play" clip is buffering (waiting)
+2026-11-21T05:17:57.990Z  WARN   player  cue "Pink Neon Horz Line Split" clip is buffering (waiting)
+2026-11-21T05:18:07.633Z  WARN   player  cue "Blue Digital Bulb Wall 7" clip is buffering (waiting)
+2026-11-21T05:18:13.610Z  WARN   player  cue "Blue Digital Bulb Wall 5" clip is buffering (waiting)
+2026-11-21T05:18:14.382Z  WARN   player  cue "Blue Digital Bulb Wall 3" clip is buffering (waiting)
+2026-11-21T05:18:17.556Z  WARN   player  cue "Blue Digital Bulb Wall 5" clip is buffering (waiting)
+2026-11-21T05:18:18.650Z  WARN   player  cue "Glowing Neon Circle Lines" clip is buffering (waiting)
+2026-11-21T05:18:26.175Z  WARN   player  cue "Color Light Rays Center" clip is buffering (waiting)
+2026-11-21T05:18:28.006Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1504/60s renderer=live age=0.2s composes=2517 draw=13.80/55.20ms readback=1.10/1.70ms pass=1.21/4.30ms decoders=2 peak=10 opened=1595
+2026-11-21T05:18:30.778Z  INFO   player  live: "Color Light Rays Center" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Color Light Rays Center.mp4
+2026-11-21T05:19:10.893Z  WARN   player  cue "Color Light Rays Center" clip is buffering (waiting)
+2026-11-21T05:19:28.040Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1539/60s renderer=live age=0.3s composes=3061 draw=13.20/57.40ms readback=1.06/1.50ms pass=1.18/2.50ms decoders=2 peak=10 opened=1597
+2026-11-21T05:20:09.231Z  WARN   player  cue "Color Light Rays Center" clip is buffering (waiting)
+2026-11-21T05:20:28.079Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1537/60s renderer=live age=0.1s composes=3080 draw=13.26/49.50ms readback=1.07/1.60ms pass=1.20/2.70ms decoders=2 peak=10 opened=1597
+2026-11-21T05:20:54.371Z  WARN   player  cue "Color Dots" clip is buffering (waiting)
+2026-11-21T05:20:54.674Z  WARN   player  cue "Blue Digital Bulb Wall 7" clip is buffering (waiting)
+2026-11-21T05:20:56.195Z  WARN   player  cue "Blue Digital Bulb Wall 2" clip is buffering (waiting)
+2026-11-21T05:20:56.450Z  WARN   player  cue "B&W Geo 4" clip is buffering (waiting)
+2026-11-21T05:20:57.549Z  WARN   player  cue "B&W Geo 2" clip is buffering (waiting)
+2026-11-21T05:20:58.631Z  WARN   player  cue "A-7 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:21:00.771Z  WARN   player  cue "Animated Dice Retro" clip is buffering (waiting)
+2026-11-21T05:21:02.066Z  WARN   player  cue "Animated Dice Retro" clip is buffering (waiting)
+2026-11-21T05:21:02.609Z  WARN   player  cue "Dashed Cubes" clip is buffering (waiting)
+2026-11-21T05:21:03.926Z  WARN   player  cue " Rainbow Neon (Not Full)" clip is buffering (waiting)
+2026-11-21T05:21:08.242Z  WARN   player  cue "Flickering Rgb Triangles Glitch" clip is buffering (waiting)
+2026-11-21T05:21:09.056Z  WARN   player  cue "Blue Particle Trails" clip is buffering (waiting)
+2026-11-21T05:21:09.641Z  WARN   player  cue "Flickering Rgb Triangles Glitch" clip is buffering (waiting)
+2026-11-21T05:21:10.666Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T05:21:11.515Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:21:12.261Z  WARN   player  cue "Blue Digital Bulb Wall 6" clip is buffering (waiting)
+2026-11-21T05:21:13.295Z  WARN   player  cue "Colorful Lines" clip is buffering (waiting)
+2026-11-21T05:21:15.438Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T05:21:15.951Z  WARN   player  cue "Abstract Rainbow" clip is buffering (waiting)
+2026-11-21T05:21:18.050Z  WARN   player  cue "Blue Digital Bulb Wall 6" clip is buffering (waiting)
+2026-11-21T05:21:18.285Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T05:21:19.986Z  WARN   player  cue "Blue Particle Trails" clip is buffering (waiting)
+2026-11-21T05:21:21.372Z  INFO   player  live: "Blue Particle Trails" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Blue Particle Trails.mp4
+2026-11-21T05:21:28.119Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1515/60s renderer=live age=0.2s composes=2815 draw=13.67/75.60ms readback=1.09/4.80ms pass=1.20/3.00ms decoders=2 peak=10 opened=1643
+2026-11-21T05:21:44.616Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T05:21:47.082Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T05:21:55.906Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T05:21:56.337Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:21:56.603Z  WARN   player  cue "Blue Digital Bulb Wall 6" clip is buffering (waiting)
+2026-11-21T05:21:57.659Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T05:21:59.318Z  WARN   player  cue "Colorful Lines" clip is buffering (waiting)
+2026-11-21T05:22:00.131Z  WARN   player  cue "Blue Particle Trails" clip is buffering (waiting)
+2026-11-21T05:22:01.517Z  WARN   player  cue "Animated Dice Retro" clip is buffering (waiting)
+2026-11-21T05:22:01.965Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T05:22:03.325Z  WARN   player  cue "A-3 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:22:03.647Z  WARN   player  cue "A-4 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:22:03.954Z  WARN   player  cue "A-5 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:22:04.151Z  WARN   player  cue "A-6 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:22:04.942Z  WARN   player  cue "A-9 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:22:05.206Z  WARN   player  cue "A-10 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:22:05.538Z  WARN   player  cue "B&W Geo 2" clip is buffering (waiting)
+2026-11-21T05:22:06.539Z  WARN   player  cue "B&W Geo 4" clip is buffering (waiting)
+2026-11-21T05:22:10.847Z  WARN   player  cue "B&W Geo 3" clip is buffering (waiting)
+2026-11-21T05:22:19.311Z  INFO   player  live: "B&W Geo 3" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/B&W Geo 3.mp4
+2026-11-21T05:22:28.170Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1610/60s renderer=live age=0.0s composes=2699 draw=13.58/75.80ms readback=1.09/1.70ms pass=1.16/1.50ms decoders=1 peak=10 opened=1683
+2026-11-21T05:23:28.213Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1782/60s renderer=live age=0.2s composes=1776 draw=15.26/54.20ms readback=1.10/1.40ms pass=1.13/1.80ms decoders=1 peak=10 opened=1683
+2026-11-21T05:24:28.248Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1773/60s renderer=live age=0.1s composes=1776 draw=15.58/56.10ms readback=1.09/1.80ms pass=1.14/4.60ms decoders=1 peak=10 opened=1683
+2026-11-21T05:25:28.292Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1783/60s renderer=live age=0.0s composes=1786 draw=15.30/54.50ms readback=1.10/1.70ms pass=1.13/1.60ms decoders=1 peak=10 opened=1683
+2026-11-21T05:26:05.569Z  WARN   player  cue "B&W Geo 3" clip is buffering (waiting)
+2026-11-21T05:26:28.335Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1784/60s renderer=live age=0.2s composes=1778 draw=15.45/55.50ms readback=1.10/1.70ms pass=1.14/1.60ms decoders=1 peak=10 opened=1683
+2026-11-21T05:27:28.378Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1780/60s renderer=live age=0.1s composes=1783 draw=15.41/52.90ms readback=1.09/1.40ms pass=1.14/2.70ms decoders=1 peak=10 opened=1683
+2026-11-21T05:28:11.126Z  WARN   player  cue "B&W Geo 3" clip is buffering (waiting)
+2026-11-21T05:28:28.433Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1776/60s renderer=live age=0.0s composes=1779 draw=15.57/55.10ms readback=1.10/1.60ms pass=1.13/1.50ms decoders=1 peak=10 opened=1683
+2026-11-21T05:28:55.355Z  WARN   player  cue "B&W Geo 3" clip is buffering (waiting)
+2026-11-21T05:29:07.705Z  WARN   player  cue "Pixel Star" clip is buffering (waiting)
+2026-11-21T05:29:26.651Z  WARN   player  cue "Purple & Yellow Neon Plasma" clip is buffering (waiting)
+2026-11-21T05:29:28.480Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1649/60s renderer=live age=0.0s composes=2169 draw=14.47/66.20ms readback=1.09/2.10ms pass=1.13/2.20ms decoders=2 peak=10 opened=1687
+2026-11-21T05:29:32.548Z  WARN   player  cue "B&W Geo 3" clip is buffering (waiting)
+2026-11-21T05:29:45.097Z  WARN   player  cue "Purple Chaotic Particles" clip is buffering (waiting)
+2026-11-21T05:30:01.517Z  WARN   player  cue "Yellow Red 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T05:30:02.888Z  WARN   player  cue "White Line X Slant Strobe" clip is buffering (waiting)
+2026-11-21T05:30:10.893Z  INFO   player  live: "White Line X Slant Strobe" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/White Line X Slant Strobe.mp4
+2026-11-21T05:30:28.520Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1535/60s renderer=live age=0.2s composes=2954 draw=13.31/52.20ms readback=1.08/1.40ms pass=1.16/2.70ms decoders=2 peak=10 opened=1693
+2026-11-21T05:31:10.605Z  WARN   player  cue "Yellow Red 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T05:31:10.605Z  INFO   player  live: "Yellow Red 4D X Grid Loop" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Yellow Red 4D X Grid Loop.mp4
+2026-11-21T05:31:18.329Z  WARN   player  cue "Twinkle Twinkle" clip is buffering (waiting)
+2026-11-21T05:31:28.562Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1548/60s renderer=live age=0.1s composes=3060 draw=13.15/57.40ms readback=1.07/1.60ms pass=1.19/4.20ms decoders=1 peak=10 opened=1696
+2026-11-21T05:31:30.084Z  INFO   player  live: "Twinkle Twinkle" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Twinkle Twinkle.mp4
+2026-11-21T05:31:49.149Z  WARN   player  cue "White Line X Sequence" clip is buffering (waiting)
+2026-11-21T05:32:03.419Z  INFO   player  live: "White Line X Sequence" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/White Line X Sequence.mp4
+2026-11-21T05:32:28.608Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1755/60s renderer=live age=0.0s composes=1874 draw=14.31/73.10ms readback=1.08/1.50ms pass=1.20/1.60ms decoders=1 peak=10 opened=1699
+2026-11-21T05:33:28.619Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1774/60s renderer=live age=0.2s composes=1770 draw=14.94/55.40ms readback=1.09/3.00ms pass=1.22/2.30ms decoders=1 peak=10 opened=1699
+2026-11-21T05:33:40.782Z  INFO   player  live: "Yellow Red 4D X Grid Loop" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Yellow Red 4D X Grid Loop.mp4
+2026-11-21T05:34:06.083Z  WARN   player  cue "Yellow Red 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T05:34:29.637Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1799/60s renderer=live age=0.1s composes=1490 draw=15.00/69.20ms readback=1.10/14.40ms pass=1.21/15.00ms decoders=1 peak=10 opened=1700
+2026-11-21T05:34:51.331Z  WARN   player  cue "Twinkle Twinkle" clip is buffering (waiting)
+2026-11-21T05:34:51.828Z  WARN   player  cue "Teal Grid Kaleidoscope" clip is buffering (waiting)
+2026-11-21T05:34:52.971Z  WARN   player  cue "Red Pink Grid 4" clip is buffering (waiting)
+2026-11-21T05:34:53.791Z  WARN   player  cue "Red Pink Grid 3" clip is buffering (waiting)
+2026-11-21T05:34:54.243Z  WARN   player  cue "Red Pink Grid 2" clip is buffering (waiting)
+2026-11-21T05:34:55.029Z  WARN   player  cue "Purple White Tunnel Weird" clip is buffering (waiting)
+2026-11-21T05:34:55.602Z  WARN   player  cue "Purple Line Animations" clip is buffering (waiting)
+2026-11-21T05:34:56.126Z  WARN   player  cue "Purple Chaotic Particles" clip is buffering (waiting)
+2026-11-21T05:34:56.928Z  WARN   player  cue "Purple & Yellow Neon Plasma" clip is buffering (waiting)
+2026-11-21T05:34:57.457Z  WARN   player  cue "Pointed Lights Beam" clip is buffering (waiting)
+2026-11-21T05:34:58.844Z  WARN   player  cue "Pink White Vertical Line Crazy" clip is buffering (waiting)
+2026-11-21T05:35:04.196Z  WARN   player  cue "Pink Purple 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T05:35:04.943Z  WARN   player  cue "Pink Orange Blue Circle Tunnel Action" clip is buffering (waiting)
+2026-11-21T05:35:07.125Z  WARN   player  cue "Pink Purple 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T05:35:29.687Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1610/60s renderer=live age=0.2s composes=2504 draw=13.83/56.20ms readback=1.09/1.50ms pass=1.20/1.60ms decoders=1 peak=10 opened=1723
+2026-11-21T05:35:30.108Z  WARN   player  cue "Pink Orange Blue Circle Tunnel Action" clip is buffering (waiting)
+2026-11-21T05:35:50.188Z  WARN   player  cue "Pink Orange Blue Circle Tunnel Action" clip is buffering (waiting)
+2026-11-21T05:36:04.867Z  WARN   player  cue "Yellow Red 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T05:36:16.653Z  WARN   player  cue "Pink Orange Blue Circle Tunnel Action" clip is buffering (waiting)
+2026-11-21T05:36:16.654Z  INFO   player  live: "Pink Orange Blue Circle Tunnel Action" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Pink Orange Blue Circle Tunnel Action.mp4
+2026-11-21T05:36:29.736Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1489/60s renderer=live age=0.1s composes=2967 draw=13.23/54.60ms readback=1.08/1.50ms pass=1.20/3.20ms decoders=2 peak=10 opened=1725
+2026-11-21T05:36:36.708Z  WARN   player  cue "Pink Orange Blue Circle Tunnel Action" clip is buffering (waiting)
+2026-11-21T05:36:46.401Z  WARN   player  cue "Pink Neon Horz Line Split" clip is buffering (waiting)
+2026-11-21T05:36:47.967Z  WARN   player  cue "Pink Neon Horz Line Split" clip is buffering (waiting)
+2026-11-21T05:36:52.255Z  WARN   player  cue "Particles Starburst" clip is buffering (waiting)
+2026-11-21T05:36:54.470Z  WARN   player  cue "Orange Blob Full Movement" clip is buffering (waiting)
+2026-11-21T05:36:57.079Z  WARN   player  cue "Neon Pink Red Circle Movement" clip is buffering (waiting)
+2026-11-21T05:36:58.447Z  WARN   player  cue "Neon Pink Red Circle Movement" clip is buffering (waiting)
+2026-11-21T05:37:01.088Z  WARN   player  cue "Neon Light Mosaic" clip is buffering (waiting)
+2026-11-21T05:37:19.169Z  WARN   player  cue "Neon Light Mosaic" clip is buffering (waiting)
+2026-11-21T05:37:23.853Z  WARN   player  cue "Neon Light Mosaic" clip is buffering (waiting)
+2026-11-21T05:37:24.664Z  INFO   player  live: "Neon Light Mosaic" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Neon Light Mosaic.mp4
+2026-11-21T05:37:29.780Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1527/60s renderer=live age=0.1s composes=2880 draw=13.44/64.60ms readback=1.09/1.60ms pass=1.19/3.80ms decoders=2 peak=10 opened=1749
+2026-11-21T05:37:36.651Z  WARN   player  cue "Neon Light Mosaic" clip is buffering (waiting)
+2026-11-21T05:38:13.925Z  WARN   player  cue "Multi Colored Circle Box" clip is buffering (waiting)
+2026-11-21T05:38:14.729Z  WARN   player  cue "Multi Color Particle Growing Burst" clip is buffering (waiting)
+2026-11-21T05:38:17.453Z  WARN   player  cue "Multi Color Energy Tunnel" clip is buffering (waiting)
+2026-11-21T05:38:18.272Z  WARN   player  cue "Multi Color Circle Rays Tunnel" clip is buffering (waiting)
+2026-11-21T05:38:23.375Z  WARN   player  cue "Multi Color Circle Lines Pastels" clip is buffering (waiting)
+2026-11-21T05:38:24.123Z  WARN   player  cue "Multi Color Circle Animations" clip is buffering (waiting)
+2026-11-21T05:38:27.471Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T05:38:29.822Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1536/60s renderer=live age=0.2s composes=2956 draw=13.24/65.00ms readback=1.08/1.60ms pass=1.16/1.60ms decoders=2 peak=10 opened=1762
+2026-11-21T05:38:43.161Z  WARN   player  cue "Colorful Lines" clip is buffering (waiting)
+2026-11-21T05:38:44.269Z  WARN   player  cue "Blue Digital Bulb Wall 6" clip is buffering (waiting)
+2026-11-21T05:38:45.646Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T05:38:46.202Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:38:46.999Z  INFO   player  live: "A-8 COLOR-MPEG-4 HVEC" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/A-8 COLOR-MPEG-4 HVEC.mp4
+2026-11-21T05:39:11.660Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:39:16.717Z  WARN   player  cue "Blue Particle Trails" clip is buffering (waiting)
+2026-11-21T05:39:18.047Z  WARN   player  cue " Rainbow Neon (Not Full)" clip is buffering (waiting)
+2026-11-21T05:39:19.919Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:39:22.844Z  WARN   player  cue "A-2 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:39:23.336Z  WARN   player  cue "A-1 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:39:28.877Z  WARN   player  cue "A-2 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:39:29.123Z  WARN   player  cue "A-3 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:39:29.435Z  WARN   player  cue "A-5 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:39:29.856Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1527/60s renderer=live age=0.2s composes=2896 draw=13.44/61.80ms readback=1.09/1.60ms pass=1.20/3.00ms decoders=2 peak=10 opened=1788
+2026-11-21T05:39:30.217Z  WARN   player  cue "B&W Geo 2" clip is buffering (waiting)
+2026-11-21T05:39:33.717Z  WARN   player  cue "Blue Digital Bulb Wall 5" clip is buffering (waiting)
+2026-11-21T05:39:34.507Z  WARN   player  cue "Blue Digital Bulb Wall 7" clip is buffering (waiting)
+2026-11-21T05:39:36.376Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:39:38.562Z  WARN   player  cue "Color Blinking Grid Floor" clip is buffering (waiting)
+2026-11-21T05:39:39.639Z  WARN   player  cue "Color Dots" clip is buffering (waiting)
+2026-11-21T05:39:40.484Z  WARN   player  cue "Glowing Neon Circle Lines" clip is buffering (waiting)
+2026-11-21T05:39:45.857Z  WARN   player  cue "Color Light Rays Center" clip is buffering (waiting)
+2026-11-21T05:39:47.153Z  WARN   player  cue "Colorful Glitch Block" clip is buffering (waiting)
+2026-11-21T05:39:49.224Z  INFO   player  live: "Colorful Glitch Block" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Colorful Glitch Block.mp4
+2026-11-21T05:39:59.959Z  WARN   player  cue "Colorful Light Ray Bright" clip is buffering (waiting)
+2026-11-21T05:40:02.201Z  WARN   player  cue "Colorful Waves" clip is buffering (waiting)
+2026-11-21T05:40:05.936Z  WARN   player  cue "Diamond Pixel Dots Colorful" clip is buffering (waiting)
+2026-11-21T05:40:29.899Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1528/60s renderer=live age=0.1s composes=2945 draw=13.44/59.00ms readback=1.08/1.50ms pass=1.20/2.30ms decoders=2 peak=10 opened=1817
+2026-11-21T05:41:23.808Z  WARN   player  cue "Hexagon Color Sparkles" clip is buffering (waiting)
+2026-11-21T05:41:27.036Z  WARN   player  cue "Hexagon Color Sparkles" clip is buffering (waiting)
+2026-11-21T05:41:27.812Z  WARN   player  cue "LED Ring Grid Wall 1-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:41:29.233Z  WARN   player  cue "LED Ring Grid Wall 2-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:41:29.935Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1551/60s renderer=live age=0.0s composes=3080 draw=13.14/53.40ms readback=1.07/1.60ms pass=1.19/4.20ms decoders=1 peak=10 opened=1823
+2026-11-21T05:41:30.749Z  WARN   player  cue "LED Ring Grid Wall 2-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:41:40.394Z  WARN   player  cue "Light Wall loop 01-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:41:41.244Z  WARN   player  cue "LED Wall Light Grid Sequences" clip is buffering (waiting)
+2026-11-21T05:41:43.893Z  INFO   player  live: "LED Wall Light Grid Sequences" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/LED Wall Light Grid Sequences.mp4
+2026-11-21T05:42:29.968Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1573/60s renderer=live age=0.2s composes=3073 draw=13.10/57.30ms readback=1.07/1.60ms pass=1.19/2.70ms decoders=2 peak=10 opened=1830
+2026-11-21T05:42:55.710Z  WARN   player  cue "LED Wall Light Grid Sequences" clip is buffering (waiting)
+2026-11-21T05:43:19.882Z  WARN   player  cue "LED Wall Light Grid Sequences" clip is buffering (waiting)
+2026-11-21T05:43:30.010Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1561/60s renderer=live age=0.2s composes=3120 draw=13.13/53.40ms readback=1.07/1.50ms pass=1.19/1.60ms decoders=2 peak=10 opened=1830
+2026-11-21T05:44:15.436Z  WARN   player  cue "Light Wall loop 03-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:44:16.015Z  WARN   player  cue "Light Wall loop 05-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:44:16.277Z  WARN   player  cue "Light Wall loop 06-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:44:19.487Z  WARN   player  cue "Neon Color Square Rotating" clip is buffering (waiting)
+2026-11-21T05:44:20.364Z  WARN   player  cue "Light Wall loop 07-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:44:21.076Z  WARN   player  cue "Light Wall loop 08-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:44:23.794Z  WARN   player  cue "Neon Chasing Line Rectangles" clip is buffering (waiting)
+2026-11-21T05:44:24.596Z  WARN   player  cue "Neon Color Square Rotating" clip is buffering (waiting)
+2026-11-21T05:44:26.208Z  WARN   player  cue "Neon Firework Particle Tunnel" clip is buffering (waiting)
+2026-11-21T05:44:30.064Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1547/60s renderer=live age=0.2s composes=3022 draw=13.23/57.30ms readback=1.08/1.50ms pass=1.19/2.10ms decoders=2 peak=10 opened=1844
+2026-11-21T05:44:31.060Z  WARN   player  cue "Neon Glowing Squares Tunnel" clip is buffering (waiting)
+2026-11-21T05:44:36.407Z  WARN   player  cue "Neon Lines Diagonal" clip is buffering (waiting)
+2026-11-21T05:45:00.468Z  WARN   player  cue "Neon Lines Diagonal" clip is buffering (waiting)
+2026-11-21T05:45:13.326Z  INFO   player  live: "Neon Lines Diagonal" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Neon Lines Diagonal.mp4
+2026-11-21T05:45:30.102Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1549/60s renderer=live age=0.1s composes=3095 draw=13.05/53.30ms readback=1.07/1.50ms pass=1.19/2.60ms decoders=2 peak=10 opened=1847
+2026-11-21T05:45:36.359Z  WARN   player  cue "Neon Lips Random" clip is buffering (waiting)
+2026-11-21T05:45:37.986Z  WARN   player  cue "Neon Square Abstract" clip is buffering (waiting)
+2026-11-21T05:45:39.057Z  WARN   player  cue "Neon Square Abstract" clip is buffering (waiting)
+2026-11-21T05:45:39.351Z  WARN   player  cue "Neon Square Diamond Tunnel" clip is buffering (waiting)
+2026-11-21T05:45:43.155Z  WARN   player  cue "Neon Streaks Center Out" clip is buffering (waiting)
+2026-11-21T05:45:45.360Z  WARN   player  cue "Orange & Blue Flashing Squares" clip is buffering (waiting)
+2026-11-21T05:45:47.399Z  WARN   player  cue "Purple & Turquoise Tunnel Spiral" clip is buffering (waiting)
+2026-11-21T05:46:30.148Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1670/60s renderer=live age=0.1s composes=2321 draw=13.99/51.60ms readback=1.10/1.60ms pass=1.21/1.60ms decoders=1 peak=10 opened=1860
+2026-11-21T05:46:33.509Z  WARN   player  cue "Neon Lines Diagonal" clip is buffering (waiting)
+2026-11-21T05:46:47.746Z  WARN   player  cue "Pink Kaleidoscope" clip is buffering (waiting)
+2026-11-21T05:46:49.576Z  WARN   player  cue "Rainbow Bars Motion" clip is buffering (waiting)
+2026-11-21T05:46:52.217Z  WARN   player  cue "Rainbow Color Lens Flare Rotation" clip is buffering (waiting)
+2026-11-21T05:46:54.304Z  WARN   player  cue "Red White Blue Grid Flashing" clip is buffering (waiting)
+2026-11-21T05:46:56.784Z  WARN   player  cue "Retro Light Board_01" clip is buffering (waiting)
+2026-11-21T05:46:57.539Z  WARN   player  cue "Retro Light Board_02" clip is buffering (waiting)
+2026-11-21T05:46:57.832Z  WARN   player  cue "Retro Light Board_03" clip is buffering (waiting)
+2026-11-21T05:46:58.032Z  WARN   player  cue "Retro Light Frame" clip is buffering (waiting)
+2026-11-21T05:46:58.340Z  WARN   player  cue "Snow Border Frame" clip is buffering (waiting)
+2026-11-21T05:47:00.793Z  WARN   player  cue "Spectrum Analyser 5" clip is buffering (waiting)
+2026-11-21T05:47:01.043Z  WARN   player  cue "Spectrum Analyser 6" clip is buffering (waiting)
+2026-11-21T05:47:01.910Z  WARN   player  cue "Spiral Color Line Tunnel" clip is buffering (waiting)
+2026-11-21T05:47:02.436Z  WARN   player  cue "Spotlight Flashing 2" clip is buffering (waiting)
+2026-11-21T05:47:03.853Z  WARN   player  cue "Spotlight Flashing 5" clip is buffering (waiting)
+2026-11-21T05:47:04.100Z  WARN   player  cue "Spotlight Flashing 6" clip is buffering (waiting)
+2026-11-21T05:47:07.134Z  WARN   player  cue "Square Dot Moving" clip is buffering (waiting)
+2026-11-21T05:47:11.982Z  WARN   player  cue "Spotlight Flashing 5" clip is buffering (waiting)
+2026-11-21T05:47:20.195Z  INFO   player  live: "Square Dot Moving" /Users/USER/Downloads/ddf_content/LED Pixel Floor Operator's Picks/Square Dot Moving.mp4
+2026-11-21T05:47:30.182Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1655/60s renderer=live age=0.1s composes=2243 draw=14.16/72.50ms readback=1.08/1.70ms pass=1.20/1.80ms decoders=1 peak=10 opened=1894
+2026-11-21T05:47:47.135Z  WARN   player  cue "Square Dot Moving" clip is buffering (waiting)
+2026-11-21T05:47:49.263Z  WARN   player  cue "Twinkling Stars Forward" clip is buffering (waiting)
+2026-11-21T05:47:50.351Z  WARN   player  cue "Vibrant Colorful Abstract 01-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:47:51.939Z  WARN   player  cue "Vibrant Colorful Abstract 03-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:47:54.341Z  WARN   player  cue "Vibrant Lines Center Out" clip is buffering (waiting)
+2026-11-21T05:48:30.225Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1625/60s renderer=live age=0.2s composes=2711 draw=13.46/56.10ms readback=1.07/1.70ms pass=1.20/3.00ms decoders=2 peak=10 opened=1904
+2026-11-21T05:49:14.591Z  WARN   player  cue "Vibrant Lines Center Out" clip is buffering (waiting)
+2026-11-21T05:49:30.261Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1571/60s renderer=live age=0.0s composes=3154 draw=13.13/58.70ms readback=1.07/1.40ms pass=1.19/3.10ms decoders=2 peak=10 opened=1904
+2026-11-21T05:49:54.704Z  WARN   player  cue "Vibrant Lines Center Out" clip is buffering (waiting)
+2026-11-21T05:50:13.694Z  WARN   player  cue "Square Dot Moving" clip is buffering (waiting)
+2026-11-21T05:50:14.826Z  WARN   player  cue "Vibrant Lines Center Out" clip is buffering (waiting)
+2026-11-21T05:50:30.306Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1547/60s renderer=live age=0.2s composes=3084 draw=13.13/55.10ms readback=1.07/1.50ms pass=1.19/2.60ms decoders=2 peak=10 opened=1904
+2026-11-21T05:51:30.335Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1690/60s renderer=live age=0.1s composes=2282 draw=13.87/55.60ms readback=1.08/1.40ms pass=1.20/2.10ms decoders=1 peak=10 opened=1904
+2026-11-21T05:52:30.385Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1772/60s renderer=live age=0.2s composes=1770 draw=14.29/56.60ms readback=1.09/1.50ms pass=1.21/4.10ms decoders=1 peak=10 opened=1904
+2026-11-21T05:53:03.349Z  WARN   player  cue "VJ Squares" clip is buffering (waiting)
+2026-11-21T05:53:04.667Z  WARN   player  cue "Wall of Lights 4K 02" clip is buffering (waiting)
+2026-11-21T05:53:06.281Z  WARN   player  cue "Wall of Lights 4K 06" clip is buffering (waiting)
+2026-11-21T05:53:14.355Z  WARN   player  cue "Wall of Lights 4K 13" clip is buffering (waiting)
+2026-11-21T05:53:15.165Z  WARN   player  cue "Wall of Lights 4K 15" clip is buffering (waiting)
+2026-11-21T05:53:15.368Z  WARN   player  cue "Wall of Lights 4K 16" clip is buffering (waiting)
+2026-11-21T05:53:23.016Z  WARN   player  cue "Square Dot Moving" clip is buffering (waiting)
+2026-11-21T05:53:23.626Z  WARN   player  cue "White Line Trans 6" clip is buffering (waiting)
+2026-11-21T05:53:25.527Z  WARN   player  cue "White Neon Square Shapes" clip is buffering (waiting)
+2026-11-21T05:53:29.268Z  WARN   player  cue "Yellow Orange Disco Wall" clip is buffering (waiting)
+2026-11-21T05:53:30.338Z  WARN   player  cue "Yellow Strobe FULL" clip is buffering (waiting)
+2026-11-21T05:53:30.424Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1637/60s renderer=live age=0.2s composes=2213 draw=13.70/65.00ms readback=1.06/1.60ms pass=1.16/1.60ms decoders=2 peak=10 opened=1940
+2026-11-21T05:54:24.003Z  WARN   player  cue "Color Changing Dot Spiral Tunnel" clip is buffering (waiting)
+2026-11-21T05:54:24.244Z  WARN   player  cue "Light Blue Pink X Line Seq" clip is buffering (waiting)
+2026-11-21T05:54:29.750Z  WARN   player  cue "Color Changing Dot Spiral Tunnel" clip is buffering (waiting)
+2026-11-21T05:54:29.968Z  WARN   player  cue "Light Blue Pink X Line Seq" clip is buffering (waiting)
+2026-11-21T05:54:30.467Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1528/60s renderer=live age=0.0s composes=3026 draw=13.23/65.30ms readback=1.06/1.60ms pass=1.17/1.50ms decoders=2 peak=10 opened=1949
+2026-11-21T05:54:30.708Z  WARN   player  cue "Multi Color Audio Spectrum Border" clip is buffering (waiting)
+2026-11-21T05:54:31.559Z  WARN   player  cue "Multi Color Audio Spectrum Center" clip is buffering (waiting)
+2026-11-21T05:54:34.567Z  WARN   player  cue "Multi Color Circle Rays Tunnel" clip is buffering (waiting)
+2026-11-21T05:54:47.390Z  WARN   player  cue "Multi Color Circle Lines Pastels" clip is buffering (waiting)
+2026-11-21T05:54:55.067Z  WARN   player  cue "Multi Color Particle Growing Burst" clip is buffering (waiting)
+2026-11-21T05:54:56.668Z  WARN   player  cue "Multi Colored Circle Box" clip is buffering (waiting)
+2026-11-21T05:54:56.935Z  WARN   player  cue "Multi Colored Neon Laser Grid" clip is buffering (waiting)
+2026-11-21T05:54:57.205Z  WARN   player  cue "Neon Light Mosaic" clip is buffering (waiting)
+2026-11-21T05:54:57.715Z  WARN   player  cue "Square Dot Moving" clip is buffering (waiting)
+2026-11-21T05:55:27.476Z  WARN   player  cue "Orange Blob Lines" clip is buffering (waiting)
+2026-11-21T05:55:28.253Z  WARN   player  cue "Orange Pixel Circle Expanse" clip is buffering (waiting)
+2026-11-21T05:55:30.144Z  WARN   player  cue "Pink Heart Lines Rotating" clip is buffering (waiting)
+2026-11-21T05:55:30.508Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1553/60s renderer=live age=0.1s composes=2993 draw=13.34/84.50ms readback=1.07/1.90ms pass=1.19/1.50ms decoders=2 peak=10 opened=1975
+2026-11-21T05:55:34.720Z  INFO   player  live: "Pink & White Line Play" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Pink & White Line Play.mp4
+2026-11-21T05:56:02.945Z  WARN   player  cue "Pink Heart Lines Rotating" clip is buffering (waiting)
+2026-11-21T05:56:05.862Z  WARN   player  cue "Pink White Vertical Line Crazy" clip is buffering (waiting)
+2026-11-21T05:56:06.468Z  WARN   player  cue "Pixel Star" clip is buffering (waiting)
+2026-11-21T05:56:08.045Z  WARN   player  cue "Purple Chaotic Particles" clip is buffering (waiting)
+2026-11-21T05:56:19.133Z  WARN   player  cue "Purple Chaotic Particles" clip is buffering (waiting)
+2026-11-21T05:56:30.540Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1577/60s renderer=live age=0.1s composes=3008 draw=13.09/58.00ms readback=1.05/1.50ms pass=1.17/3.30ms decoders=1 peak=10 opened=1991
+2026-11-21T05:56:32.112Z  INFO   player  live: "Purple Chaotic Particles" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Purple Chaotic Particles.mp4
+2026-11-21T05:57:30.583Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1739/60s renderer=live age=0.1s composes=1803 draw=14.98/54.50ms readback=1.09/1.40ms pass=1.18/1.50ms decoders=1 peak=10 opened=1993
+2026-11-21T05:57:39.328Z  WARN   player  cue "Purple White Tunnel Weird" clip is buffering (waiting)
+2026-11-21T05:57:40.060Z  WARN   player  cue "Red Chasing Light Pattern" clip is buffering (waiting)
+2026-11-21T05:57:40.615Z  WARN   player  cue "Red Pink Grid 1" clip is buffering (waiting)
+2026-11-21T05:57:41.191Z  WARN   player  cue "Red Pink Grid 2" clip is buffering (waiting)
+2026-11-21T05:57:42.223Z  WARN   player  cue "Purple Chaotic Particles" clip is buffering (waiting)
+2026-11-21T05:57:42.819Z  WARN   player  cue "White Line X Sequence" clip is buffering (waiting)
+2026-11-21T05:57:43.640Z  WARN   player  cue "Twinkle Twinkle" clip is buffering (waiting)
+2026-11-21T05:57:43.867Z  WARN   player  cue "Teal Grid Kaleidoscope" clip is buffering (waiting)
+2026-11-21T05:57:52.158Z  WARN   player  cue "Yellow Red 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T05:58:22.317Z  WARN   player  cue "Purple Chaotic Particles" clip is buffering (waiting)
+2026-11-21T05:58:24.494Z  WARN   player  cue "Color Fireflys" clip is buffering (waiting)
+2026-11-21T05:58:31.027Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1493/60s renderer=live age=0.1s composes=2626 draw=14.69/546.30ms readback=1.10/14.70ms pass=1.21/15.10ms decoders=2 peak=10 opened=2016
+2026-11-21T05:58:32.051Z  WARN   player  cue "Yellow Red 4D X Grid Loop" clip is buffering (waiting)
+2026-11-21T05:58:32.588Z  WARN   player  cue "Color Fireflys" clip is buffering (waiting)
+2026-11-21T05:58:43.303Z  WARN   player  cue "Color Fireflys" clip is buffering (waiting)
+2026-11-21T05:58:46.598Z  INFO   player  live: "Color Fireflys" /Users/USER/Downloads/CLIP_ddf_more/Color Fireflys.mp4
+2026-11-21T05:59:31.066Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1499/60s renderer=live age=0.2s composes=1556 draw=26.24/74.80ms readback=1.11/1.70ms pass=1.20/2.20ms decoders=1 peak=10 opened=2020
+2026-11-21T05:59:38.367Z  WARN   player  cue "Golden Triangles Shimmering" clip is buffering (waiting)
+2026-11-21T05:59:41.621Z  WARN   player  cue "Abstract Rainbow" clip is buffering (waiting)
+2026-11-21T05:59:43.529Z  WARN   player  cue "Colorful Lines" clip is buffering (waiting)
+2026-11-21T05:59:44.386Z  WARN   player  cue "Blue Digital Bulb Wall 6" clip is buffering (waiting)
+2026-11-21T05:59:45.177Z  WARN   player  cue "A-8 COLOR-MPEG-4 HVEC" clip is buffering (waiting)
+2026-11-21T05:59:46.269Z  WARN   player  cue "Blue Particle Trails" clip is buffering (waiting)
+2026-11-21T05:59:54.990Z  WARN   player  cue "Vibrant Lines Center Out" clip is buffering (waiting)
+2026-11-21T05:59:55.475Z  WARN   player  cue "Dashed Spheres" clip is buffering (waiting)
+2026-11-21T05:59:55.984Z  WARN   player  cue " Rainbow Neon (Not Full)" clip is buffering (waiting)
+2026-11-21T05:59:56.293Z  WARN   player  cue "Colorful Triangle Fast" clip is buffering (waiting)
+2026-11-21T05:59:59.400Z  WARN   player  cue "Neon Pink Red Circle Movement" clip is buffering (waiting)
+2026-11-21T05:59:59.957Z  WARN   player  cue "Animated Dice Retro" clip is buffering (waiting)
+2026-11-21T06:00:00.524Z  WARN   player  cue "Dashed Cubes" clip is buffering (waiting)
+2026-11-21T06:00:00.764Z  WARN   player  cue "Colorful Triangle Fast" clip is buffering (waiting)
+2026-11-21T06:00:03.284Z  WARN   player  cue "Dashed Cubes" clip is buffering (waiting)
+2026-11-21T06:00:04.082Z  WARN   player  cue "Neon Pink Red Circle Movement" clip is buffering (waiting)
+2026-11-21T06:00:10.164Z  WARN   player  cue "Neon Pink Red Circle Movement" clip is buffering (waiting)
+2026-11-21T06:00:18.101Z  INFO   player  live: "Neon Pink Red Circle Movement" /Users/USER/Downloads/ddf_content/Pixel Dance Floor/Neon Pink Red Circle Movement.mp4
+2026-11-21T06:00:31.104Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1279/60s renderer=live age=0.2s composes=2073 draw=20.91/68.90ms readback=1.10/1.70ms pass=1.20/4.40ms decoders=2 peak=10 opened=2045
+2026-11-21T06:01:24.212Z  WARN   player  cue "ORANGE5" clip is buffering (waiting)
+2026-11-21T06:01:31.140Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1533/60s renderer=live age=0.1s composes=2879 draw=13.34/56.80ms readback=1.08/1.50ms pass=1.21/1.60ms decoders=1 peak=10 opened=2048
+2026-11-21T06:02:31.186Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1732/60s renderer=live age=0.1s composes=1734 draw=15.49/151.00ms readback=1.12/2.90ms pass=1.24/2.90ms decoders=1 peak=10 opened=2048
+2026-11-21T06:03:03.368Z  INFO   player  live: "ORANGE5" /Users/USER/Downloads/pxdf-client/converted/ORANGE5.mp4
+2026-11-21T06:03:31.228Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1765/60s renderer=live age=0.0s composes=1765 draw=13.11/55.20ms readback=1.07/1.50ms pass=1.15/1.60ms decoders=1 peak=10 opened=2049
+2026-11-21T06:04:31.277Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1798/60s renderer=live age=0.1s composes=1797 draw=11.11/52.00ms readback=1.07/1.70ms pass=1.13/1.50ms decoders=1 peak=10 opened=2049
+2026-11-21T06:05:31.307Z  INFO   heartbeat  status=sending nic=192.168.1.100 floor=8x8_4P 8x8 frames=1743/60s renderer=live age=0.2s composes=1741 draw=15.04/131.80ms readback=1.09/2.10ms pass=1.15/2.10ms decoders=1 peak=10 opened=2049
+2026-11-21T06:05:57.886Z  INFO   app  quitting
+2026-11-21T06:05:57.887Z  INFO   sidecar  stopping: black frame, then end stdin
+2026-11-21T06:05:57.914Z  INFO   sidecar  stdout: sent 12738272 packets
+2026-11-21T06:05:57.940Z  INFO   app  quitting
+2026-11-21T06:05:58.056Z  INFO   window  last window closed; black frame sent, watchdog disarmed
