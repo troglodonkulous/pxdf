@@ -54,8 +54,9 @@
  *      window holds black wire frames.
  *  4.  **The freeze detector sees a planned freeze**: every planned PAUSE
  *      window holds a run of one (cue, index) longer than `FREEZE_MS`.
- *  5.  **Motion and cue changes are real**: the clip index advances on the
- *      wire, and at least three distinct cue ids reach it.
+ *  5.  **Motion and cue changes are real**: the clip index advances on at
+ *      least 10 % of steps, and at least three distinct cue ids reach it.
+ *      How often it advances is a result (`moving`), not a control.
  *  6.  The page raised no uncaught exception, and no Electron survived.
  *
  * Without 3 and 4, "zero unplanned black" and "zero freezes" would be
@@ -107,6 +108,8 @@ const FREEZE_MS = 500
 const PLANNED_SLACK_MS = 700
 /** `--compare`: the second arm's draw cost on the heavy clip may exceed the first's by this much. */
 const DRAW_TOLERANCE = { ratio: 1.15, ms: 1 }
+/** `--compare`: the second arm's share of moving steps may be this many points lower. */
+const MOVING_TOLERANCE = 5
 
 /**
  * The cues. Cue id is what the picture carries, so it is also the row order the
@@ -604,6 +607,7 @@ function compare(aPath, bPath) {
     ['freezes > 500 ms', a.summary.freezes, b.summary.freezes],
     ['freeze, longest ms', a.summary.freezeLongestMs, b.summary.freezeLongestMs],
     ['undecoded frames', a.summary.undecoded, b.summary.undecoded],
+    ['% of steps moving', a.summary.moving, b.summary.moving],
     ['draw ms, 2160² clip (median)', a.summary.drawHeavy, b.summary.drawHeavy],
     ['draw ms, 768² clip (median)', a.summary.drawBaseline, b.summary.drawBaseline],
   ]
@@ -613,6 +617,9 @@ function compare(aPath, bPath) {
   if (a.fault !== b.fault) worse.push(`the two arms ran different faults (${a.fault} vs ${b.fault}) — not comparable`)
   for (const key of ['late', 'stray', 'wrong', 'blackRuns', 'freezes']) {
     if (b.summary[key] > a.summary[key]) worse.push(`${key}: ${a.summary[key]} -> ${b.summary[key]}`)
+  }
+  if (b.summary.moving < a.summary.moving - MOVING_TOLERANCE) {
+    worse.push(`moving ${a.summary.moving} % -> ${b.summary.moving} %, more than ${MOVING_TOLERANCE} points down`)
   }
   if (a.summary.drawHeavy !== null && b.summary.drawHeavy !== null
     && b.summary.drawHeavy > a.summary.drawHeavy * DRAW_TOLERANCE.ratio + DRAW_TOLERANCE.ms) {
@@ -785,7 +792,11 @@ try {
     refuse(`3/4. the trace planned ${result.plannedBlackSeen.length} BLACKOUTs and ${result.plannedFreezeLongest.length} PAUSEs; ` +
       'both detectors need at least one — raise SOAK_SECONDS or change SEED')
   }
-  if (result.moved < 0.5 || result.distinctCues < 3) {
+  // A floor on motion, not a target. A renderer composing fewer fresh frames
+  // than 30 a second repeats indices, and that is a result (`moving`, graded
+  // by `--compare`), not a broken instrument. MEASURED 2026-11-20: this was
+  // `< 0.5`, and it refused a stock arm reading 47.3 % and threw its data away.
+  if (result.moved < 0.1 || result.distinctCues < 3) {
     refuse(`5. index advanced on ${(result.moved * 100).toFixed(1)} % of steps; ${result.distinctCues} distinct cues on the wire`)
   }
   if (exceptions.length > 0) refuse(`6. the page raised: ${exceptions.map((e) => `x${e.count} ${e.text}`).join(' · ')}`)
@@ -808,6 +819,7 @@ try {
     freezes: result.freezeRuns.length,
     freezeLongestMs: Math.max(0, ...result.freezeRuns.map((r) => r.ms)),
     undecoded: result.undecoded,
+    moving: Number((result.moved * 100).toFixed(1)),
     latencyMedianMs: median(result.promotions.filter((p) => p.latencyMs !== null).map((p) => p.latencyMs)),
     drawHeavy,
     drawBaseline,
