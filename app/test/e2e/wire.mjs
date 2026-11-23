@@ -891,7 +891,7 @@ async function checkLibrarySurvivesRestart(workspace, expectedFile) {
  * switched on the command line can be run with the wrong one and pass. Here
  * the tree states its own claim, and the other arm's file states the other.
  */
-const DECODE_RECOVERY = false
+const DECODE_RECOVERY = true
 
 /**
  * `RECOVERY_MAX_ATTEMPTS` in `src/player/videoSource.ts`, restated because
